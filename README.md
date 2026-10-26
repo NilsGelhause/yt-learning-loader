@@ -39,9 +39,20 @@ or manually:
 ```
 
 Then open http://127.0.0.1:8471 (the browser opens automatically).
-Requires Python 3.15 in `.venv` (already present) and the
-[Kimi Code CLI](https://www.kimi.com/code) on PATH for agent features
-(teach workspaces, learnings generation, skill distillation).
+Requires Python 3.15 in `.venv` (already present).
+
+## The AI agent (Pi Durable sidecar + CLI fallback)
+
+Agent features (teach workspaces, learnings generation, skill distillation)
+prefer the **agentd sidecar** in `agentd/` — a Node host for the Pi Durable
+agent harness with long-lived model conversations. The app starts it
+automatically (`npx tsx src/server.ts`, port `agentd_port` in settings,
+default 8472; boot log in `data/agent/agentd.boot.log`). Put a
+`KIMI_API_KEY` in `agentd/.env`; `agentd/quickstart.ts` is a standalone
+end-to-end demo of the harness. When the sidecar or its key is unavailable,
+everything falls back to the [Kimi Code CLI](https://www.kimi.com/code) on
+PATH — the Tests tab and the teach-tab console badge show which backend is
+active.
 
 ## Running the tests
 
@@ -49,14 +60,17 @@ Requires Python 3.15 in `.venv` (already present) and the
 .venv\Scripts\python.exe tests\run.py
 ```
 
-175 tests: server endpoints, scraper helpers, workspace/agent flows, the
-skill taxonomy guard, file-preview API — plus a JS smoke test that renders
-every tab of the UI against a stubbed DOM (`node tests/js_smoke.js`).
+201 tests: server endpoints, scraper helpers, workspace/agent flows, the
+agentd sidecar integration (stub sidecar, no Node needed), the skill
+taxonomy guard, file-preview API — plus a JS smoke test that renders every
+tab of the UI against a stubbed DOM (`node tests/js_smoke.js`).
 
 ## Layout
 
 ```
 server.py            stdlib HTTP server: JSON API + static files + agent jobs
+agentd_client.py     stdlib HTTP client for the agentd sidecar (auto-spawn)
+agentd/              Node sidecar: Pi Durable agent harness (see above)
 scraper.py           channel/video metadata, transcripts, thumbnails
 launch.py            test-then-serve launcher used by start.bat
 static/js/           one file per tab + core.js (shared helpers, no framework)

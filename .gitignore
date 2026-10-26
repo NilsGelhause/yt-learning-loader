@@ -16,3 +16,8 @@ data/thumbs/
 data/transcripts/
 data/progress/
 teach/
+
+# agentd sidecar (Node/Pi Durable harness)
+agentd/node_modules/
+agentd/.env
+data/agent/

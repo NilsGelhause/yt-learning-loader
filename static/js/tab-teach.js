@@ -16,6 +16,7 @@
   let pickerSkill = "";            // "" = all skills
   const pickerSkillsByVideo = {};  // video id -> [skill names lowercased]
   let agentAvailable = null;
+  let agentMode = null;            // "pi-durable" | "kimi-cli" | null (from /api/agent/status)
   let job = null;                  // current agent job poll state
   let jobTimer = null;
   let pollCount = 0;
@@ -83,8 +84,11 @@
   }
 
   async function checkAgent() {
-    try { agentAvailable = (await api("/api/agent/status")).available; }
-    catch { agentAvailable = false; }
+    try {
+      const st = await api("/api/agent/status");
+      agentAvailable = st.available;
+      agentMode = st.mode || null;
+    } catch { agentAvailable = false; agentMode = null; }
     if (!agentAvailable && currentWs) renderWorkspaceView();
   }
 
@@ -598,7 +602,9 @@
         head,
         el("div", { class: "row" }, progressLabel, el("div", { class: "spacer" })),
         el("div", { class: "progress-wrap" }, bar),
-        el("div", { class: "section-title" }, "Agent console"),
+        el("div", { class: "section-title" }, "Agent console",
+          agentMode ? el("span", { class: "chip sm dim", style: "margin-left:8px" },
+            agentMode === "pi-durable" ? "Pi Durable (kimi)" : "kimi CLI") : null),
         consoleBox,
         statusRow,
         inputRow,

@@ -1,0 +1,19 @@
+{
+  "name": "agentd",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "quickstart": "tsx quickstart.ts"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "1.4.0",
+    "@earendil-works/pi-ai": "1.4.0",
+    "@earendil-works/pi-durable": "1.4.0"
+  },
+  "devDependencies": {
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

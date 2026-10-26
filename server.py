@@ -1,5 +1,6 @@
 """Learning webapp backend. Python stdlib only (http.server, json, urllib,
-subprocess, threading, mimetypes, re, uuid, time, pathlib, os, sys).
+subprocess, threading, mimetypes, re, uuid, time, pathlib, os, sys) plus the
+local stdlib-only agentd_client for the Pi Durable sidecar.
 
 Serves static/index.html plus a JSON API over the scraper's data layout:
 data/videos.json (index), data/learnings/, data/transcripts/, data/thumbs/,
@@ -24,6 +25,8 @@ import uuid
 import difflib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import agentd_client
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
@@ -77,7 +80,9 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-tests.js": "Tab 9 — the test suite: run tests live, searchable/sortable/groupable results with plain-language descriptions.",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
     "static/vendor/mermaid.min.js": "Vendored copy of mermaid v11 (diagram rendering) so the app works fully offline.",
-    "tests/test_all.py": "The test suite — 126 tests covering every backend function and all API endpoints against temp data dirs.",
+    "tests/test_all.py": "The test suite — server endpoints, scraper helpers, workspace/agent flows, the skill taxonomy guard, file-preview API — against temp data dirs.",
+    "tests/test_agentd.py": "The agentd integration tests — a stub sidecar (stdlib http.server on an ephemeral port) verifies the client, the durable/CLI backend selection, job streaming, cancel proxying, and the run_analysis durable branches.",
+    "agentd_client.py": "The agentd sidecar client: health probe, auto-spawn of `npx tsx src/server.ts` (agentd/), backend selection (Pi Durable vs kimi CLI), and job submit/poll/call-cancel over HTTP on 127.0.0.1:8472.",
     "tests/run.py": "The test runner: discovers the suite, writes the JSON report the Tests tab displays, prints the console overview.",
     "tests/__init__.py": "Makes tests/ an importable package (required by the runner's discovery).",
     "data/videos.json": "The master index: every known video with title, channel, dates, duration and the learned flag.",
@@ -202,12 +207,15 @@ TEST_RESULTS_JSON = DATA / "test_results.json"
 TEST_RUN_LOCK = threading.Lock()
 AUDIT_LOG = DATA / "audit.log"
 
-# ---------------------------------------------------------------- agent (kimi CLI)
-# The app can drive the local `kimi` CLI (kimi -p) as its agent: teach
-# workspaces get a console, and finished scrapes get auto-analyzed.
+# ---------------------------------------------------------------- agent (kimi CLI / agentd)
+# The app can drive two agent backends: the agentd sidecar (Pi Durable
+# harness, long-lived conversations) when it is up with a key configured,
+# else the local `kimi` CLI (kimi -p). Teach workspaces get a console, and
+# finished scrapes get auto-analyzed.
 AGENT_JOBS: dict[str, dict] = {}
 AGENT_JOBS_LOCK = threading.Lock()
 AGENT_MAX_LINES = 800
+AGENT_POLL_INTERVAL = 1.0  # seconds between sidecar job polls
 
 
 def find_kimi() -> str | None:
@@ -230,6 +238,7 @@ LOCK = threading.RLock()
 
 DEFAULT_SETTINGS = {
     "port": 8471,
+    "agentd_port": 8472,
     "channel_default_limit": 30,
     "request_delay": 0.8,
     "accent": "#7c5cff",
@@ -1066,9 +1075,13 @@ def agent_noise_filter():
 
 
 def run_agent_job(job_id: str, cwd: Path, message: str, new_session: bool, exe: str) -> None:
-    """Run `kimi -p [--continue] <message>` in a thread, streaming output
-    lines into the job record for the frontend console to poll."""
+    """Run an agent job in a thread, streaming output lines into the job
+    record for the frontend console to poll. Backend ("durable" or "cli")
+    comes from the job record; the CLI path is the historical fallback."""
     job = AGENT_JOBS[job_id]
+    if job.get("backend") == "durable":
+        run_agent_job_durable(job_id, cwd, message, new_session)
+        return
     # flag order matters: `kimi -p --continue "msg"` parses the prompt as a
     # subcommand — the prompt must directly follow -p.
     cmd = [exe, "-p", message]
@@ -1122,6 +1135,66 @@ def run_agent_job(job_id: str, cwd: Path, message: str, new_session: bool, exe: 
             job["ended"] = int(time.time())
 
 
+def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: bool) -> None:
+    """Drive an agentd sidecar job: submit, then poll ~1s and append only NEW
+    lines into the job record with the same caps as the CLI path."""
+    job = AGENT_JOBS[job_id]
+    key = job.get("key") or f"teach:{job['workspace']}"
+    job["cmd_preview"] = "agentd " + ("<msg> (new session)" if new_session else "<msg> (continue)") \
+        + " | " + message[:60]
+    try:
+        with AGENT_JOBS_LOCK:
+            job["status"] = "running"
+        try:
+            remote_id = agentd_client.submit(key, str(cwd), message, new_session)
+        except agentd_client.BusyError:
+            with AGENT_JOBS_LOCK:
+                job["status"] = "error"
+                job["exit_code"] = 1
+                job["lines"].append({"t": "err", "x":
+                    "the agent is still working on your previous message — send again when it finishes"})
+            return
+        job["remote_id"] = remote_id
+        seen = 0
+        while True:
+            snap = agentd_client.poll(remote_id)
+            if snap is None:
+                time.sleep(AGENT_POLL_INTERVAL)
+                continue
+            lines = snap.get("lines") or []
+            with AGENT_JOBS_LOCK:
+                for ln in lines[seen:]:
+                    job["lines"].append({"t": "out" if ln.get("t") == "out" else "err",
+                                         "x": str(ln.get("x", ""))[:1000]})
+                    if len(job["lines"]) > AGENT_MAX_LINES:
+                        del job["lines"][: len(job["lines"]) - AGENT_MAX_LINES]
+                seen = len(lines)
+                status = snap.get("status")
+                if status in ("done", "error", "cancelled"):
+                    job["exit_code"] = 0 if status == "done" else 1
+                    job["status"] = status
+                    break
+            time.sleep(AGENT_POLL_INTERVAL)
+    except Exception as e:  # noqa: BLE001
+        with AGENT_JOBS_LOCK:
+            job["status"] = "error"
+            job["lines"].append({"t": "err", "x": f"{type(e).__name__}: {e}"})
+    finally:
+        with AGENT_JOBS_LOCK:
+            job["ended"] = int(time.time())
+
+
+def agentd_run_to_end(key: str, message: str, cwd: Path = ROOT) -> str:
+    """Submit an agentd job and block until it settles. Returns the final
+    status ("done" | "error" | "cancelled"); raises BusyError on 409."""
+    remote_id = agentd_client.submit(key, str(cwd), message)
+    while True:
+        snap = agentd_client.poll(remote_id)
+        if snap and snap.get("status") in ("done", "error", "cancelled"):
+            return snap["status"]
+        time.sleep(AGENT_POLL_INTERVAL)
+
+
 # ---------------------------------------------------------------- auto-analysis
 
 def analysis_prompt(ids: list[str], example_id: str) -> str:
@@ -1143,14 +1216,18 @@ def analysis_prompt(ids: list[str], example_id: str) -> str:
 
 
 def run_analysis(job: dict, ids: list[str]) -> None:
-    """After a scrape, generate learnings for new videos via the kimi CLI."""
-    exe = find_kimi()
+    """After a scrape, generate learnings for new videos via the AI agent:
+    the agentd sidecar when available, else the kimi CLI."""
+    exe = None
+    durable = agentd_client.backend() == "durable"
+    if not durable:
+        exe = find_kimi()
     if not ids:
         job_update(job, phase="done", analysis_total=0, analysis_done=0)
         return
-    if not exe:
+    if not durable and not exe:
         job_update(job, phase="done", analysis_total=len(ids), analysis_done=0,
-                   message=f"scraped OK — learnings pending for {len(ids)} videos (kimi CLI not found)")
+                   message=f"scraped OK — learnings pending for {len(ids)} videos (no AI agent available)")
         return
     job_update(job, phase="analyzing", analysis_total=len(ids), analysis_done=0,
                message=f"Analyzing {len(ids)} videos with the AI agent…")
@@ -1159,18 +1236,28 @@ def run_analysis(job: dict, ids: list[str]) -> None:
     done = 0
     for i in range(0, len(ids), batch_size):
         batch = ids[i : i + batch_size]
-        proc = subprocess.run(
-            [exe, "-p", analysis_prompt(batch, example or batch[0])],
-            cwd=str(ROOT), capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=1800,
-        )
+        if durable:
+            # one conversation per batch: the sidecar has no subprocess
+            # timeout, and a per-batch key keeps retries on the same history
+            status = agentd_run_to_end(f"analysis:{job['id']}:{i // batch_size}",
+                                       analysis_prompt(batch, example or batch[0]))
+            batch_ok = status == "done"
+        else:
+            proc = subprocess.run(
+                [exe, "-p", analysis_prompt(batch, example or batch[0])],
+                cwd=str(ROOT), capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=1800,
+            )
+            batch_ok = proc.returncode == 0
         for vid in batch:
             consolidate_learnings_skills(vid)
         done = sum(1 for vid in ids if has_learnings(vid))
         job_update(job, analysis_done=done,
                    message=f"Analyzing videos with the AI agent… ({done}/{len(ids)})",
                    eta_seconds=int((len(ids) - done) / max(1, batch_size) * 240))
-        if proc.returncode != 0:
+        if not batch_ok:
+            if durable and done > 0:
+                continue  # partial progress — worth trying the next batch
             job_update(job, phase="done",
                        message=f"scraped OK — analysis stopped early ({done}/{len(ids)} analyzed)")
             return
@@ -1323,8 +1410,7 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 return self.api_workspace_file(m.group(1), m.group(2))
             if path == "/api/agent/status":
-                exe = find_kimi()
-                return self.send_json({"available": bool(exe), "exe": exe})
+                return self.api_agent_status()
             m = re.fullmatch(r"/api/teach/([^/]+)/state", path)
             if m:
                 return self.api_get_ws_state(m.group(1))
@@ -1648,9 +1734,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def spawn_skill_distill(self, ws: str, slug: str, name: str):
         """Agent job that rewrites the baseline SKILL.md with distilled,
-        loadable content. Returns job_id, or None if the CLI is missing."""
+        loadable content. Returns job_id, or None if no agent is available."""
+        durable = agentd_client.backend() == "durable"
         exe = find_kimi()
-        if not exe:
+        if not durable and not exe:
             return None
         with AGENT_JOBS_LOCK:
             for existing in AGENT_JOBS.values():
@@ -1662,6 +1749,8 @@ class Handler(BaseHTTPRequestHandler):
         with AGENT_JOBS_LOCK:
             AGENT_JOBS[job_id] = {
                 "id": job_id, "workspace": ws, "status": "starting",
+                "backend": "durable" if durable else "cli",
+                "key": f"distill:{slug}",
                 "lines": [], "exit_code": None, "pid": None,
                 "started": int(time.time()), "ended": None,
             }
@@ -1721,7 +1810,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_agent_status(self):
         exe = find_kimi()
-        self.send_json({"available": bool(exe), "exe": exe})
+        durable = agentd_client.backend() == "durable"
+        mode = "pi-durable" if durable else ("kimi-cli" if exe else None)
+        self.send_json({"available": durable or bool(exe), "exe": exe, "mode": mode})
 
     def api_agent_run(self):
         body = self.read_body()
@@ -1734,7 +1825,8 @@ class Handler(BaseHTTPRequestHandler):
         if not str(ws_dir).startswith(str(TEACH_DIR.resolve()) + os.sep) or not ws_dir.is_dir():
             return self.send_error_json(404, "workspace not found")
         exe = find_kimi()
-        if not exe:
+        durable = agentd_client.backend() == "durable"
+        if not durable and not exe:
             return self.send_error_json(503, "kimi CLI not found on PATH")
         with AGENT_JOBS_LOCK:
             for existing in AGENT_JOBS.values():
@@ -1747,6 +1839,7 @@ class Handler(BaseHTTPRequestHandler):
         with AGENT_JOBS_LOCK:
             AGENT_JOBS[job_id] = {
                 "id": job_id, "workspace": ws, "status": "starting",
+                "backend": "durable" if durable else "cli",
                 "lines": [], "exit_code": None, "pid": None,
                 "started": int(time.time()), "ended": None,
             }
@@ -1773,7 +1866,10 @@ class Handler(BaseHTTPRequestHandler):
             if not job:
                 return self.send_error_json(404, "not_found")
             pid = job.get("pid")
+            remote_id = job.get("remote_id") if job.get("backend") == "durable" else None
             job["status"] = "cancelled"
+        if remote_id:
+            agentd_client.cancel(remote_id)
         if pid:
             try:
                 import signal
@@ -1790,10 +1886,13 @@ class Handler(BaseHTTPRequestHandler):
         if not str(ws_dir).startswith(str(TEACH_DIR.resolve()) + os.sep) or not ws_dir.is_dir():
             return self.send_error_json(404, "workspace not found")
         # cancel any running agent job in this workspace first
+        remote_ids = []
         with AGENT_JOBS_LOCK:
             for job in AGENT_JOBS.values():
                 if job.get("workspace") == ws and job.get("status") in ("starting", "running"):
                     pid = job.get("pid")
+                    if job.get("backend") == "durable" and job.get("remote_id"):
+                        remote_ids.append(job["remote_id"])
                     job["status"] = "cancelled"
                     if pid:
                         try:
@@ -1802,6 +1901,8 @@ class Handler(BaseHTTPRequestHandler):
                             os.kill(pid, signal.SIGTERM)
                         except Exception:
                             pass
+        for remote_id in remote_ids:
+            agentd_client.cancel(remote_id)
         import shutil
 
         try:
@@ -1983,6 +2084,10 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     restore_jobs()
+    try:
+        agentd_client.ensure_running()  # best-effort: the CLI fallback covers absence
+    except Exception as e:  # noqa: BLE001
+        print(f"agentd sidecar not started ({e}) — falling back to the kimi CLI")
     settings = load_settings()
     port = int(settings.get("port", 8471))
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)

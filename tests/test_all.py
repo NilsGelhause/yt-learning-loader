@@ -1457,6 +1457,7 @@ class ServerMySkillsAndTaxonomyTests(unittest.TestCase):
     def test_run_analysis_without_cli_pends_learnings(self):
         """Without the kimi CLI the job finishes with a pending message."""
         with mock.patch.object(server, "find_kimi", return_value=None), \
+             mock.patch.object(server.agentd_client, "backend", return_value="cli"), \
              mock.patch.object(server, "JOBS_JSON", Path(self.tmp.name) / "jobs.json"):
             job: dict = {}
             server.run_analysis(job, ["vidA"])
@@ -1728,6 +1729,7 @@ class ServerTeachAgentApiTests(unittest.TestCase):
             mock.patch.object(server, "STATIC_DIR", static),
             mock.patch.object(server, "JOBS", {}),
             mock.patch.object(server, "AGENT_JOBS", {}),
+            mock.patch.object(server.agentd_client, "backend", return_value="cli"),
         ]
         for p in cls.patchers:
             p.start()
