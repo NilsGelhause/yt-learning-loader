@@ -451,12 +451,18 @@
 
   const SUBJECT_LINE = "Teach THE ACTUAL SUBJECT — the video's material or the named topic — and build the learner's competence in that subject itself. Never replace the subject with, or scaffold it onto, alternative tools the learner already knows: familiar tools may appear only as clearly-labeled brief analogies, never as the lesson's content. If the learner mentions a tool or model they use (e.g. their editor or model provider), treat it as environment context — which model runs the exercises — not as a substitute for the subject.";
 
+  const HANDHOLD_LINE = "HAND-HOLDING IS THE POINT OF THIS APP: the learner comes here to be walked through NEW technology, not to be sent elsewhere. Whenever a lesson needs concrete setup steps, install commands, config, or flags that the source material does not spell out, RESEARCH them yourself (web search, official docs, GitHub readmes) and write verified, copy-paste-ready, step-by-step instructions INTO the lesson — never answer with 'check the docs' or 'see the video description'. If something genuinely cannot be verified, state exactly what you verified, what you could not, and give precise search terms plus how to confirm the answer. Also: every check-yourself or quiz question must give the learner a way to know whether they were right — a revealable answer in the lesson (e.g. a <details> block) or an explicit pointer to ask you in the console. Never leave a question with no feedback path.";
+
+  const AUTHENTIC_LINE = "Follow the teach skill's own pedagogy faithfully — its lesson shape (short, one tangible win), quiz discipline, citations, and primary-source recommendations ARE the teaching method. The extra instructions here (file naming, no browser opening, interview first) are environment adapters for this webapp, not replacements for the skill's teaching style; where they overlap, the skill's pedagogy wins.";
+
   function freestyleMessage(topic) {
     return buildPrompt(
       SKILL_LINE,
       `Teach me: ${topic}`,
       FREESTYLE_TURNS_LINE,
       SUBJECT_LINE,
+      HANDHOLD_LINE,
+      AUTHENTIC_LINE,
       NO_OPEN_LINE,
     );
   }
@@ -471,6 +477,8 @@
       videoContext(v),
       VIDEO_TURNS_LINE,
       SUBJECT_LINE,
+      HANDHOLD_LINE,
+      AUTHENTIC_LINE,
       NO_OPEN_LINE,
     ));
   }
@@ -481,6 +489,8 @@
       videoContext(v),
       VIDEO_TURNS_LINE,
       SUBJECT_LINE,
+      HANDHOLD_LINE,
+      AUTHENTIC_LINE,
       NO_OPEN_LINE,
     ));
   }
