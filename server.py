@@ -1222,7 +1222,8 @@ def session_type_title(key: str) -> tuple[str, str]:
 def build_network() -> dict:
     """Nodes + sessions for the Network tab. The sidecar is authoritative when
     online (it knows which conversations are busy); file data fills the rest
-    with busy=False, status=None."""
+    with busy=False, status=None. Teach sessions vanish when their workspace
+    is deleted — the transcript stays in storage, but there is nothing to show."""
     conv_file = read_json(AGENT_CONVERSATIONS_JSON, {})
     file_sessions: dict[str, dict] = {}
     if isinstance(conv_file, dict):
@@ -1231,6 +1232,12 @@ def build_network() -> dict:
                 continue
             file_sessions[key] = {"id": str(val.get("id") or ""),
                                   "cwd": str(val.get("cwd") or "")}
+
+    def teach_workspace_exists(title: str) -> bool:
+        ws_dir = (TEACH_DIR / title).resolve()
+        return (str(ws_dir).startswith(str(TEACH_DIR.resolve()) + os.sep)
+                and ws_dir.is_dir())
+
     sidecar = agentd_client.list_conversations()  # None when the sidecar is down
     sessions: list[dict] = []
     seen: set[str] = set()
@@ -1244,6 +1251,8 @@ def build_network() -> dict:
                 continue
             seen.add(key)
             stype, title = session_type_title(key)
+            if stype == "teach" and not teach_workspace_exists(title):
+                continue
             sessions.append({
                 "key": key, "type": stype, "title": title,
                 "busy": bool(c.get("busy")),
@@ -1255,6 +1264,8 @@ def build_network() -> dict:
         if key in seen:
             continue
         stype, title = session_type_title(key)
+        if stype == "teach" and not teach_workspace_exists(title):
+            continue
         sessions.append({
             "key": key, "type": stype, "title": title,
             "busy": False, "status": None,

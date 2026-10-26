@@ -68,6 +68,7 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         for d in ("learnings", "transcripts", "thumbs", "info", "progress"):
             (data / d).mkdir(parents=True)
         (root / "teach").mkdir()
+        (root / "teach" / "my-ws").mkdir()
         (root / "skills").mkdir()
         static = root / "static"
         static.mkdir()
@@ -82,6 +83,7 @@ class ConsoleNetworkServerTests(unittest.TestCase):
             mock.patch.object(server, "SETTINGS_JSON", data / "settings.json"),
             mock.patch.object(server, "AGENT_CONVERSATIONS_JSON",
                               data / "agent" / "conversations.json"),
+            mock.patch.object(server, "TEACH_DIR", root / "teach"),
             mock.patch.object(server, "AGENT_JOBS", {}),
             mock.patch.object(server, "AGENT_POLL_INTERVAL", 0.01),
             mock.patch.object(server.agentd_client, "_BASE", cls.stub.base),
@@ -323,6 +325,21 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         self.assertEqual(session["title"], "my-ws")
         self.assertFalse(session["busy"])
         self.assertIsNone(session["status"])
+
+    def test_network_hides_teach_sessions_of_deleted_workspaces(self):
+        """A teach conversation whose workspace directory is gone is not
+        listed (transcript stays in storage; the view only hides it)."""
+        self.write_conversations({
+            "teach:my-ws": {"id": "c1", "cwd": "/app/teach/my-ws"},
+            "teach:ghost-ws": {"id": "c2", "cwd": "/app/teach/ghost-ws"},
+            "console:main": {"id": "c3", "cwd": "/app"},
+        })
+        status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        sessions = {s["key"]: s for s in body["nodes"][0]["sessions"]}
+        self.assertIn("teach:my-ws", sessions)      # workspace dir exists
+        self.assertNotIn("teach:ghost-ws", sessions)  # workspace deleted
+        self.assertIn("console:main", sessions)     # non-teach unaffected
 
     def test_network_empty_without_file_or_sidecar(self):
         """No conversations.json and no sidecar -> one offline node, no sessions."""
