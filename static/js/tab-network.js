@@ -20,10 +20,14 @@
     load();
   }
 
+  let loading = false;
   async function load() {
+    if (loading) return;
+    loading = true;
     let data;
     try { data = await api("/api/network"); }
     catch { data = { nodes: [] }; }
+    loading = false;
     const body = document.getElementById("net-body");
     if (!body || !body.isConnected) return;
     const nodes = (data && data.nodes) || [];
@@ -78,6 +82,12 @@
       el("span", { style: "flex:1;min-width:120px", title: s.cwd || "" }, s.title || s.key),
       el("span", { class: "muted small", title: s.key || "" }, s.busy ? "working…" : (s.status || "idle")));
   }
+
+  // auto-refresh while this tab is on screen (showTab clears the screen on
+  // every tab switch, so the isConnected guard stops updates once you leave)
+  setInterval(() => {
+    if (document.getElementById("net-body")?.isConnected) load();
+  }, 3000);
 
   App.tabs.network = { render, built: false };
 })();
