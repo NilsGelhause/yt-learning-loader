@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YT Learning Loader — Durable Agent Architecture</title>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #131a2e; --panel2: #182238; --line: #263150;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #7c5cff; --pink: #f472b6;
+    --cyan: #22d3ee; --green: #34d399; --amber: #fbbf24; --red: #fb7185;
+    --purple: #c084fc; --yellow: #facc15;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1c1440 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.55; padding: 40px 24px 60px;
+  }
+  .sheet { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 30px; letter-spacing: .3px; }
+  h1 .pi { color: var(--accent); }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 15px; }
+  .chip {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    font-size: 12px; color: var(--muted); margin-left: 8px; vertical-align: middle;
+  }
+  section { margin-top: 34px; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--accent); margin-bottom: 14px;
+  }
+  .panel {
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  }
+
+  /* ---------- pipeline ---------- */
+  .pipe { display: grid; grid-template-columns: 1fr 26px 1fr 26px 1fr 26px 1fr; gap: 8px; align-items: stretch; }
+  .node { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); }
+  .node b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .node .port { font-size: 11px; color: var(--cyan); font-family: Consolas, monospace; }
+  .node p { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .arrow { align-self: center; text-align: center; color: var(--accent); font-size: 20px; }
+  .tagrow { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #1d2946; color: var(--muted); border: 1px solid var(--line); }
+
+  /* ---------- durability ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .bigquote { font-size: 17px; }
+  .bigquote em { color: var(--amber); font-style: normal; }
+  .analogy { margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+  .analogy b { color: var(--text); }
+
+  .timeline { margin-top: 4px; }
+  .step { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .step:last-child { border-bottom: none; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex: none; }
+  .d-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .d-red { background: var(--red); }
+  .d-grey { background: #475569; }
+  .d-accent { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .step b { color: var(--text); }
+  .honest {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    background: #2a1a1a; border: 1px solid #5b2b2b; font-size: 13.5px;
+  }
+  .honest b { color: var(--red); }
+
+  /* ---------- what is durable ---------- */
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); }
+  .card .ico { font-size: 20px; }
+  .card b { display: block; margin: 6px 0 4px; font-size: 14px; }
+  .card p { font-size: 12px; color: var(--muted); }
+  .keycolor { border-top: 3px solid var(--green); }
+  .notdur {
+    margin-top: 12px; border: 1px dashed #5b2b2b; background: #221418;
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--muted);
+  }
+  .notdur b { color: var(--red); }
+
+  /* ---------- rules ---------- */
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; font-size: 13.5px; }
+  .rules li { margin: 0 0 8px 18px; color: var(--muted); }
+  .rules b { color: var(--text); }
+  code {
+    font-family: Consolas, monospace; font-size: 12px; background: #1d2946;
+    padding: 1px 6px; border-radius: 5px; color: var(--cyan);
+  }
+
+  /* ---------- network ---------- */
+  .net { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .nodecard { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 14px; }
+  .nodehead { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+  .ndot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .ndot.off { background: #475569; box-shadow: none; }
+  .kindtag { font-size: 10.5px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+  .sess { margin-top: 10px; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+  .sess div::before { content: "▸ "; color: var(--accent); }
+  .future { border-style: dashed; color: var(--muted); display: flex; align-items: center; justify-content: center; min-height: 120px; text-align: center; font-size: 13px; }
+
+  footer { margin-top: 40px; color: #64748b; font-size: 12px; text-align: center; }
+  footer code { color: #7d8aa5; }
+
+  @media print {
+    body { background: #fff; color: #111; }
+    .panel, .node, .card, .nodecard { background: #fff; border-color: #ccc; }
+    .node p, .card p, .rules li, .sub, .analogy { color: #444; }
+    h2 { color: #5b3df0; }
+    .honest, .notdur { background: #fff5f5; border-color: #d99; }
+  }
+  @media (max-width: 860px) {
+    .pipe, .duo, .grid4, .net, .rules { grid-template-columns: 1fr; }
+    .arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>How your app works now <span class="pi">— the durable edition</span></h1>
+    <p class="sub">YT Learning Loader × Pi Durable × Kimi <span class="chip">kimi-for-coding · K2.8</span> <span class="chip">local app · ports 8471 / 8472</span></p>
+  </header>
+
+  <section>
+    <h2>1 · The pipeline</h2>
+    <div class="panel">
+      <div class="pipe">
+        <div class="node"><b>🖥️ Your browser</b><span class="port">the UI</span>
+          <p>You click and type here. It polls for results every second — it holds nothing precious.</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>server.py</b><span class="port">:8471 · stdlib Python</span>
+          <p>Your app. Routes tabs &amp; APIs, spawns and health-checks the sidecar. Keeps a CLI fallback if the sidecar is down.</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>agentd</b><span class="port">:8472 · the durable brain</span>
+          <p>One <b>Pi Durable Harness</b>. Every model call, tool call and message is written to <code>data/agent/harness.sqlite</code> <em>before</em> anything moves on.</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>api.kimi.com</b><span class="port">Kimi For Coding</span>
+          <p>The model. Answers, streams, uses tools (read / write / edit / bash) through the harness.</p></div>
+      </div>
+      <div class="tagrow">
+        <span class="tag">teach console</span><span class="tag">scrape analysis</span>
+        <span class="tag">skill distillation</span><span class="tag">consultant console</span>
+        <span class="tag">all go through the harness</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · What “durable” actually means</h2>
+    <div class="duo">
+      <div class="panel">
+        <p class="bigquote">It never loses its place. <em>It also never runs in the background.</em></p>
+        <p class="analogy">Think of a <b>notebook</b>: the agent writes down every step as it goes.
+        If the power dies, the notebook survives on disk. The next time <b>anything</b> — you, the app, a future laptop —
+        opens it, the work continues from the exact line where it stopped. Durable = the notebook.
+        Somebody still has to pick it up.</p>
+      </div>
+      <div class="panel">
+        <div class="timeline">
+          <div class="step"><span class="dot d-green"></span><span><b>Evening.</b> A 6-video analysis batch is running. 3 videos done, 3 in flight.</span></div>
+          <div class="step"><span class="dot d-red"></span><span><b>You shut the PC down.</b> Everything stops — instantly. Nothing keeps running. The 3 in-flight videos freeze mid-word.</span></div>
+          <div class="step"><span class="dot d-grey"></span><span><b>Overnight.</b> Zero progress, zero cost, zero loss. The notebook on disk remembers exactly: 3 done, 3 half-written.</span></div>
+          <div class="step"><span class="dot d-accent"></span><span><b>Morning.</b> <code>start.bat</code> → the harness reopens its notebook, finishes the interrupted tasks, and the batch completes. No redo of the 3 done videos.</span></div>
+        </div>
+        <div class="honest"><b>Off is off.</b> Durable never loses work — but it never ghost-runs either. Finish = stop + survive + resume on the next start.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · What is durable (and what is not)</h2>
+    <div class="grid4">
+      <div class="card keycolor"><span class="ico">🎓</span><b>Teach console</b><p>One persistent conversation per workspace. Remembers every turn across restarts.</p></div>
+      <div class="card keycolor"><span class="ico">🔍</span><b>Scrape analysis</b><p>Batch conversations, no timeout. A crash mid-batch resumes, never restarts the batch.</p></div>
+      <div class="card keycolor"><span class="ico">⚗️</span><b>Skill distillation</b><p>Rewriting <code>skills/&lt;slug&gt;/SKILL.md</code> survives interruptions too.</p></div>
+      <div class="card keycolor"><span class="ico">⌨️</span><b>Consultant console</b><p>The standalone “ask anything” agent tab. Same notebook, same rules.</p></div>
+    </div>
+    <div class="notdur"><b>Not durable:</b> the <code>kimi</code> terminal (the CLI you chat with in a console) is a separate program with its own memory — it never touches the harness. <b>Rule of thumb: browser app = durable · terminal kimi = regular.</b></div>
+  </section>
+
+  <section>
+    <h2>4 · The rules that keep it healthy</h2>
+    <div class="panel rules">
+      <ul>
+        <li><b>One owner per storage.</b> Never run two sidecars on <code>harness.sqlite</code> at once — it corrupts entry IDs. One process owns the notebook.</li>
+        <li><b>Exactly-once.</b> Re-sending the same job after a crash returns the original result instead of doing the work twice.</li>
+        <li><b>Aborted ≠ deleted.</b> Killed mid-answer? The partial stays in the transcript marked <code>stopReason=aborted</code>, next to the finished rerun.</li>
+      </ul>
+      <ul>
+        <li><b>Key lives in</b> <code>agentd/.env</code> (<code>KIMI_API_KEY</code>, gitignored). Bad key? The app silently falls back to the <code>kimi</code> CLI — the “kimi CLI” badge tells you.</li>
+        <li><b>Look inside:</b> <code>npx tsx inspect.ts teach:&lt;workspace&gt;</code> reads any conversation, safely, while the app runs.</li>
+        <li><b>Feel it:</b> <code>npx tsx quickstart.ts “write a long essay…”</code> → Ctrl+C mid-answer → run the same command again → watch it finish.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · The network view — today &amp; next</h2>
+    <div class="net">
+      <div class="nodecard">
+        <div class="nodehead"><span class="ndot"></span> <b>local</b> <span class="kindtag">local</span> <span style="margin-left:auto" class="kindtag">4 sessions</span></div>
+        <div class="sess">
+          <div>teach workspaces — your video lessons</div>
+          <div>console — the consultant</div>
+          <div>analysis batches &amp; skill distillations</div>
+          <div>status dots: 🟢 working · ⚪ idle · 🔴 last run errored</div>
+        </div>
+      </div>
+      <div class="nodecard future">
+        <div>➕ <b>Your other laptop / VM</b><br><br>
+        The API already returns a <i>list</i> of nodes.<br>
+        LAN mode = this machine appears here too,<br>
+        steering the same conversations. <i>Next build.</i></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    generated for the yt-learning-loader repo · components: <code>agentd/</code> (Pi Durable harness) · <code>agentd_client.py</code> · <code>server.py</code><br>
+    to keep as PDF: open this file in a browser → Ctrl+P → “Save as PDF”
+  </footer>
+
+</div>
+</body>
+</html>
