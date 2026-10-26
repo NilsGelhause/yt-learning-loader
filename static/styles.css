@@ -743,6 +743,8 @@ pre.test-msg {
   animation: pulse 1.2s infinite;
   flex: none;
 }
+.pulse-dot.off { background: #5c6478; animation: none; }
+.pulse-dot.err { background: #f87171; animation: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 .skill-pick { cursor: pointer; font-size: 12.5px; padding: 6px 12px; }
 .lesson-row {

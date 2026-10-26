@@ -382,16 +382,16 @@ class ServerSettingsTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_load_settings_defaults_include_all_eleven_tabs(self):
-        """With no saved file the defaults come back with all 11 tabs in order."""
+    def test_load_settings_defaults_include_all_thirteen_tabs(self):
+        """With no saved file the defaults come back with all 13 tabs in order."""
         with mock.patch.object(server, "SETTINGS_JSON", self.settings_json):
             s = server.load_settings()
         self.assertEqual(s["accent"], "#7c5cff")
         self.assertEqual([t["id"] for t in s["tabs"]],
                          ["overview", "teach", "visualize", "relations", "videos",
                           "profile", "learned", "skills", "tests", "structure",
-                          "settings"])
-        self.assertEqual([t["order"] for t in s["tabs"]], list(range(11)))
+                          "settings", "console", "network"])
+        self.assertEqual([t["order"] for t in s["tabs"]], list(range(13)))
 
     def test_load_settings_merges_saved_subset_and_renumbers(self):
         """A saved custom accent and a subset of tabs merge with missing
@@ -409,10 +409,10 @@ class ServerSettingsTests(unittest.TestCase):
         self.assertEqual(s["accent"], "#ff0000")
         ids = [t["id"] for t in s["tabs"]]
         self.assertEqual(ids[:2], ["videos", "custom"])
-        self.assertEqual(len(ids), 12)
+        self.assertEqual(len(ids), 14)
         for default_tab in server.DEFAULT_SETTINGS["tabs"]:
             self.assertIn(default_tab["id"], ids)
-        self.assertEqual([t["order"] for t in s["tabs"]], list(range(12)))
+        self.assertEqual([t["order"] for t in s["tabs"]], list(range(14)))
         skills_tab = next(t for t in s["tabs"] if t["id"] == "skills")
         self.assertEqual(skills_tab["order"], 8)
         structure_tab = next(t for t in s["tabs"] if t["id"] == "structure")
@@ -981,7 +981,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(body["stats"]["total"], 2)
         self.assertEqual(body["stats"]["with_transcript"], 1)
         self.assertEqual(body["stats"]["with_learnings"], 1)
-        self.assertEqual(len(body["tabs"]), 11)
+        self.assertEqual(len(body["tabs"]), 13)
 
     def test_api_videos_sorted_desc_with_flags(self):
         """GET /api/videos lists both videos newest-first with file flags."""
@@ -1046,7 +1046,7 @@ class ServerApiTests(unittest.TestCase):
         """GET /api/settings returns the merged defaults."""
         status, body = self.api("GET", "/api/settings")
         self.assertEqual(status, 200)
-        self.assertEqual(len(body["tabs"]), 11)
+        self.assertEqual(len(body["tabs"]), 13)
         self.assertEqual(body["profile_path"], str(self.profile))
 
     def test_api_profile_get(self):
@@ -1118,7 +1118,7 @@ class ServerApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["accent"], "#123456")
         self.assertEqual(body["port"], server.DEFAULT_SETTINGS["port"])
-        self.assertEqual(len(body["tabs"]), 11)
+        self.assertEqual(len(body["tabs"]), 13)
         status, body = self.api("GET", "/api/settings")
         self.assertEqual(body["accent"], "#123456")
 

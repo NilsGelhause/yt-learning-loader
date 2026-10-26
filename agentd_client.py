@@ -156,3 +156,16 @@ def cancel(job_id: str) -> bool:
             return True
     except Exception:
         return False
+
+
+def list_conversations() -> list | None:
+    """GET /conversations -> list of conversation dicts (key/id/cwd/busy/
+    lastStatus), or None on any failure (never raises) — the Network tab's
+    source of live session state."""
+    try:
+        with urllib.request.urlopen(_base() + "/conversations", timeout=PROBE_TIMEOUT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        convs = data.get("conversations") if isinstance(data, dict) else None
+        return convs if isinstance(convs, list) else None
+    except Exception:
+        return None

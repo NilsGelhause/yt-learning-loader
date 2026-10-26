@@ -41,6 +41,7 @@ JOBS_JSON = DATA / "jobs.json"
 PROFILE_SKILLS_JSON = DATA / "profile-skills.json"
 TEACH_DIR = ROOT / "teach"
 SKILLS_DIR = ROOT / "skills"
+AGENT_CONVERSATIONS_JSON = DATA / "agent" / "conversations.json"
 
 KIMI_SKILLS_DIR = Path.home() / ".kimi-code" / "skills"
 """User-scope Kimi Code skills — copying a skill here makes it loadable in any
@@ -78,10 +79,13 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-learned.js": "Tab 7 — learned videos, their completed learnings, created skills, unmark.",
     "static/js/tab-skills.js": "Tab 8 — My Skills: skills you know (from learned videos) vs skills you can still learn, with teach-me jumps.",
     "static/js/tab-tests.js": "Tab 9 — the test suite: run tests live, searchable/sortable/groupable results with plain-language descriptions.",
+    "static/js/tab-console.js": "Tab 11 — a standalone agent console with one persistent conversation for the whole app (no workspace): ask anything, the agent reads the app's files to answer.",
+    "static/js/tab-network.js": "Tab 12 — the agent network view: one node per machine (local only for now) with its durable-agent sessions, busy/idle/error status and working directory.",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
     "static/vendor/mermaid.min.js": "Vendored copy of mermaid v11 (diagram rendering) so the app works fully offline.",
     "tests/test_all.py": "The test suite — server endpoints, scraper helpers, workspace/agent flows, the skill taxonomy guard, file-preview API — against temp data dirs.",
     "tests/test_agentd.py": "The agentd integration tests — a stub sidecar (stdlib http.server on an ephemeral port) verifies the client, the durable/CLI backend selection, job streaming, cancel proxying, and the run_analysis durable branches.",
+    "tests/test_console_network.py": "The Console/Network tab tests — the standalone console agent endpoint (durable/CLI/503/409 paths) and the network view (sidecar-online merge, offline fallback, settings tab merge) against the same stub sidecar.",
     "agentd_client.py": "The agentd sidecar client: health probe, auto-spawn of `npx tsx src/server.ts` (agentd/), backend selection (Pi Durable vs kimi CLI), and job submit/poll/call-cancel over HTTP on 127.0.0.1:8472.",
     "tests/run.py": "The test runner: discovers the suite, writes the JSON report the Tests tab displays, prints the console overview.",
     "tests/__init__.py": "Makes tests/ an importable package (required by the runner's discovery).",
@@ -256,6 +260,8 @@ DEFAULT_SETTINGS = {
         {"id": "tests", "label": "Tests", "color": "#60a5fa", "order": 8, "visible": True},
         {"id": "structure", "label": "Structure", "color": "#f97316", "order": 9, "visible": True},
         {"id": "settings", "label": "Settings", "color": "#94a3b8", "order": 10, "visible": True},
+        {"id": "console", "label": "Console", "color": "#c084fc", "order": 11, "visible": True},
+        {"id": "network", "label": "Network", "color": "#facc15", "order": 12, "visible": True},
     ],
 }
 
@@ -1195,6 +1201,70 @@ def agentd_run_to_end(key: str, message: str, cwd: Path = ROOT) -> str:
         time.sleep(AGENT_POLL_INTERVAL)
 
 
+# ---------------------------------------------------------------- network view
+# One node per machine (local only for now), its durable-agent conversations
+# listed beneath. Session data comes from the sidecar when it answers; the
+# conversations.json fallback keeps the view useful while it is down.
+
+def session_type_title(key: str) -> tuple[str, str]:
+    """Split a conversation key into (type, title): "teach:my-ws" ->
+    ("teach", "my-ws"), "analysis:<job>:<batch>" -> ("analysis", "Analysis <job>:<batch>")."""
+    prefix, sep, rest = key.partition(":")
+    if not sep:
+        return "console", key
+    if prefix == "console":
+        return "console", "Console"
+    if prefix == "analysis":
+        return "analysis", f"Analysis {rest}"
+    return prefix, rest
+
+
+def build_network() -> dict:
+    """Nodes + sessions for the Network tab. The sidecar is authoritative when
+    online (it knows which conversations are busy); file data fills the rest
+    with busy=False, status=None."""
+    conv_file = read_json(AGENT_CONVERSATIONS_JSON, {})
+    file_sessions: dict[str, dict] = {}
+    if isinstance(conv_file, dict):
+        for key, val in conv_file.items():
+            if not isinstance(key, str) or not isinstance(val, dict):
+                continue
+            file_sessions[key] = {"id": str(val.get("id") or ""),
+                                  "cwd": str(val.get("cwd") or "")}
+    sidecar = agentd_client.list_conversations()  # None when the sidecar is down
+    sessions: list[dict] = []
+    seen: set[str] = set()
+    online = sidecar is not None
+    if online:
+        for c in sidecar:
+            if not isinstance(c, dict):
+                continue
+            key = str(c.get("key") or "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            stype, title = session_type_title(key)
+            sessions.append({
+                "key": key, "type": stype, "title": title,
+                "busy": bool(c.get("busy")),
+                "status": c.get("lastStatus") if c.get("lastStatus") in
+                          ("running", "done", "error", "cancelled") else None,
+                "cwd": str(c.get("cwd") or file_sessions.get(key, {}).get("cwd") or ""),
+            })
+    for key in sorted(file_sessions):
+        if key in seen:
+            continue
+        stype, title = session_type_title(key)
+        sessions.append({
+            "key": key, "type": stype, "title": title,
+            "busy": False, "status": None,
+            "cwd": file_sessions[key]["cwd"],
+        })
+    return {"nodes": [{"id": "local", "name": "local", "kind": "local",
+                       "online": online, "sessions": sessions}]}
+
+
+
 # ---------------------------------------------------------------- auto-analysis
 
 def analysis_prompt(ids: list[str], example_id: str) -> str:
@@ -1411,6 +1481,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_workspace_file(m.group(1), m.group(2))
             if path == "/api/agent/status":
                 return self.api_agent_status()
+            if path == "/api/network":
+                return self.send_json(build_network())
             m = re.fullmatch(r"/api/teach/([^/]+)/state", path)
             if m:
                 return self.api_get_ws_state(m.group(1))
@@ -1464,6 +1536,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_tests_run()
             if path == "/api/agent/run":
                 return self.api_agent_run()
+            if path == "/api/agent/console/run":
+                return self.api_agent_console_run()
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -1846,6 +1920,39 @@ class Handler(BaseHTTPRequestHandler):
         threading.Thread(
             target=run_agent_job,
             args=(job_id, ws_dir, str(body["message"]), bool(body.get("new_session")), exe),
+            daemon=True,
+        ).start()
+        self.send_json({"job_id": job_id})
+
+    def api_agent_console_run(self):
+        """The Console tab's standalone agent: one persistent conversation for
+        the whole app (key console:main, cwd ROOT), no workspace attached."""
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("message"):
+            return self.send_error_json(400, 'body must be {"message": ...}')
+        exe = find_kimi()
+        durable = agentd_client.backend() == "durable"
+        if not durable and not exe:
+            return self.send_error_json(503, "no AI agent available (agentd sidecar down, kimi CLI not found)")
+        with AGENT_JOBS_LOCK:
+            for existing in AGENT_JOBS.values():
+                if (existing.get("key") == "console:main"
+                        and existing.get("status") in ("starting", "running")):
+                    return self.send_error_json(
+                        409, "the agent is still working on your previous message — "
+                             "your text stays in the input box; send it again when the job finishes")
+        job_id = uuid.uuid4().hex[:12]
+        with AGENT_JOBS_LOCK:
+            AGENT_JOBS[job_id] = {
+                "id": job_id, "workspace": None, "key": "console:main",
+                "status": "starting",
+                "backend": "durable" if durable else "cli",
+                "lines": [], "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        threading.Thread(
+            target=run_agent_job,
+            args=(job_id, ROOT, str(body["message"]), bool(body.get("new_session")), exe),
             daemon=True,
         ).start()
         self.send_json({"job_id": job_id})

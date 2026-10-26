@@ -53,6 +53,7 @@ class StubAgentd:
         self.cancelled: list[str] = []
         self.key_configured = key_configured
         self.always_busy = False
+        self.conversations: list[dict] = []  # served by GET /conversations
         stub = self
 
         class StubHandler(BaseHTTPRequestHandler):
@@ -71,6 +72,8 @@ class StubAgentd:
                 if self.path == "/health":
                     return self._send({"ok": True, "keyConfigured": stub.key_configured,
                                        "model": "kimi-coding/kimi-for-coding"})
+                if self.path == "/conversations":
+                    return self._send({"conversations": stub.conversations})
                 m = re.fullmatch(r"/jobs/([^/]+)", self.path)
                 if m:
                     job = stub.jobs.get(m.group(1))

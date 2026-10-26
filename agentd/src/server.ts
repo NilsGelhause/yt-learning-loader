@@ -413,6 +413,30 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    if (method === "GET" && path === "/conversations") {
+      // live session state for the app's Network tab: one entry per known
+      // conversation key; busy/lastStatus come from the in-memory jobs map
+      const busyByKey = new Map<string, boolean>();
+      const statusByKey = new Map<string, JobStatus | null>();
+      for (const job of jobs.values()) {
+        if (job.status === "running") {
+          busyByKey.set(job.key, true);
+          statusByKey.set(job.key, "running");
+        } else {
+          statusByKey.set(job.key, job.status); // insertion order: latest wins
+        }
+      }
+      const conversations = Object.entries(convMap).map(([key, c]) => ({
+        key,
+        id: c.id,
+        cwd: c.cwd,
+        busy: busyByKey.get(key) ?? false,
+        lastStatus: statusByKey.get(key) ?? null,
+      }));
+      send(res, 200, { conversations });
+      return;
+    }
+
     const cancelMatch = path.match(/^\/jobs\/([^/]+)\/cancel$/);
     if (method === "POST" && cancelMatch) {
       const job = jobs.get(cancelMatch[1]);
