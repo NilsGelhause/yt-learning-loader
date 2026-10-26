@@ -1,0 +1,87 @@
+{
+  "video_id": "s5T5oQJcJ6U",
+  "title": "Learn anything with the /teach skill",
+  "summary": "Matt Pocock introduces /teach, a skill he wrote on a bus ride to London to pack his decade of teaching experience (6 years as a voice coach, 4 years teaching developers) into a reusable agent skill that can teach anyone anything. He demos it by learning to solve a Rubik's Cube: the skill creates a mission.md capturing why he wants to learn, gathers high-trust web resources, and produces numbered interactive HTML lessons with diagrams, quizzes, a glossary, cheat sheets, and even an interactive tap-trainer for memorizing algorithms. Because the skill is stateful and saves everything to the file system, a fresh session with an empty context window can read the workspace, diagnose that the corner-cycle algorithm is understood but not in muscle memory, and generate a new lesson targeted exactly there using the zone of proximal development. He walks the skill's philosophy (knowledge, skills, and wisdom, where wisdom comes from community rather than the agent), argues the big engineering use case is onboarding developers to codebases, and closes on developers being the first people to experience AI at something it is genuinely great at.",
+  "what_you_learn": "You learn how to design a stateful agent skill: what files a durable learning workspace needs (mission, resources, lessons, learning records, glossary, cheat sheets, notes), how to make an agent resume cleanly from an empty context window, and how instructional-design ideas like the zone of proximal development and feedback loops translate directly into prompts and generated artifacts. It also shows why HTML beats markdown for agent-generated content whenever interactivity matters.",
+  "skills": [
+    {"name": "Agent Memory & State", "description": "Skills that persist notes, records, and progress to the file system or MCP servers so they improve across runs."},
+    {"name": "Learning & Teaching", "description": "Generating numbered HTML lesson files instead of markdown to unlock diagrams, quizzes, and interactive trainers in the browser."},
+    {"name": "Continuous Improvement", "description": "Quizzes and interactive practice as the minimum viable feedback loop for any teaching system."},
+    {"name": "Agent Skill Design", "description": "Structuring a skill around defined terms like knowledge, skills, and wisdom that the agent must think in."},
+    {"name": "Agent Onboarding", "description": "Using a teach-style stateful skill to onboard engineers to a codebase in record time."}
+  ],
+  "learnings": [
+    {
+      "title": "Teach had to be a stateful skill, unlike Grill Me",
+      "detail": "A stateless skill retains nothing from previous runs and saves nothing to the file system; a stateful skill saves notes to the local file system or MCP servers and keeps track over time. Matt's Grill Me skill is totally stateless, while Grill with Docs saves local ADRs and glossaries to the repo and gets better over time - neither is better, they fit different situations. Teach needed state because good teaching means the teacher remembers where you've got to, what you've learned, and which resources worked before.",
+      "time_hint": "00:39"
+    },
+    {
+      "title": "Install via the skills repo quick start and run in an empty directory",
+      "detail": "Installation is one step: go to the mattpocock/skills repo, run the skills.sh installer from the quick start, and choose the Teach skill. Then open an empty directory (Matt used a dedicated Rubik's Cube directory) inside your coding agent and say 'Teach me how to solve a Rubik's Cube'. Every artifact the skill creates lands as files in that directory, which is what makes the whole system resumable.",
+      "time_hint": "02:19"
+    },
+    {
+      "title": "mission.md captures why the student wants to learn before teaching anything",
+      "detail": "The first file created is the mission, because an effective teacher must understand why the student wants to learn the thing. The demo mission: 'Matt wants to be able to take a scrambled 3 by 3 Rubik's Cube and solve it unaided at least once. The goal is the achievement itself, not speed, not theory.' This mission then constrains every lesson the skill generates.",
+      "time_hint": "02:47"
+    },
+    {
+      "title": "Resources are gathered from high-trust primary sources and kept updated",
+      "detail": "On the first pass the skill searches the web for actual primary-source, high-trust resources it will build lessons from, and it continues updating the resource list as learning progresses. Later lessons even add little citations back to these sources, which keeps the teaching grounded instead of hallucinated.",
+      "time_hint": "03:06"
+    },
+    {
+      "title": "Lessons are numbered HTML files, far richer than markdown",
+      "detail": "Lessons live in a lessons/ folder as individually numbered HTML files. Matt chose HTML because it is so much richer and more expressive than markdown: lessons contain diagrams, very simple explainers, call-outs, quizzes, citations - and, for the corner-cycle algorithm, a fully interactive tap-trainer with a guided mode (U R U' L' U R' U' L). This is the core of what makes the learning experience good: you get the full power of the browser.",
+      "time_hint": "03:30"
+    },
+    {
+      "title": "Quizzes are the fallback feedback loop, and lessons teach skills not just knowledge",
+      "detail": "Matt considers a feedback loop essential to teaching anything, and quizzes are okay at it - 'basically good if you can't find any richer feedback loop'. The first lesson teaches notation, traps, and the white cross, but also pushes the learner to actually develop the skill (making the white cross), which is slightly different from knowledge. The skill itself knows the difference and tracks both.",
+      "time_hint": "03:58"
+    },
+    {
+      "title": "Learning records, glossary, cheat sheets, and agent notes complete the workspace",
+      "detail": "When Matt reported 'yes, I can make the white cross', the agent recorded it in a simple learning record it uses to track progress and tailor the next lesson. A glossary collects all the jargon (anatomy, notation, solving grip, the daisy) so future lessons can stay concise and just reference terms. Cheat sheets like a solve card give one place to look at the whole solve, and notes.md is the agent's own internal note-taking file for learner preferences and watch-outs.",
+      "time_hint": "05:21"
+    },
+    {
+      "title": "A fresh empty context window resumes teaching by reading the workspace",
+      "detail": "Saying just 'teach' in a new session starts with an empty context, so the agent checks the state of the teaching workspace: mission, solve cards, learning records. It produced a decent diagnosis - the corner-cycle concept was solid, but that algorithm had not reached muscle memory - and then built a new lesson matching the house style of earlier lessons. The model used here is Opus 4.8 with medium effort. The lesson design: because everything is saved to the file system, clearing context loses nothing.",
+      "time_hint": "06:11"
+    },
+    {
+      "title": "The zone of proximal development sizes every lesson",
+      "detail": "The zone of proximal development is the key teaching idea behind the skill: always teach in the area where the learner is perfectly challenged but not intimidated - not bored, but also not freaked out. That means every lesson must be concise, compact, and exactly framed at that zone. The generated corner-cycle lesson broke the algorithm into a new mental model ('one four-move phrase played twice') plus the interactive tap-trainer - exactly the right challenge for someone whose concept was solid but muscle memory was missing.",
+      "time_hint": "07:16"
+    },
+    {
+      "title": "The skill thinks in knowledge, skills, and wisdom - and delegates wisdom to community",
+      "detail": "The skill's philosophy section defines the terms the AI should think in: knowledge from high-quality, high-trust resources; skills through highly relevant interactive lessons; and wisdom, which only comes from interacting with other learners and practitioners. When a user asks a question that appears to require wisdom, the default posture is to attempt an answer but ultimately delegate to a community. The point is not to keep the learner hooked on the agent - it is to give them the confidence to go out and work with a community.",
+      "time_hint": "08:36"
+    },
+    {
+      "title": "Onboarding engineers to a codebase is the killer engineering use case",
+      "detail": "Creating documentation is painful because it must be kept up to date and it is usually written outside the reader's zone of proximal development - a new hire might know your stack but not your problem domain, or know the domain but not TypeScript. Teach starts them in their own workspace, points them at the codebase, and teaches them the concepts they specifically need, producing a productive employee in record time.",
+      "time_hint": "10:04"
+    },
+    {
+      "title": "Developers are the first movers because AI is best at code",
+      "detail": "Matt closes with the observation that AI is currently better at writing code than at almost anything else, so developers are the first people who get to test AI on a problem where it is genuinely very good - and therefore the first to build instincts about working with AI. Those instincts and the skills built now will transfer outside coding domains, which makes them valuable no matter what the future of work looks like.",
+      "time_hint": "11:00"
+    }
+  ],
+  "key_points": [
+    "Good teaching is stateful - the teacher remembers where you've got to.",
+    "The mission.md captures why you want to learn before a single lesson is written.",
+    "HTML beats markdown for lessons - you get the full power of the browser, including interactive tap-trainers.",
+    "Quizzes are okay only when you can't find any richer feedback loop.",
+    "Zone of proximal development: perfectly challenged - not bored and not freaked out.",
+    "The goal is to send the learner out to a community, not keep them hooked on the agent.",
+    "Onboarding pain is a teaching problem - point /teach at your codebase and get a productive engineer in record time.",
+    "AI is better at writing code than almost anything else - developers are the first people to experience it at its best."
+  ],
+  "mermaid": "flowchart TD\n  ask[\"User asks Teach me X\"] --> mission[\"mission md captures why\"]\n  mission --> res[\"Resources from high trust sources\"]\n  res --> lessons[\"Numbered interactive HTML lessons\"]\n  lessons --> loop[\"Quizzes and interactive trainers\"]\n  loop --> rec[\"Learning records of progress\"]\n  rec --> zpd{\"In the zone of proximal development\"}\n  zpd -->|not yet| lessons\n  zpd -->|ready| wisdom[\"Wisdom via community\"]\n  gloss[\"Glossary and cheat sheets\"] -.-> lessons\n  notes[\"notes md agent internal notes\"] -.-> lessons",
+  "generated": "2026-10-22"
+}

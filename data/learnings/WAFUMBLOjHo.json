@@ -1,0 +1,96 @@
+{
+  "video_id": "WAFUMBLOjHo",
+  "title": "SEE CMUX SOLVE Multi-Agent Orchestration (Claude Code and Pi Agent)",
+  "summary": "Dan evaluates Cmux, a Mac-only terminal multiplexer, as a solution to three multi-agent orchestration problems: no programmatic access to agents, slow manual booting of agent teams, and no way to monitor agents in order to improve them. He has a Claude Code orchestrator agent operate Cmux programmatically via its send/read/close-surface API, starting from a simple throwaway-file demo up to a 2x2 grid of running processes, a four-agent security fleet (Claude Code, Codex, Pi+Minimax M3, Pi+GLM 5.2), multi-team workspaces (alpha/beta/gamma), an eight-agent race to find a production hotfix, and one-tap team launches via a just file. The verdict: Cmux is a solid, programmable, agent-aware tool that stands up well to tmux, with the caveats that it is Mac-only, young, and occasionally glitchy (a notification event fired but the orchestrator agent missed it).",
+  "what_you_learn": "You learn why programmatic access to your agent fleet is a hard requirement for agentic engineering, and how a terminal multiplexer like Cmux or tmux becomes the control plane for starting, observing, and scaling multi-agent teams. It also shows a concrete three-tier orchestrator-lead-worker pattern with flat agent-to-agent communication that you can replicate with any agent harness.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "Using Cmux's programmable API to send keys, read surfaces, and open/close terminals so agents can be driven at agentic speed."},
+    {"name": "Multi-Agent Orchestration", "description": "An orchestrator prompting team leads which prompt specialized worker agents, while any agent can still prompt any agent."},
+    {"name": "Agent Observability", "description": "The principle that an agent you cannot see is an agent you cannot improve, and tooling for per-workspace color, role, and icon identity."},
+    {"name": "Autonomous Agent Operations", "description": "Plugging orchestrators into Cmux lifecycle notification events so agents react when a surface finishes its work."}
+  ],
+  "learnings": [
+    {
+      "title": "The three multi-agent orchestration problems: start, interact, improve",
+      "detail": "Every multi-agent approach faces the same big three: how do you start agents, interact with them, and improve them? Manual booting of a 5-20 agent team kills agentic speed, no programmatic access makes you the bottleneck, and no visibility means you cannot reinforce good behavior or punish bad. Dan frames Cmux as a candidate solution to all three before touching the tool.",
+      "time_hint": "02:00"
+    },
+    {
+      "title": "Agentic access is a hard requirement, not a nice-to-have",
+      "detail": "Agentic access means you can control a tool programmatically, at the speed of agents, using natural language prompts through a well-constructed API. Dan states his one-liner rule: if a tool does not have programmatic access, he ignores it completely. He positions agentic access as pillar five of his five pillars of agentic engineering, and notes even your agents should have agentic access to other tools for meta-level control.",
+      "time_hint": "23:20"
+    },
+    {
+      "title": "Cmux mental model: windows, workspaces, panes, tabs",
+      "detail": "A window is the whole app (Ctrl+Shift+N spawns one), a workspace (Cmd+N) groups terminals so you can separate prod/staging/dev or one agent team per workspace, a pane is a single terminal inside the layout, and Cmd+T opens a new surface (tab) inside a pane. Dan puts the team lead on the left pane and workers on the right so he can zoom to the right level without losing low-level worker visibility.",
+      "time_hint": "05:45"
+    },
+    {
+      "title": "The Cmux control loop: send, read, open/close surface, repeat",
+      "detail": "Thanks to programmatic access you do four things in a loop: send information (send key), read the screen after the action completes, open and close surfaces, and repeat. The API takes a surface identifier plus the exact text to send. This loop is what an orchestrator agent uses to drive every window and pane without human typing.",
+      "time_hint": "07:20"
+    },
+    {
+      "title": "Learning new tools by having an agent build an HTML guide",
+      "detail": "Dan's workflow for learning any new tool: have a state-of-the-art agent build a comprehensive, tier-based HTML file explaining the tool, which he then studies and operates. He calls learning the killer use case for agents, ahead of coding. The same agent-driven guide powers his Cmux skill, which makes Claude Code aware of the tool.",
+      "time_hint": "02:08"
+    },
+    {
+      "title": "First hands-on test: an agent operates a workspace, not just a terminal",
+      "detail": "The baseline demo: the Cmux skill opens a workspace in a fresh temp directory, creates 60 throwaway files, runs ls -la, reads the output back, and continues. Because the workspace is a real visible terminal, Dan can jump in at any moment and verify the files exist himself. Agents stop being black boxes when you can touch the terminal they run in.",
+      "time_hint": "08:50"
+    },
+    {
+      "title": "Quick-start grids: reusable commands per pane",
+      "detail": "A 2x2 grid runs htop, a per-second date ticker, an empty terminal, and a tick counter, each documented in the workspace name. The point for agents: not only does the tool move you at agentic speed, it gives you quick-start commands to boot repeat workflows (frontend, backend, services, database) in one shot.",
+      "time_hint": "10:20"
+    },
+    {
+      "title": "The security fleet: same validation pattern across different agents",
+      "detail": "Dan boots four coding agents side by side - Claude Code, Codex, Pi running Minimax M3, and Pi running GLM 5.2 - and gives each the identical task: list the top three security vulnerabilities in the repo. This is scaling compute to scale impact: each model applies its own advantages to the same validation pattern, fully visible, so you can see who finds what and whose patterns to replicate.",
+      "time_hint": "14:00"
+    },
+    {
+      "title": "Flat agent-to-agent communication on top of hierarchy",
+      "detail": "The three-tier pattern (orchestrator prompts leads, leads prompt workers) replicates hierarchy's benefits without being top-down: any agent can prompt any other agent via a Cmux skill that reads each surface and injects a prompt. Dan demonstrates a Claude Code worker pinging its fleet co-workers, and drags panes around to show lead-left, workers-right organization while the communication channel stays flat.",
+      "time_hint": "16:30"
+    },
+    {
+      "title": "Multi-team workspaces at scale: alpha, beta, gamma",
+      "detail": "Scaling further, the orchestrator programmatically boots whole named workspaces (alpha, beta, gamma - standing in for features or bug fixes), each with its own agent set, plus a notification stream. Holding Cmd reveals per-workspace hotkeys. This is multi-agent coordination at massive scale while the human stays in control with full visibility.",
+      "time_hint": "17:50"
+    },
+    {
+      "title": "The eight-agent race for a production hotfix",
+      "detail": "For an urgent production outage, Dan boots eight agents across panes (Opus, Sonnet, local Qwen, Codex instances) to race toward the same needle-in-a-haystack fix, taking the first correct answer. He sketches the full pattern: a red-team race workspace, an infra/deploy team, and a review team, with the first completion triggering the fix handoff. Two of his Pi agents failed to fire due to an environment variable problem - a reminder that fleet setups themselves need debugging.",
+      "time_hint": "19:00"
+    },
+    {
+      "title": "One-tap agent team launch with a just file",
+      "detail": "To launch teams fast on the thousandth run, Dan keeps a just file in each codebase: typing `j fast cc <feature>` (e.g. SSE for server-sent events) instantly boots a complete three-tier team - a GLM 5.2 team lead plus plan, build, frontend, and testing worker agents - in a fresh workspace. Reusable session files plus agentic access make repeated launches nearly free.",
+      "time_hint": "26:10"
+    },
+    {
+      "title": "Pros and cons: Cmux vs tmux, and maturity risk",
+      "detail": "For most capability shown, tmux - the tried-and-true open-source OG - can also do the job, but Cmux offers better DX: per-workspace colors, roles, icons, banners, and notification events. Cmux is Mac-only, so Linux/Windows/WSL users need tmux. The real risk is maturity: a notification event fired during the race but the orchestrator agent never registered it, showing new agentic tools need debugging just like your agents do.",
+      "time_hint": "21:20"
+    },
+    {
+      "title": "Specialized teams multiply your effective context",
+      "detail": "Dan closes by noting a fully-communicating team where each agent carries a 1M-token specialized context gives him 5M tokens of working context, and it is not an exaggeration. Combined agents form a bigger team of intelligence working on your behalf - which is the endgame of scaling compute to scale impact.",
+      "time_hint": "28:40"
+    }
+  ],
+  "key_points": [
+    "An agent you can't see is an agent you can't improve.",
+    "If a tool doesn't have programmatic access, don't give it a second of your time.",
+    "Problems come first, tools come second - don't pick up Cmux until you have an orchestration problem.",
+    "Booting an agent team by hand kills the agentic speed.",
+    "Hierarchy for organization, flat channels for communication: any agent can prompt any agent.",
+    "For urgent production fixes, have agents race toward the solution and ship the first correct answer.",
+    "Design your workflow for the thousandth agent run, not the first - encode it in a just file.",
+    "Sub-agents in a black box are a great place to start and a terrible place to finish."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Human Engineer\"] --> B[\"Orchestrator Agent - Claude Code Opus\"]\n  B -->|\"send key read screen close surface loop\"| C[\"Cmux Programmable API\"]\n  C --> D[\"Workspace Alpha - team per feature\"]\n  C --> E[\"Workspace Beta - team per feature\"]\n  C --> F[\"Workspace Gamma - team per feature\"]\n  C --> G[\"Security Fleet Workspace\"]\n  C --> H[\"Hotfix Race Workspace\"]\n  D --> D1[\"Team Lead Pane - GLM 5.2\"]\n  D1 --> D2[\"Worker Agents - plan build frontend test\"]\n  G --> G1[\"Claude Code\"]\n  G --> G2[\"Codex\"]\n  G --> G3[\"Pi plus Minimax M3\"]\n  G --> G4[\"Pi plus GLM 5.2\"]\n  G1 <-->|\"flat agent to agent prompts\"| G2\n  G2 <-->|\"flat prompts via Cmux skill\"| G3\n  C -->|\"lifecycle notification events\"| B\n  I[\"just file - j fast cc feature\"] -->|\"one tap team launch\"| B\n  B -->|\"human jumps in anytime\"| C",
+  "generated": "2026-10-21"
+}

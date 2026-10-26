@@ -1,0 +1,48 @@
+{
+  "video_id": "LGj1oUidC7Q",
+  "title": "Don't underestimate the communication barrier",
+  "summary": "Matt Pocock argues that the biggest obstacle to getting good outputs from AI coding agents is not the model but the communication barrier between human and agent. An agent is like an employee you have hired: it can only act on what it has been told, and it will never know exactly what you are thinking - a gap that better models will not close, because it is a human problem, not a model problem. Humans often don't know what they want, carry complicated internal value systems about what to prioritize, and fail to communicate (even to themselves) what they care about and in what order. His prescription: when output disappoints, ask what the agent doesn't know about you and about what you want right now.",
+  "what_you_learn": "You learn to debug agent failures by looking at your own communication first: ambiguous expectations, unspoken priorities, and missing context are the usual root cause, and they persist across model generations. Framing the agent as an employee makes it obvious that you must externalize intent that lives only in your head.",
+  "skills": [
+    {"name": "Agent Handoffs & Communication", "description": "Actively managing the information gap between what you want and what the agent knows."},
+    {"name": "System Prompt Design", "description": "Writing down priorities and preferences that currently exist only in your head."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Staying in the feedback loop to close the communication gap rather than expecting the model to read your mind."}
+  ],
+  "learnings": [
+    {
+      "title": "Treat your agent like an employee, not a mind reader",
+      "detail": "Pocock's framing: when you ask an agent to build code for you, it is like a colleague or someone you employ. And just like with an employee, there is a communication barrier between you - the agent can only work with what it has been told. Underestimating that barrier is what drives him crazy about how people work with agents.",
+      "time_hint": "00:02"
+    },
+    {
+      "title": "The communication gap will not close as models get better",
+      "detail": "A crucial and counterintuitive claim: the barrier is not going away as models improve, because the model is never going to know exactly what you are thinking. No capability jump in the model removes the need to communicate your intent - so investing in communication skill pays off across every future model generation.",
+      "time_hint": "00:22"
+    },
+    {
+      "title": "It is a human problem, not a model problem",
+      "detail": "Pocock diagnoses the root cause on the human side: we often don't know what we want ourselves. Humans carry complicated internal value systems that dictate which qualities of an output to prioritize, and we care about complicated things in complicated orders - none of which is visible to the agent unless we express it.",
+      "time_hint": "00:33"
+    },
+    {
+      "title": "The agent doesn't know what you care about or in what order",
+      "detail": "The specific knowledge gap: the agent doesn't know what you care about, and even if you tell it some things, your priorities are ordered - you care about certain qualities first and others later. Communicating that ordering is really hard because we often don't know it ourselves until we see an output that violates it.",
+      "time_hint": "00:45"
+    },
+    {
+      "title": "Debug disappointing output by asking what the agent doesn't know",
+      "detail": "The actionable technique: whenever you want better outputs from your agent, think about the communication barrier and ask two questions - what does the agent not know about me, and what does it not know about what I want right now. Those answers tell you exactly what to add to your prompt, context, or instructions before the next run.",
+      "time_hint": "00:54"
+    }
+  ],
+  "key_points": [
+    "The biggest obstacle to better agent output is the communication barrier - not the model.",
+    "An agent is like an employee: it can only act on what it has been told.",
+    "The barrier will not disappear as models get better - the model never knows what you're thinking.",
+    "It's a human problem: we often don't know what we want ourselves.",
+    "The agent doesn't know what you care about, or in what order.",
+    "Ask before every task: what does the agent not know about me and about what I want right now?"
+  ],
+  "mermaid": "flowchart TD\n  you[\"You with unspoken intent\"] --> barrier[\"Communication barrier\"]\n  values[\"Complicated internal value system\"] --> you\n  agent[\"AI coding agent like an employee\"] --> barrier\n  barrier --> gap[\"Agent does not know what you care about or the order\"]\n  gap --> weak[\"Disappointing output\"]\n  weak --> ask[\"Ask what the agent does not know about you and what you want now\"]\n  ask --> supply[\"Supply missing context priorities and preferences\"]\n  supply --> better[\"Better agent output\"]\n  models[\"Better future models\"] --> barrier\n  barrier --> stays[\"Barrier persists - a human problem\"]",
+  "generated": "2026-10-22"
+}

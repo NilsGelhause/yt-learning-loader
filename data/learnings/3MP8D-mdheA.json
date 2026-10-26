@@ -1,0 +1,76 @@
+{
+  "video_id": "3MP8D-mdheA",
+  "title": "How To De-Slop A Codebase Ruined By AI (with one skill)",
+  "summary": "Matt Pocock argues that AI has accelerated software entropy: every change made without considering the whole codebase adds weird little couplings that snowball into a ball of mud. After a previous video on preventing this with deep modules, this one is the cure. He teaches the core vocabulary from John Ousterhout's A Philosophy of Software Design (modules, interfaces, implementations, deep vs shallow modules, seams, adapters, locality, leverage), explaining how the improved-codebase-architecture skill from his skills repo encodes that glossary so you and the AI share a language. He then runs the skill in Claude Code (auto mode off) against his real 1,500-commit course-video-manager repo: the agent explores the architecture, finds six deepening opportunities, and he picks one - a clip-ordering rule duplicated across frontend and backend with no single seam - and works through a grilling session to shape it into one deep module. The result can be exported as a GitHub issue for an AFK agent to implement. He closes with the tactical vs strategic programmer framing: the skill is a sergeant that finds opportunities, but a human general must make the judgment calls.",
+  "what_you_learn": "You learn a concrete, agent-ready refactoring workflow: give the coding agent a shared architectural vocabulary, let it hunt for shallow modules and missing seams, then grill each candidate before committing to a deeper module design. For anyone whose codebase is degrading under AI-generated changes, this is a repeatable routine (run every couple of days) that converts architecture principles into prompts an LLM can act on.",
+  "skills": [
+    {"name": "API & Module Design", "description": "Seams are where module interfaces live and where tests attach; adapters are swappable implementations of an interface at a seam, e.g. a fake clock in tests."},
+    {"name": "Domain Modeling", "description": "A glossary of architectural terms shared between human and AI so refactoring conversations stay precise."},
+    {"name": "Strategic Thinking", "description": "Agents are excellent tactical programmers that make changes fast but need a human strategic programmer deciding long-term codebase health."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Interrogating an agent's proposals with pointed questions before accepting its design or letting it implement."}
+  ],
+  "learnings": [
+    {
+      "title": "AI accelerates software entropy, and entropy is curable",
+      "detail": "Every change that ignores the whole codebase adds small weird couplings that snowball into a ball of mud; AI makes those changes faster, so codebases fall apart faster. Matt's framing: a previous video covered prevention with deep modules, this one covers the cure - rescuing a codebase that feels beyond repair using software fundamentals plus his improved-codebase-architecture skill from the mattpocock/skills repo (then at 41.5k stars).",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "A shared vocabulary with the AI is a force multiplier",
+      "detail": "The skill ships a glossary of terminology, and Matt spends the first half of the video defining it: a module is a unit of something (components, an auth function set, a logger); an interface is everything a caller must know to use the module (methods plus docs); the implementation is what happens inside. Understanding these terms deeply, he argues, makes you a better software developer and lets you talk precisely with the agent.",
+      "time_hint": "01:15"
+    },
+    {
+      "title": "Deep modules beat shallow modules on depth",
+      "detail": "From Ousterhout's A Philosophy of Software Design: a deep module hides lots of implementation behind a relatively simple interface, while a shallow module has a complex interface with little behind it. Depth is the amount of behavior a caller can exercise per unit of interface they must learn. TanStack Query is his example of a great deep module - huge hidden capability, tiny interface.",
+      "time_hint": "02:40"
+    },
+    {
+      "title": "Seams are where interfaces live and where tests attach",
+      "detail": "Modules interact through dependencies, and the locations where a module's interface lives are called seams - usually where you do unit or integration testing, mocking just past the seam. At each seam you need an adapter: a concrete module satisfying the interface, an idea taken from hexagonal architecture. His example is a Clock interface with a real clock in production and a fake clock in tests, so tests never wait two weeks.",
+      "time_hint": "03:45"
+    },
+    {
+      "title": "Deep modules pay off in locality for maintainers and leverage for users",
+      "detail": "Locality means changes, bugs, and fixes concentrate in one module instead of being scattered; you want high locality, co-locating things that change together. Leverage means users of the module get more capability per unit of interface learned. These two attributes - locality and leverage - are the targets when improving a codebase, and leverage extends to testing: clear seams around deep modules enable good tests, and better tests mean better agent output.",
+      "time_hint": "04:45"
+    },
+    {
+      "title": "Run the skill: the agent explores and returns deepening candidates",
+      "detail": "In a new Claude Code session on his 1,500-commit course-video-manager repo (React Router, effect.ts), Matt runs improve-codebase-architecture with auto mode turned off because auto mode does funny things with human-in-the-loop flows. The agent first explores the code, then returns six deepening opportunities; a bad codebase, per the skill, is one full of shallow modules, poor leverage, or poor locality.",
+      "time_hint": "05:45"
+    },
+    {
+      "title": "A duplicated rule with no single seam is the ideal refactor candidate",
+      "detail": "The candidate he picks: a concept with no single seam - two implementations of the same insertion point living in frontend and backend, which can drift out of sync and is untested at the seam. Refactoring into a single module gains locality: the interleaved clip section ordering rule would live in one place. The agent grounds the finding in concrete code on both sides before proposing anything.",
+      "time_hint": "06:30"
+    },
+    {
+      "title": "Grill the proposal, then hand the shaped issue to an AFK agent",
+      "detail": "The skill enters a grilling session: you discuss the proposed solution with the agent, it proposes a module shape (which functions form the interface, design decisions to confirm), and the finished shape goes into a GitHub issue an AFK agent can pick up. Matt short-circuits the questions by asking the agent to choose its own recommended answers to speed through the demo.",
+      "time_hint": "07:25"
+    },
+    {
+      "title": "Agents are sergeants; you are the general",
+      "detail": "The skill deliberately demands judgment from the human: it is not an AFK skill you can trust to continually improve the codebase on its own. Matt's metaphor: agents are extremely good tactical programmers who get on the ground and change code fast, but they need a strategic programmer above them deciding what is good for long-term health. He recommends running the skill every couple of days, especially in fast-moving codebases.",
+      "time_hint": "09:20"
+    },
+    {
+      "title": "Legacy codebases need a harness before changes",
+      "detail": "Asked how to start using AI in a legacy codebase, Matt's answer: legacy codebases are mostly shallow modules and hard to change, so before touching anything you need a harness that proves your changes do not break things. That means tests around deep modules with high leverage and locality - which is exactly what the skill builds toward, making it the right first step.",
+      "time_hint": "10:25"
+    }
+  ],
+  "key_points": [
+    "AI has accelerated software entropy - codebases now fall apart faster than ever.",
+    "Depth is behavior per unit of interface; deep modules give locality and leverage.",
+    "Seams are where module interfaces live and where your tests and mocks attach.",
+    "An adapter is any concrete module satisfying a seam's interface - real clock vs fake clock.",
+    "The skill finds the candidates; a human general must still make the judgment call.",
+    "Better seams and deeper modules mean better tests, and better tests mean better agent output.",
+    "Before AI touches a legacy codebase, build the test harness first.",
+    "Run an architecture-improvement skill every couple of days in a fast-moving codebase."
+  ],
+  "mermaid": "flowchart TD\n  mud[\"Codebase ruined by AI accelerated entropy\"] --> skill[\"improve codebase architecture skill\"]\n  glossary[\"Shared glossary - module interface implementation seam adapter depth\"] --> skill\n  skill -->|explore| candidates[\"Deepening opportunities - six candidates found\"]\n  candidates --> pick[\"Human picks one - duplicated rule no single seam\"]\n  pick --> grill[\"Grilling session on proposed module shape\"]\n  grill -->|approved| issue[\"GitHub issue with shaped design\"]\n  issue --> afk[\"AFK agent implements\"]\n  grill -->|rejected| pick\n  deep[\"Deep module - simple interface rich implementation\"] --> local[\"Locality - changes in one place\"]\n  deep --> lev[\"Leverage - capability per interface plus testability\"]",
+  "generated": "2026-10-22"
+}

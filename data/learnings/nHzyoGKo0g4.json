@@ -1,0 +1,90 @@
+{
+  "video_id": "nHzyoGKo0g4",
+  "title": "LIVE: Build a Content Platform with Next.js App Directory, TypeScript, Tailwind and shadcn/ui",
+  "summary": "Matt Pocock live-builds 'Content Garden', a personal content-management platform, from scratch using create-next-app with TypeScript, Tailwind, the src directory, and the app router. He adopts shadcn/ui - not an npm dependency but a copy-paste component registry on Radix primitives and Tailwind - initializing it with components.json and adding input, label, form, and navigation-menu components, discovering its form pieces are built around react-hook-form plus a zod resolver. He styles the app-shell nav with pure Tailwind utility classes in the app layout, hits and fixes the app directory's 'use client' boundary, and uses VS Code's 'add all missing imports' to wire up copied component code. For the backend he draws his data model in tldraw: a 'database' of 500+ markdown files organized into category folders, each with checklists and AI prompt automation (ChatGPT prompts.json generating SEO summaries). He writes a small node SDK (getFolders returning absolute path, relative path, and label) run with tsx watch alongside next dev via concurrently, then calls it from an async server component in the root layout so the folder list renders in the navigation menu - backend talking to frontend through React server components. He wraps up with his teaching philosophy of problem-solution exercises and announces future streams.",
+  "what_you_learn": "You watch a senior developer assemble a modern full-stack TypeScript app end to end: scaffolding choices, what shadcn/ui actually is (owned code on Radix primitives, not a dependency), the react-hook-form plus zod composition pattern, and the app router's server/client component split. For a backend-oriented developer, the most transferable insight is how little ceremony the 'backend' is - a markdown folder read through a typed SDK, consumed directly by an async React server component with no API layer.",
+  "skills": [
+    {"name": "Frontend Development", "description": "Scaffolding and structuring an app with create-next-app, the app directory, and server components."},
+    {"name": "Documentation", "description": "Treating folders of markdown files as the data layer, read through a small typed SDK."},
+    {"name": "Package & Build Tooling", "description": "Running next dev and a tsx watch backend watcher together with a single concurrently script."}
+  ],
+  "learnings": [
+    {
+      "title": "Scaffold with create-next-app and prefer pnpm over npm",
+      "detail": "The project starts with npx create-next-app@latest (the @latest matters, otherwise you get a cached older version), choosing TypeScript, ESLint, Tailwind CSS, the src directory, and the app router. Matt immediately regrets letting npm do the install and re-runs it with pnpm install, calling npm slow - pnpm is his default package manager.",
+      "time_hint": "03:10"
+    },
+    {
+      "title": "shadcn/ui is copy-paste components, not an npm library",
+      "detail": "Matt explores ui.shadcn.com and clarifies what it is: not a dependency you install, but a recommended set of well-built components (in the spirit of Tailwind UI) that you copy and paste into your own codebase, built on Radix primitives, Tailwind, and production-proven libraries. The CLI generates a components.json config (aliases, Tailwind config path, base color slate, CSS variables for colors) and places components under src/components/ui - fix the paths there if you use a src directory, since the init guessed app instead of src/app.",
+      "time_hint": "08:00"
+    },
+    {
+      "title": "shadcn add installs exactly the primitives each component needs",
+      "detail": "Running npx shadcn-ui@latest add input pulls the component source into components/ui with full TypeScript types and zero type errors, and installs its supporting packages: clsx, lucide-react (icons), class-variance-authority (CVA), tailwind-merge, and tailwindcss-animate. Because the code now lives in your repo, removing a component you no longer want is just deleting a file - Matt calls out how easy that makes experimentation.",
+      "time_hint": "13:40"
+    },
+    {
+      "title": "Learn the composition patterns of any component library you adopt",
+      "detail": "Matt's caution about component libraries: you must learn their composition patterns - knowing that FormLabel wraps Label, that a field nests inside FormItem, and that everything assumes react-hook-form. The value over raw HTML is quality-of-life: forms look right the moment they land on the page, accessibility comes for free, and you tweak from there instead of styling from scratch.",
+      "time_hint": "17:20"
+    },
+    {
+      "title": "shadcn form components wrap react-hook-form with a zod resolver",
+      "detail": "The Form components error until you discover they are bound to react-hook-form: you call useForm (optionally with a zod resolver for validation and error messages), pass default values like { name: '', email: '' }, spread the form into FormField via control, and render label, description, and message through render props. Type inference flows from the resolver, but you still pass labels and render the Input yourself.",
+      "time_hint": "21:20"
+    },
+    {
+      "title": "The app router forces an explicit client component boundary",
+      "detail": "Adding interactivity fails with the classic app-directory error until Matt adds 'use client' at the top of the menu file - his 'first client component error' of the stream. The rule: components using hooks, state, or effects must opt into the client bundle explicitly; everything else stays a server component. He notes it would be nicer to use a plain form tag with no JavaScript at all for simple cases.",
+      "time_hint": "26:00"
+    },
+    {
+      "title": "Style the app shell with Tailwind utilities in the layout",
+      "detail": "The navigation lives in app/layout.tsx, which renders the literal root html and body tags - so the nav tag, an h1 with tracking-tight, border-t-4 border-sky for a blue accent line, bg-gray-50, and padding all go directly there with Tailwind classes. Matt iterates quickly by eye, aiming for the look of dashboard sites, with flex items-center and justify-between to position the navigation menu.",
+      "time_hint": "27:40"
+    },
+    {
+      "title": "Copy the component demo code and use add-all-missing-imports",
+      "detail": "For the navigation menu, Matt copies the full demo from the shadcn docs (navigation menu demo) and then uses a VS Code trick: Command+. opens the quick fix menu with 'add all missing imports', resolving every lucide-react icon and radix import at once. The demo uses class variance authority (CVA) for variant-driven class strings - worth understanding since you now own the code.",
+      "time_hint": "31:40"
+    },
+    {
+      "title": "Design the backend around a markdown-file database",
+      "detail": "In tldraw Matt sketches the real system: a huge folder of markdown files that is his content database - noteworthy topics (87 and counting), confusions people have, resources to process, even holiday planning - each folder holding checklisted items like 'write a code sample', 'put it in Figma', 'post to Twitter'. The app is a UI over this folder structure, and he wants to run AI prompts (a prompts.json of ChatGPT prompts, e.g. generating a 160-character SEO summary) from the UI too, which is why the backend will partly speak over websockets.",
+      "time_hint": "35:30"
+    },
+    {
+      "title": "Run backend TypeScript with tsx watch alongside next dev",
+      "detail": "The backend entry point is src/cli/bin.ts, executed with tsx watch (correct syntax: tsx watch path, not a --watch flag) - Matt explains tsx runs esbuild so it is like nodemon for TypeScript, much faster than ts-node but without type checking. A single pnpm dev script uses concurrently to run both next dev and CLI dev, so one command starts the full stack.",
+      "time_hint": "44:20"
+    },
+    {
+      "title": "A tiny typed SDK over the file system replaces an API layer",
+      "detail": "Using fast-glob and fs/promises (async reads rather than readdirSync, so node can use the event loop), Matt builds getFolders: it reads the database directory via process.cwd() - not __dirname, which breaks when the file moves - filters an ignore list (node_modules, old, holidays), and maps each folder to { absolutePath, relativePath, label }. The label comes from a dash-case-to-sentence-case transform. He deliberately annotates the return type on this cross-project function to stay honest about its contract.",
+      "time_hint": "49:20"
+    },
+    {
+      "title": "Async server components fetch straight from the backend SDK",
+      "detail": "The payoff: root layout becomes an async function that awaits getFolders() from the SDK, and passes the result as a folders prop into the Menu client component, which maps over folder.label to render navigation items. No fetch, no API route, no serialization layer - 'the backend talking to the frontend through the magic of React server components'. First compile took 6.9 seconds, then the menu lists real content categories like 'confusions' and 'conference-appearance'.",
+      "time_hint": "1:02:00"
+    },
+    {
+      "title": "Teach through problem-solution exercises, not feature tours",
+      "detail": "Showing his in-progress beginner TypeScript book (56 problem/solution exercises across the first chapters), Matt explains his pedagogy: you only truly learn information when you genuinely need it, so material should put you in situations where you think 'I need this right now' and then deliver it. He plans the same structure for streams and the book, which will also become a video course - Total TypeScript spanning beginner to advanced.",
+      "time_hint": "1:08:40"
+    }
+  ],
+  "key_points": [
+    "shadcn/ui is not a dependency - it is copy-paste component source built on Radix, Tailwind, and CVA that you own.",
+    "Installing a shadcn component pulls exactly the primitives it needs, and uninstalling is deleting a file.",
+    "shadcn Form components assume react-hook-form; useForm plus a zod resolver drives fields and error messages.",
+    "The app router makes you declare 'use client' - the first time you reach for hooks is when you find out.",
+    "tsx watch runs TypeScript via esbuild, faster than ts-node which runs tsc under the hood - at the cost of type checking.",
+    "Resolve paths with process dot cwd rather than dir name so moving the entry file does not break anything.",
+    "A markdown folder plus a 40-line typed SDK is a real backend - server components call it directly, no API layer.",
+    "Learning sticks when you need the information right now - build teaching material that creates that need."
+  ],
+  "mermaid": "flowchart TD\n  scaffold[\"create-next-app - TS Tailwind src app router\"] --> shadcn[\"shadcn init - components dot json\"]\n  shadcn --> comps[\"add input label form navigation-menu\"]\n  comps --> rhf[\"react-hook-form plus zod resolver\"]\n  comps --> client[\"use client components for interactivity\"]\n  scaffold --> layout[\"app layout - Tailwind app shell\"]\n  md[\"markdown file database - 500 plus files\"] --> sdk[\"getFolders SDK - fast-glob and fs promises\"]\n  sdk --> tsx[\"tsx watch via concurrently with next dev\"]\n  layout --> rsc[\"async server component awaits SDK\"]\n  tsx --> rsc\n  rsc --> menu[\"Menu client component renders folders\"]\n  ai[\"prompts dot json - ChatGPT SEO summaries\"] --> ws[\"future websocket backend\"]",
+  "generated": "2026-10-22"
+}

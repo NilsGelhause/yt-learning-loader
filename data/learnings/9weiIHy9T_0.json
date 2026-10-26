@@ -1,0 +1,82 @@
+{
+  "video_id": "9weiIHy9T_0",
+  "title": "Agentic Engineering Benchmarks: How I RANK Astra, Fable 5.1, and Open-Weights",
+  "summary": "Indie Dev Dan argues that the Artificial Analysis Index (a mash-up of ~10 benchmarks into one number) loses the only signal that matters - which model to run for your specific work - and builds a personal top-five benchmark set for agentic engineering. He walks through each benchmark with live data: Terminal Bench for pure terminal agentic coding (Astra leads; he reads a sample task's metadata and instruction.md), Apex Agents for knowledge work in investment banking, consulting, and law (tasks vetted by McKinsey, BCG, Goldman Sachs experts; MuSpark surprises), Automation Bench for cross-app work where guardrail violations count as failures (Grok 4.6 and GLM 5.3 top it, Fable trails), Omniscience for hallucination where agents may refuse to answer at no penalty (the 'I don't know' lesson from OpenAI's Astra swarm hack), and Deep SWE for long-horizon software engineering (Astra wins on 30K output tokens in 29 steps; Gemini 3.8 Flash shines as a workhorse). He closes by unifying the picks around out-loop agentic engineering - long-horizon, low-deception, guardrail-following agents - and the tradeoff triangle of performance, cost, and speed, advocating a model stack over any single model.",
+  "what_you_learn": "You learn a concrete method for choosing and reading LLM benchmarks instead of trusting aggregate indexes: pick 3-5 benchmarks aligned with your actual work, always cross-check score against output tokens, time, and cost, look for variance (flat saturated benchmarks carry no information), and treat hard domains as proxies for your own. It also gives a working model-selection framework - state-of-the-art, workhorse, and lightweight tiers stacked together - with named current models in each tier for agentic coding.",
+  "skills": [
+    {"name": "AI Benchmarking", "description": "Reading Omniscience-style results with correct, incorrect, partial, and not-attempted grading, where refusing to answer is free."},
+    {"name": "Model Selection & Routing", "description": "Combining state-of-the-art, workhorse, and lightweight models by task type instead of selecting one model for everything."},
+    {"name": "Token Economics", "description": "Comparing models by output tokens per task, cost per task, and useful agent output per hour rather than headline scores."}
+  ],
+  "learnings": [
+    {
+      "title": "Indexes are a proxy of a proxy - build your own top five",
+      "detail": "The Artificial Analysis Index 4.3 compresses many benchmarks into one broad statement, but not all benchmarks matter equally for your work. Dan's exercise: if you could only pick five benchmarks, which five? Forcing the choice builds decision criteria and pushes you away from catch-all indices that are valuable only to a point. Always keep one eye on the index and one on your personal index.",
+      "time_hint": "01:55"
+    },
+    {
+      "title": "Terminal Bench - the purest agentic coding benchmark",
+      "detail": "Terminal Bench sends a task prompt to an agent running in a prepared container with code, data, and system state; the agent loops over commands and a verifier passes or fails the resulting state. It spans 60+ tasks across software engineering, ML, science, ops, security, hardware, and media. Astra leads, Fable 5.1 trails, and there is a big drop-off around the 40-42% level - that variance is the alpha. Kimi K3 underperforms here (did distillation miss something?) while GLM 5.3 does much better, showing one benchmark is never enough.",
+      "time_hint": "02:20"
+    },
+    {
+      "title": "Score is not enough - count tokens, time, and cost",
+      "detail": "Using Astra as a control group on Terminal Bench: Astra Max uses 2.7x fewer output tokens than Fable 5 and 2.5x fewer than Fable 5.1, and is about 4x cheaper per task than Fable and 2.4x cheaper than Fable 5.1. Two models can look tied on performance while one is far cheaper - if you only read the headline index you would pick wrong. His master metric: useful agent output per hour of token spend.",
+      "time_hint": "04:01"
+    },
+    {
+      "title": "Apex Agents - benchmark hard knowledge work outside software",
+      "detail": "Apex Agents measures agents on tasks from investment banking, management consulting, and corporate law, vetted by experts from McKinsey, BCG, Deloitte, Goldman Sachs, Morgan Stanley, and JP Morgan. It matters because your product agents will face prompts from knowledge workers, not engineered plans. Surprises: MuSpark 1.1 places third while Fable 5 scores oddly low - more evidence that rankings shift per domain and a single benchmark misleads.",
+      "time_hint": "08:18"
+    },
+    {
+      "title": "Automation Bench - guardrail violations are failures",
+      "detail": "Automation Bench has 600+ tasks across finance, HR, marketing, operations, sales, and support, using common tools like email and comms apps. The key twist: completing the objective while triggering guardrail violations still loses points - most benchmarks only capture pass or fail. With violations counted, the ranking flips: Opus and Fable jump up when violations are ignored, but with them counted Grok 4.6 and GLM 5.3 top the chart. Astra stays a big winner; Fable struggles in the finance domain.",
+      "time_hint": "13:58"
+    },
+    {
+      "title": "Omniscience - the cost of an honest agent",
+      "detail": "The Artificial Analysis Omniscience benchmark measures hallucination rate, answering 'what does it cost for your agent to be honest'. Each answer is graded correct, incorrect, partial, or not attempted - agents can opt out of answering with zero score change. That opt-out matters: OpenAI's Astra swarm hacked itself and Hugging Face partly because its agents had no way to say 'I don't know'. Pick models that bail out when they lack an answer, especially as engineers review less and less code.",
+      "time_hint": "20:24"
+    },
+    {
+      "title": "Deep SWE - the long-horizon signal",
+      "detail": "Deep SWE extends SWE-bench Pro by forcing longer-running tasks from real GitHub issues and PRs, using realistic short prompts. Astra wins with only 30K output tokens in 29 steps at low cost. Dan likes short prompts because they prove capability floor: if an agent does large engineering work from a vague one-liner, a detailed plan makes it even better - he pushes toward this agentic-engineering ceiling, not the vibe-coding floor. Caveat: check that benchmark providers keep models updated and show no provider bias.",
+      "time_hint": "25:37"
+    },
+    {
+      "title": "Flat-line benchmarks are dead - look for variance",
+      "detail": "AA's long-context retrieval benchmark shows every model clustered at the top - a flat line that signals saturation. If everyone passes, the benchmark carries no information for model choice, so walk away from it. The exception: if your work genuinely depends on maxing out a 900K context window, a 3% recall edge can matter. Otherwise, seek benchmarks where models actually fall off the curve - that spread is where model selection pays.",
+      "time_hint": "31:06"
+    },
+    {
+      "title": "Combine compute, do not select compute",
+      "detail": "Dan's repeated conclusion across all five benchmarks: one model is never the answer for scaled product agents. Maintain a model stack - state-of-the-art (Astra, Fable), workhorse (Gemini 3.8 Flash, GLM 5.3, Grok 4.6, Kimi K3), and lightweight (GLM 5.3 Flash, Luna) - and route tasks to the cheapest tier that can handle them. Workhorse models burn more tokens and steps to reach results but cost 10-20x less, which is exactly what makes swarms affordable.",
+      "time_hint": "18:43"
+    },
+    {
+      "title": "All five picks serve one goal - out-loop agentic engineering",
+      "detail": "The common thread: benchmarks for long-horizon work, guardrail alignment, honesty, hard-domain proxies, and raw engineering skill. One hallucination poisons every downstream agent in a long-running pipeline, so low deception is non-negotiable for systems that build systems. A paid Astra or Fable swarm would break the bank; Gemini 3.8 Flash or GLM swarms are affordable. Future wish-list benchmarks: delegation, small agent teams, handoffs, self-healing, and agent-to-agent communication.",
+      "time_hint": "29:54"
+    },
+    {
+      "title": "Workhorse models trade tokens for affordability",
+      "detail": "Across Terminal Bench and Deep SWE, the A/B-tier workhorse models (GLM 5.3, Gemini 3.8 Flash, GLM 5.3 Flash) reach good results but burn far more output tokens and thinking time than frontier models. That is a trade-off you can consciously accept when speed matters less than cost - e.g. picking Gemini 3.8 Flash for long-horizon deep SWE tasks when you can sacrifice speed. Speed is the variable Dan gives up most easily; performance and cost dominate.",
+      "time_hint": "04:26"
+    }
+  ],
+  "key_points": [
+    "An index is a proxy of a proxy - by the time ten benchmarks are mashed into one number, the answer to 'which model for my work' is gone.",
+    "Choosing a model is a three-dimensional problem: performance, cost, and speed together as a single unit.",
+    "A model that looks tied on score can be 4x cheaper - Astra runs Terminal Bench tasks at a fraction of Fable's cost and tokens.",
+    "A flat line on a benchmark chart means saturation: everyone passes, so the benchmark carries no information - walk away.",
+    "Automation Bench counts guardrail violations as failures - and the ranking flips when you do, so always ask 'did it break something on the way'.",
+    "Give agents a way to say I do not know - Omniscience charges nothing for refusing to answer, and the Astra swarm hack showed the cost of not having an out.",
+    "Use a model stack - state-of-the-art, workhorse, lightweight - and route each task to the cheapest tier that can do it; combine compute, do not select compute.",
+    "Workhorse models like Gemini 3.8 Flash and GLM 5.3 burn more tokens to get there but cost 10-20x less - that is what makes agent swarms affordable.",
+    "The master metric is useful agent output per hour of token spend, not raw benchmark score.",
+    "One hallucination in a long-running agent pipeline corrupts every subsequent agent - honesty benchmarks are infrastructure, not trivia."
+  ],
+  "mermaid": "flowchart TD\n  A[\"AA Index - proxy of a proxy\"] --> B[\"Personal top five benchmarks\"]\n  B --> C[\"Terminal Bench - terminal coding\"]\n  B --> D[\"Apex Agents - hard knowledge work\"]\n  B --> E[\"Automation Bench - guardrail following\"]\n  B --> F[\"Omniscience - honesty and opt out\"]\n  B --> G[\"Deep SWE - long horizon engineering\"]\n  C --> H[\"Score plus tokens plus time plus cost\"]\n  D --> H\n  E --> H\n  F --> H\n  G --> H\n  H --> I{\"Flat line or variance\"}\n  I -->|\"flat saturated\"| J[\"Ignore benchmark\"]\n  I -->|\"variance\"| K[\"Personal model index\"]\n  K --> L[\"State of the art tier - Astra Fable\"]\n  K --> M[\"Workhorse tier - Gemini 3.8 Flash GLM 5.3 Grok 4.6\"]\n  K --> N[\"Lightweight tier - GLM 5.3 Flash Luna\"]\n  L --> O[\"Out-loop agentic engineering\"]\n  M --> O\n  N --> O",
+  "generated": "2026-10-21"
+}

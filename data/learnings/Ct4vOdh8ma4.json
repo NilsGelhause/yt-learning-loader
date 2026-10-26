@@ -1,0 +1,87 @@
+{
+  "video_id": "Ct4vOdh8ma4",
+  "title": "I'm learning VUEEEEEEEE",
+  "summary": "A three-hour chill Friday stream that takes two very different turns. First, Matt pitches three project ideas (a PartyKit-based board game design playground, a canvas knowledge-graph thought app, and the 'Matt Stack' for shipping libraries), lets the chat vote, and commits to the Matt Stack. He brainstorms a toolchain for publishing packages (changesets, tsup, pnpm, vitest, turborepo) and pivots to building the 'successor to plop' - a TypeScript-first generator library with a fluent builder API, typed prompts (text, boolean, number via overloads), ensureDirectory and createFile operations, and function-based templates. After roughly ninety minutes he hits the 'trough of disillusionment' and concedes plop's handlebars-file approach beats his invention. Then, true to the title, he spends the final stretch learning Vue 3 from scratch with create-vue, exploring single-file components, script setup, refs, computed, slots, v-model, watch with onCleanup and AbortController-based fetch cancellation. He wraps up by reflecting that the stream 'went downhill' for him personally but the Vue exploration was genuinely fun.",
+  "what_you_learn": "Two lessons in one: watching an experienced engineer design a library API type-first (generic builder chains, function overloads for prompt types, a Prettify helper) and then honestly evaluate his design against the incumbent - a great case study in when not to build. The Vue segment is a fast, React-developer-oriented mental-model transfer: refs versus state, computed versus useMemo, watch versus useEffect, and how scoped styles and slots reframe component composition. Both halves teach the skill of mapping a known framework's concepts onto a new one.",
+  "skills": [
+    {"name": "API & Module Design", "description": "A fluent createGenerator API where each call returns a chainable interface accumulating typed prompt results."},
+    {"name": "TypeScript Type System", "description": "Designing library types first with generics and overloads so prompt answers flow through the chain with full inference."},
+    {"name": "Software Architecture", "description": "Matt's definition - a framework is where you go for all your problems, a library solves a single problem."},
+    {"name": "Frontend Development", "description": "Named slot outlets and slot content with fallback, v-slot shorthand, and dynamic slot names via the slots object."},
+    {"name": "Frontend State Management", "description": "Refs auto-unwrap in templates, mutations are fine-grained, and computed caches based on reactive dependencies with no manual dependency array."}
+  ],
+  "learnings": [
+    {
+      "title": "Poll the audience, then commit to an idea",
+      "detail": "Matt opens with three candidate projects on a tldraw canvas - a PartyKit-powered board game design tool, a canvas-based thought app with AI-detected regions over an Obsidian-style concept graph, and the 'Matt Stack' for shipping npm libraries. He runs a YouTube stream poll and the Matt Stack wins, which he credits with forcing a decision and giving the stream direction.",
+      "time_hint": "11:30"
+    },
+    {
+      "title": "A stack needs an adoption story, not just good tools",
+      "detail": "Reflecting on how Kent C. Dodds positions his upcoming 'Epic Web Dev' course, Matt argues that courses and stacks succeed when teams can say 'we want to adopt this thing' - Total TypeScript sells because teams feel blocked by TypeScript, Testing JavaScript sold because teams wanted deploy confidence. He defines his terms: a framework is where you take all your problems, a library solves a single problem - so turborepo is a library, not a framework like NX.",
+      "time_hint": "18:25"
+    },
+    {
+      "title": "The Matt Stack tool brainstorm: changesets, tsup, pnpm, vitest",
+      "detail": "For shipping libraries he lists changesets for versioning and changelogs in monorepos, tsup for builds, pnpm as the package manager (faster and more predictable than yarn), vitest for tests, plus prettier, eslint, turborepo, and nextra for docs. He rejects tsdx as effectively dead and husky in favor of the newer left hook. His diagnosis: getting these tools to play together is genuinely painful, which is the gap a stack should close.",
+      "time_hint": "33:20"
+    },
+    {
+      "title": "Turbo repo lacks templates, so the goal becomes plop's successor",
+      "detail": "The missing piece in the Matt Stack tooling is scaffolding: turbo repo orchestrates tasks but has no generator templates. Matt pivots the project to building a better plop - a CLI templating tool whose weaknesses he knows well (he 'used to plop several times a day'): it is TypeScript-unfriendly and its docs do not excite anyone.",
+      "time_hint": "38:50"
+    },
+    {
+      "title": "Design the library types first, runtime later",
+      "detail": "Working test-first in a vitest file with zero runtime for a long stretch, Matt sketches createGenerator('new-package') returning a Generator interface with a prompt method. Prompt is overloaded on TextPromptOptions, BooleanPromptOptions, and NumberPromptOptions, so prompt('useEslint', { type: 'boolean' }) makes ops.useEslint a boolean while ops.name stays a string - full inference through the chain without the user writing generics.",
+      "time_hint": "43:30"
+    },
+    {
+      "title": "Prompt answers accumulate through the builder chain",
+      "detail": "Each prompt(key, options) call adds key into the type arguments of the next link in the chain, so a later ensureDirectory(ops.name) type-checks ops.name only if the prompt exists and fails if the key was never prompted. Directory and file targets accept a string or a function of the prompt options (a StringOrCreator<TPromptOptions> helper type).",
+      "time_hint": "48:50"
+    },
+    {
+      "title": "Function templates lose to handlebars files - know when to quit",
+      "detail": "Matt prototypes templates as functions returning strings (createTemplate with (ops) => JSON.stringify(..., null, 2)) but concedes the multi-line result is ugly and untyped, while plop's .hbs files give runtime conditionals like {{#if description}} plus whole-directory mirroring for free. After comparing against NX's generators (which use EJS templates and a schema.json), he declares the project strictly worse than plop: 'it is fun when you work on something for a couple of hours and realize the thing you are trying to replace is better than the thing you created.'",
+      "time_hint": "1:25:00"
+    },
+    {
+      "title": "Scaffold Vue 3 with create-vue, pnpm, and the Volar extension",
+      "detail": "Switching to the title topic, Matt runs npm create vue@latest (choosing TypeScript, no JSX, no vue-router for now, Pinia, vitest, Cypress), deletes the npm lockfile and installs with pnpm, and installs the Volar VS Code extension - Vue's official tooling, with its own .d.ts files for template type-checking. A chunk of time goes to editor config: making prettier the editor.defaultFormatter so format-on-save works inside .vue files.",
+      "time_hint": "1:44:00"
+    },
+    {
+      "title": "SFC structure: script setup is compile-time sugar",
+      "detail": "A .vue single-file component has three blocks - script, template (which must have content but can hold multiple root elements), and style. script setup is compile-time syntactic sugar that enables the composition API directly in the SFC without exporting a setup function. The style block with scoped limits CSS to the component and its children; unscoped styles leak globally. Removing setup breaks all composition API code.",
+      "time_hint": "1:55:00"
+    },
+    {
+      "title": "Slots are Vue's composition primitive, with shorthand sugar",
+      "detail": "Matt works through named slots: a child component declares slot outlets (with optional fallback content) and the parent fills them via template v-slot:icon, shorthand #icon. Slot content lives in the parent's data scope, and dynamic slot names come from the slots object exposed by useSlots, e.g. slots[iconSlot]. He notes the DSL shortcuts (v-slot:header to #header) feel foreign coming from React, which deliberately avoids template-language magic.",
+      "time_hint": "2:05:00"
+    },
+    {
+      "title": "Data fetching with ref, computed, v-model, and watch",
+      "detail": "Building a swapi.dev fetcher, Matt maps React concepts: ref is like useState (accessed as data.value in script, auto-unwrapped in templates), computed is useMemo without a manual dependency array (cached on reactive deps), v-model two-way-binds the input ref to the URL, and templates auto-stringify JSON - even {{ JSON.stringify(data, null, 2) }} works inline. Props are declared with defineProps and passed dynamically with :url.",
+      "time_hint": "2:22:00"
+    },
+    {
+      "title": "Refetch reactively with toRef, immediate true, and onCleanup",
+      "detail": "To refetch when a prop-driven URL changes, Matt learns the pieces with chat's help: watch needs a ref or getter source, so props.url must be converted with toRef(props, 'url'); immediate: true runs the callback on setup (unlike React effects); and the watch callback receives an onCleanup registration where he creates an AbortController, passes its signal to fetch, and aborts on cleanup - canceling in-flight requests, which useEffect only approximates with a single cleanup return.",
+      "time_hint": "2:38:00"
+    }
+  ],
+  "key_points": [
+    "A stack succeeds on its adoption story - teams must be able to say 'we want to adopt this thing'.",
+    "Design library types first; the fluent builder carried real inference before a single line of runtime existed.",
+    "Know when to quit: after two hours the 'successor to plop' was strictly worse than plop.",
+    "The trough of disillusionment is a normal, nameable phase of any side project.",
+    "script setup is compile-time sugar that unlocks the composition API inside single-file components.",
+    "computed is useMemo without the dependency array - caching derived from reactive dependencies automatically.",
+    "watch with immediate true plus onCleanup and AbortController cancels in-flight fetches properly.",
+    "v-model two-way-binds a ref to an input, and templates auto-stringify objects for you."
+  ],
+  "mermaid": "flowchart TD\n  ideas[\"Three project ideas on tldraw\"] --> poll[\"Chat vote - Matt Stack wins\"]\n  poll --> tools[\"Toolchain - changesets tsup pnpm vitest turborepo\"]\n  tools --> gap[\"Gap found - no template generators\"]\n  gap --> plop2[\"Build successor to plop\"]\n  plop2 --> types[\"Type first builder - prompt overloads\"]\n  types --> chain[\"Prompt answers flow down the chain\"]\n  chain --> tpl[\"Function templates\"]\n  tpl --> hbs[\"Handlebars files win\"]\n  hbs --> despair[\"Trough of disillusionment\"]\n  despair --> vue[\"Pivot - learn Vue 3\"]\n  vue --> sfc[\"create-vue plus pnpm plus Volar\"]\n  sfc --> comp[\"SFC - script template scoped style\"]\n  comp --> rea[\"ref computed watch v-model\"]\n  rea --> fetch[\"swapi fetcher with toRef\"]\n  fetch --> abort[\"watch onCleanup aborts in flight fetch\"]\n  abort --> wrap[\"Stream wrap up\"]",
+  "generated": "2026-10-22"
+}

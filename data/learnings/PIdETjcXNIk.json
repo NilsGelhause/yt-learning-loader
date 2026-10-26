@@ -1,0 +1,92 @@
+{
+  "video_id": "PIdETjcXNIk",
+  "title": "Pi to Pi: Two-Way Agent Orchestration with the Pi Coding Agent",
+  "summary": "Dan argues that subagent delegation is the local maximum of multi-agent orchestration because every existing pattern (subagents, message-queue broker, agent chains) moves information one way, top-down. The alternative he builds is Pi-to-Pi: true two-way, peer-to-peer communication between Pi coding agents, where agents are equals rather than orchestrator and workers. He demonstrates it twice: a production gatekeeper agent on a Mac mini syncs a PII-safe slice of a production database to a dev agent on an M5 MacBook Pro so a ProTier user bug can be reproduced locally, and an E2B agent (GPT 5.5) plus an exe.dev agent (Opus 4.7) collaborate across devices to build a feature-parity exe.dev sandbox skill, validating each other's claims. He then explains the implementation (four tools: list agents, send prompt, await response, check message; local and bun-server network versions), and closes with honest pros (flat comms, no info loss, permanent agents, composable primitives) and cons (you build it yourself, sloppy prompts cause token-burning loops, cost scales with agent count).",
+  "what_you_learn": "You learn to see orchestrator-worker agent setups as one-directional information hierarchies where the best ideas can die, and you get a concrete peer-to-peer alternative: agents messaging each other by ID with blocking or polling waits. For a junior-mid developer new to agent systems, it clarifies when to use subagents, message brokers, or chains versus flat two-way teams, and why focused per-agent context windows beat one giant context.",
+  "skills": [
+    {"name": "Agent Handoffs & Communication", "description": "Two-way peer-to-peer messaging between Pi coding agents where any agent can prompt any other and await the response by message ID."},
+    {"name": "Multi-Agent Orchestration", "description": "Structuring multi-agent systems as equals instead of orchestrator and workers so information flows in both directions and the best ideas win."},
+    {"name": "Context Engineering", "description": "Giving each agent a focused context window on one problem only, since a focused agent is a performant agent and error rate rises with mixed context."},
+    {"name": "AI Output Verification", "description": "Running a validator agent on top of a primary agent to double-check every claim and confirm completed work matches what was reported."},
+    {"name": "Agent Observability", "description": "Using one agent as a domain expert teammate to answer questions while another builds a mirrored skill against a new service, producing a parity document."}
+  ],
+  "learnings": [
+    {
+      "title": "Subagent delegation is the local maximum of orchestration",
+      "detail": "Existing multi-agent patterns all move information one way, top-down: subagent delegation, a message queue with an agent acting as broker (the Claude Code agent teams approach), and agent chains (deterministic workflows with agent nodes where code can be inserted at any step). They are powerful but never bidirectional, which caps what agent teams can do.",
+      "time_hint": "05:55"
+    },
+    {
+      "title": "Peer-to-peer agents are equals, not parent and child",
+      "detail": "The Pi-to-Pi solution is simple: let agents talk to each other with prompt-response exchanges. Because agents are peers rather than orchestrator and worker, information flows in both directions, unlocking bidirectional coordination across devices and across as many agents as useful - a researcher, a coder, a planner, or in the demo a prod agent and a dev agent.",
+      "time_hint": "06:48"
+    },
+    {
+      "title": "Cross-device demo setup with a prod gatekeeper agent",
+      "detail": "Dan boots one agent on a Mac mini production server and one on an M5 MacBook Pro dev machine, naming them via J Comms with ping checks. The production agent gets a prod gatekeeper prompt: it owns a seeded production database, understands the system, and is explicitly instructed never to expose PII to any other agent on the network.",
+      "time_hint": "01:38"
+    },
+    {
+      "title": "PII-safe production repro via agent collaboration",
+      "detail": "The dev agent's task is to bring the affected slice from production into the local dev DB with PII stripped so the ProTier lockout bug can be reproduced. The production agent does the work with all redactions applied, syncs the slice, and the dev agent verifies PII is clean - legitimate cross-device engineering work with a privacy constraint enforced by prompting.",
+      "time_hint": "03:10"
+    },
+    {
+      "title": "Messages return IDs and can be awaited or polled",
+      "detail": "When an agent sends a prompt to a peer it gets back a message ID and can await the response. Awaiting can be a blocking wait or a non-blocking poll, like sending a Slack message that needs an answer versus one that is just an FYI - the sender controls whether it stalls or continues working.",
+      "time_hint": "03:32"
+    },
+    {
+      "title": "Ideas die in hierarchies, so flat systems win",
+      "detail": "Dan draws the analogy to corporate hierarchies: commands flow down, but the best information and decisions usually sit with the engineers at the bottom, where ideas get stuck without the right title or authority. Flat structures like Nvidia's famously flat reporting or startup orgs let valuable information beat titles and politics - the same applies to agent systems, and everything is a system with information flows.",
+      "time_hint": "08:15"
+    },
+    {
+      "title": "The E2B vs exe.dev feature-parity skill build",
+      "detail": "Second demo: Dan wants an exe.dev agent sandbox skill matching his existing E2B skill. The E2B agent (GPT 5.5) is prompted as the domain expert teammate that answers questions and produces a feature inventory of commands, inputs, outputs, and E2B quirks. The exe.dev agent (Opus 4.7 in the Pi harness) is the driver: it must initiate contact, ask questions, build the skill against exe.dev's persistent VM platform, and deliver a feature parity document.",
+      "time_hint": "12:40"
+    },
+    {
+      "title": "Focused context windows are context engineering",
+      "detail": "Dan rejects waiting for 5M-token context windows to fix everything: the more unrelated problems, APIs, and systems you put in one context window, the higher the error rate. He splits roughly 2M tokens of available context across two agents, each near 10-20% utilization and focused on exactly one problem - a focused agent is a performant agent, and context engineering is getting just the right things, not all the things.",
+      "time_hint": "15:10"
+    },
+    {
+      "title": "Validators double-check claims between agents",
+      "detail": "The exe.dev agent flags E2B's claims before baking them into the new skill and the exchange yields about 10 corrections - the verifier pattern from a previous video where a validator agent checks that everything the primary agent said is true and that the work it reported is exactly what was done. Dan runs a validator on his primary Pi agent daily, trading extra tokens for saved time.",
+      "time_hint": "24:15"
+    },
+    {
+      "title": "The implementation is four tools plus a bun server",
+      "detail": "There is basically no magic: agents list agents on the network, send a command or prompt, and optionally await a response. Two versions ship in the Pi vs Claude Code codebase: a non-network coms version for a single device, and coms net, a lightweight bun server accepting requests over the network with endpoints to connect, list agents, get messages, and process events. Dan advises read-and-adapt: have your agents transform the code for your own use case and security needs.",
+      "time_hint": "21:40"
+    },
+    {
+      "title": "Pros: permanent, composable, flat, customizable agents",
+      "detail": "The pros are that these are just normal agents with an extension - no subagent spin-up, spin-down, or resume semantics (unlike Claude's resume flag); they are permanent peers on any device or server; bidirectional comms are flat with no information loss and no orchestrator bottleneck; and because it is an open harness, the whole thing is customizable end-to-end as a primitive you compose bigger systems from.",
+      "time_hint": "27:52"
+    },
+    {
+      "title": "Cons: self-built, loop-prone, and cost-linear",
+      "detail": "The cons: you must build, vet, prompt-engineer, and context-engineer it yourself and handle edge cases; sloppy prompts can create loops that chew tokens, so every prompt needs a defined end state; and cost scales roughly linearly with agent count plus communication bounce - there is a limit to how many agents in a pool stay useful, so trim when coordination stops paying. Also, do not automatically fall back into orchestration patterns; peer-to-peer's whole advantage is that it is flat.",
+      "time_hint": "30:40"
+    },
+    {
+      "title": "Diverse models plus communication beat either alone",
+      "detail": "Answering why not just one agent: context windows are limited and error rates rise with mixed context, and each unique model has different training and RL loops. GPT 5.5 next to Opus 4.7 communicating creates a system that outperforms either alone - just like code plus agent beats either alone. That composition effect, not parallel file generation, is the real value proposition of multi-agent orchestration.",
+      "time_hint": "25:52"
+    }
+  ],
+  "key_points": [
+    "Subagents are the local maximum of multi-agent orchestration.",
+    "Ideas die in agent hierarchies the same way they die in corporate hierarchies.",
+    "A focused agent is a performant agent.",
+    "The best ideas win when information flows both ways - flat beats hierarchy.",
+    "Cost scales linearly with agent count plus communication bounce.",
+    "Unique agent one plus unique agent two communicating beats either alone.",
+    "This is just an agent and an extension - permanent, flat, and composable.",
+    "The tool you use limits what you believe is possible; patterns like this are impossible on a rented harness."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Multi Agent Orchestration Problem\"] --> B[\"One Way Patterns\"]\n  B --> B1[\"Subagent Delegation\"]\n  B --> B2[\"Message Queue Broker\"]\n  B --> B3[\"Agent Chains With Code\"]\n  A --> C[\"Pi to Pi Two Way Comms\"]\n  C --> D[\"Peer Agents As Equals\"]\n  D --> E[\"Comms Local Single Device\"]\n  D --> F[\"Comms Net Bun Server\"]\n  F --> G[\"Prod Agent on Mac Mini\"]\n  F --> H[\"Dev Agent on MacBook\"]\n  F --> I[\"E2B Expert Agent GPT 5.5\"]\n  F --> J[\"Exe Dev Builder Agent Opus 4.7\"]\n  G -->|\"PII Safe Slice With Message IDs\"| H\n  I -->|\"Feature Inventory And Corrections\"| J\n  J -->|\"Questions and Parity Requests\"| I\n  C --> K[\"Focused Context Windows\"]\n  K --> L[\"Validator Agent Double Checks Claims\"]\n  L --> M[\"Feature Parity Skill Delivered\"]",
+  "generated": "2026-10-21"
+}

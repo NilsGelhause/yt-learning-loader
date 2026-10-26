@@ -1,0 +1,55 @@
+{
+  "video_id": "t34UuBxB2YQ",
+  "title": "My #1 book recommendation for strategic programming",
+  "summary": "Matt Pocock argues that AI has eaten day-to-day tactical coding, so the valuable skill left for developers is strategic programming: the long-term view, seeing ahead in a codebase, and preparing an AI to work effectively in your codebase. His number one recommendation for learning it is the 1999 classic The Pragmatic Programmer by Andrew Hunt and David Thomas, which he calls possibly the best-laid-out technical book he has ever read. He explains that many of the terms developers use daily - tracer bullets, don't outrun your headlights, programming by coincidence - come from this book, and that he has taken concepts from it and plugged them directly into system prompts, where they work great. Re-reading it recently convinced him that proper software fundamentals still matter, because everything in it feels like it was written for the AI age.",
+  "what_you_learn": "You learn why classic software engineering fundamentals remain the right preparation for the AI era: strategic concepts like tracer bullets and 'don't outrun your headlights' translate directly into how you brief and prompt agents to work in your codebase. The practical takeaway is that old foundational books are a source of agent-ready principles you can lift into system prompts.",
+  "skills": [
+    {"name": "Strategic Thinking", "description": "Thinking about the long-term health of a codebase instead of only the next tactical change."},
+    {"name": "Software Craftsmanship", "description": "Classic engineering principles from foundational books that still apply in the AI era."},
+    {"name": "Prompt Engineering", "description": "Plugging battle-tested programming principles directly into system prompts for agents."},
+    {"name": "Iterative Prototyping", "description": "Building a thin end-to-end path early to validate architecture before fleshing it out."},
+    {"name": "Codebase Navigation", "description": "Preparing an AI agent with the long-term view it needs to work effectively in your codebase."}
+  ],
+  "learnings": [
+    {
+      "title": "AI has eaten tactical programming, strategic programming remains",
+      "detail": "Pocock's starting observation: AI has taken over day-to-day, tactical programming - writing the code for the task in front of you. What it has not replaced is strategic programming: the long-term view of a codebase and how changes will play out over time.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "The real question: how do you prepare AI to work in your codebase",
+      "detail": "The question he gets constantly and addresses here: how do you learn to see ahead in a codebase and prepare an AI for working in it effectively? His answer is that the skill you need is strategic thinking, and the way to learn it is to go back to the old foundational books.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "The recommendation: The Pragmatic Programmer by Hunt and Thomas",
+      "detail": "His number one book recommendation, which he holds up to the camera: The Pragmatic Programmer by David Thomas and Andrew Hunt. He calls it possibly the best-laid-out technical book he has ever read, packed with insights on what it takes to think strategically when programming.",
+      "time_hint": "00:17"
+    },
+    {
+      "title": "Many everyday developer terms started in this book",
+      "detail": "Terms the industry uses daily - programming by coincidence, and concepts like tracer bullets and don't outrun your headlights - all started from this book. Its vocabulary became the shared language of professional software development.",
+      "time_hint": "00:42"
+    },
+    {
+      "title": "Book principles plug directly into system prompts",
+      "detail": "He has taken tons of material from the book and plugged it straight into system prompts, and it works great. This is a practical bridge from classic literature to agent engineering: well-stated principles are agent-ready instructions, no translation layer needed.",
+      "time_hint": "00:37"
+    },
+    {
+      "title": "Re-reading it proved fundamentals still matter in the AI age",
+      "detail": "Going back to the book a few months ago convinced him that proper software fundamentals still matter, because everything in it feels like it was written for the AI age. Advice written for human programmers about long-term thinking turns out to apply almost verbatim to how you direct AI agents.",
+      "time_hint": "00:52"
+    }
+  ],
+  "key_points": [
+    "AI ate tactical coding - strategic programming is the skill that remains.",
+    "The Pragmatic Programmer is the number one book for learning it.",
+    "Terms like tracer bullets and programming by coincidence came from this book.",
+    "Well-stated principles from classic books plug directly into system prompts - and work.",
+    "Everything in the book feels like it was written for the AI age.",
+    "Preparing an AI for your codebase means giving it the long-term view - the strategic layer."
+  ],
+  "mermaid": "flowchart TD\n  ai[\"AI eats tactical day to day coding\"] --> gap[\"Strategic programming remains\"]\n  gap --> question[\"How to see ahead in a codebase\"]\n  question --> prepare[\"Prepare AI to work in the codebase\"]\n  book[\"The Pragmatic Programmer - Hunt and Thomas\"] --> concepts[\"Tracer bullets - dont outrun headlights - no programming by coincidence\"]\n  concepts -->|lift directly| prompts[\"Plug principles into system prompts\"]\n  prompts --> outcome[\"Agent works with a long term view\"]\n  reread[\"Re read in the AI age\"] --> fundamentals[\"Software fundamentals still matter\"]\n  book --> reread",
+  "generated": "2026-10-22"
+}

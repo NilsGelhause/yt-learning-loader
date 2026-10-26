@@ -1,0 +1,54 @@
+{
+  "video_id": "Yn8h5Ip-L9c",
+  "title": "Do you even need human review?",
+  "summary": "Matt Pocock explains how to strategically place human review checkpoints in AI-powered development workflows. He starts from a pre-AI process of plan, ship, review, where every checkpoint is human, and argues against the dream of translating all of them to AI at once. Instead, the position of the human checkpoint should depend on the size of the work: for large pieces of work you shift review left (align with the AI at the planning stage, review again before production), while for small work you shift it right (align once, or even just specify in a single prompt, and review only before going live). The underlying reason: the smaller the diff, the easier it is to regenerate the code and hold it all in context, so late fixes are cheap. Big work is expensive to fix late, so alignment must happen early.",
+  "what_you_learn": "You learn a simple decision rule for designing human-in-the-loop agent workflows: calibrate the position of the human review checkpoint to the size and reversibility of the change. This is the core design skill for anyone building agent systems that mix autonomous execution with human oversight.",
+  "skills": [
+    {"name": "Code Review", "description": "Using diff size as the heuristic for where review belongs, because small diffs are cheap to regenerate and hold in context."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Humans stay involved at the critical checkpoints - early alignment or final review - while the AI does the middle work."},
+    {"name": "AI Safety & Alignment", "description": "Aligning with the AI on plan and intent before large work starts, using skills like Grill Me, Grill with Docs, and Wayfinder."},
+    {"name": "Workflow Design", "description": "Designing plan-ship-review pipelines as explicit checkpoints that can each be human or AI controlled."}
+  ],
+  "learnings": [
+    {
+      "title": "The default process is plan, ship, review - with humans at every checkpoint",
+      "detail": "Matt frames a pre-AI process as three stages: plan some work, ship some work, review the work. Every checkpoint where work is checked is a human checkpoint. The common dream is to translate all of these to AI at once, but he argues that does not make sense as a blanket move.",
+      "time_hint": "00:08"
+    },
+    {
+      "title": "For large work, shift the human review left into the planning stage",
+      "detail": "On very large pieces of work you want to align with the AI first - be involved at the initial planning stage. This is exactly what his skills Grill Me, Grill with Docs, and Wayfinder do: they grill the human (or the docs) to force alignment before expensive execution begins. You also still want a human review right at the end before shipping to production.",
+      "time_hint": "00:30"
+    },
+    {
+      "title": "Some work needs only early alignment and can then ship straight to prod",
+      "detail": "For changes like a pure refactor or an internal documentation rename, the end-of-work human review can be dropped. The human aligns early, considers the plan done, and the AI ships all the way to production autonomously. This is the human-near-the-loop pattern: one alignment checkpoint, autonomous execution after.",
+      "time_hint": "00:45"
+    },
+    {
+      "title": "For tiny changes, specify in one prompt and review only before going live",
+      "detail": "For very simple changes - changing a button color, renaming a title, fixing a two-line bug - you do not even need early alignment. Specify the work in a single prompt, skip the grilling, let it ship through the process, and review right before it goes live. Matt explicitly recommends shifting the checkpoint right for this class of work.",
+      "time_hint": "01:03"
+    },
+    {
+      "title": "The language of the model: shift checkpoints left for big work, right for small work",
+      "detail": "Matt's crisp framing: you shift checkpoints left for big work you need to align on first, and shift them right for small work. The checkpoint is a dial along the plan-ship-review pipeline, not a binary human-versus-AI decision.",
+      "time_hint": "01:31"
+    },
+    {
+      "title": "Why: the smaller the diff, the cheaper it is to fix late",
+      "detail": "The underlying reason for the rule: the smaller the diff, the easier it is to totally regenerate the code and hold it all in your head (and in the model's context). So for massive work, fixing at a late stage is really expensive, which is why you must align beforehand. For tiny diffs, a late-stage fix costs almost nothing, so early alignment is wasted ceremony.",
+      "time_hint": "01:40"
+    }
+  ],
+  "key_points": [
+    "Do not automate every checkpoint at once - decide where human review belongs per task.",
+    "Big work: shift the review left - align with the AI before execution starts.",
+    "Small work: shift the review right - one prompt, autonomous execution, review before prod.",
+    "The smaller the diff, the cheaper a late fix is - that is the whole heuristic.",
+    "Refactors and internal renames can often go from early alignment straight to prod.",
+    "Grill Me, Grill with Docs, and Wayfinder exist to force early alignment on big work."
+  ],
+  "mermaid": "flowchart TD\n  task[\"Incoming task\"] --> size{\"How big is the diff\"}\n  size -->|big work| align[\"Shift review left - human aligns at planning\"]\n  align --> exec1[\"AI executes the work\"]\n  exec1 --> final[\"Human review before production\"]\n  size -->|medium work| align2[\"Early alignment - plan approved\"]\n  align2 --> exec2[\"AI ships autonomously to prod\"]\n  size -->|tiny work| prompt[\"Single prompt - no alignment\"]\n  prompt --> exec3[\"AI ships through process\"]\n  exec3 --> live[\"Human review before going live\"]\n  why[\"Reason - small diffs are cheap to regenerate and fix late\"] -.-> size",
+  "generated": "2026-10-22"
+}

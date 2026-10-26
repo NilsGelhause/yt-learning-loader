@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Learning Loader</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="app">
+  <nav id="tabbar" aria-label="Tabs"></nav>
+  <main id="screen"></main>
+</div>
+<button id="power-btn" title="Stop server" aria-label="Stop server">⏻</button>
+<div id="dead-overlay" style="display:none">
+  <div class="dead-box">
+    <div class="dead-icon">⏻</div>
+    <h2>Server stopped</h2>
+    <p>You can close this tab. Run <code>start.bat</code> to launch the learning server again.</p>
+  </div>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<script src="/static/vendor/mermaid.min.js"></script>
+<script src="/static/js/core.js"></script>
+<script src="/static/js/tabs-chrome.js"></script>
+<script src="/static/js/tab-overview.js"></script>
+<script src="/static/js/tab-teach.js"></script>
+<script src="/static/js/tab-visualize.js"></script>
+<script src="/static/js/tab-relations.js"></script>
+<script src="/static/js/tab-videos.js"></script>
+<script src="/static/js/tab-profile.js"></script>
+<script src="/static/js/tab-learned.js"></script>
+<script src="/static/js/tab-settings.js"></script>
+<script src="/static/js/tab-tests.js"></script>
+<script src="/static/js/tab-skills.js"></script>
+<script src="/static/js/tab-structure.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

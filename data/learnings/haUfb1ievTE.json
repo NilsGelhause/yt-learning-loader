@@ -1,0 +1,85 @@
+{
+  "video_id": "haUfb1ievTE",
+  "title": "My Super Simple Software Factory (For Agentic Engineers)",
+  "summary": "Indie Dev Dan introduces and open-sources his Super Simple Software Factory (SSSF): a small, readable Python codebase that wraps AI developer workflows (ADWs) — plan, build, test, review, document — around a mock writing app called Inkwell. The system's three design principles are observability, customizability, and reusability. Every workflow phase is an agent call (via the Pi coding agent) controlled by a YAML config that sets the 'core four' of each agent — context, model, prompt, tools — followed by deterministic gate checks (JSON validation, type checks, test runs) implemented as plain Python with-statement blocks. Context is handed off between phases through a shared adws/sessions directory with typed envelopes. He demos workflows live: a single-scout run on Gemini 3.6 Flash, a plan-build-test run on Kimi K3 + Gemini Flash, and the full SDLC on Opus 5 to add a markdown side-by-side viewer to Inkwell. Finally he shows the SSSF skill that lets an agent install the factory into any new codebase and operate it at agentic speed.",
+  "what_you_learn": "You learn a concrete, minimal architecture for composing agents plus deterministic code into repeatable workflows: YAML agent configs (model, prompts, harness, tools), typed JSON handoffs between phases, gate checks that send failures back to agents, and a swim-lane observability UI. It is a template for building your own software factory instead of throwing everything into skills and sub-agents.",
+  "skills": [
+    {"name": "Software Factory", "description": "A system of agents plus code that runs your engineering workflows (the software developer life cycle) repeatably, without you."},
+    {"name": "AI Developer Workflows", "description": "A templated chain of agent phases (scout, plan, build, test, review, document) that code orchestrates and validates."},
+    {"name": "Agent Harness Engineering", "description": "Teaching an agent to operate your system via a skill (slash commands), so the factory is installed, modified, and run at agent speed."},
+    {"name": "Agent Guardrails", "description": "Plain code (JSON schema validation, type checks, test runs) executed after each agent phase to verify work and bounce failures back."},
+    {"name": "Agent Handoffs & Communication", "description": "Agents communicate through a shared sessions directory using typed JSON envelopes instead of free-text context passing."},
+    {"name": "Agent Observability", "description": "A swim-lane UI showing every workflow: request, enhanced prompt, compiled system and user prompts, tool calls, gate passes, and cost per phase."},
+    {"name": "Model Selection & Routing", "description": "Picking models per workflow role from tiers (state-of-the-art, workhorse like Gemini 3.6 Flash, lightweight on-device) based on performance, cost, and speed."}
+  ],
+  "learnings": [
+    {
+      "title": "Software factories exist for one reason: leverage on your prompt",
+      "detail": "A software factory is useful for a single reason — it gives you more leverage on your prompt. At the low end you chain a few agents; at the high end you build a system of agents plus code that operates without you, as well or better than you would. The leverage is proportional to the quality of your investment into the factory, i.e. into your AI developer workflows.",
+      "time_hint": "00:15"
+    },
+    {
+      "title": "Agents plus code beats agents alone",
+      "detail": "The recurring mantra: don't throw everything into skills and sub-agents — down the road you pay in cost, speed, hallucinations, and broken runs. Code runs at the speed of light, costs nothing, and you actually own it (unlike the models you rent). In the factory, agents propose and code disposes: deterministic Python controls the entire workflow and always validates what just happened.",
+      "time_hint": "09:30"
+    },
+    {
+      "title": "Three design principles: observable, customizable, reusable",
+      "detail": "SSSF is built around three properties. Observable: a swim-lane UI shows every ADW with compiled prompts, agent calls, gate passes, and per-phase cost — 'if you can't measure your agents, you can't improve them'. Customizable: every model, role, harness, and tool is configurable per agent. Reusable: it installs into any codebase via a skill and is meant to be specialized, not used as-is.",
+      "time_hint": "01:23"
+    },
+    {
+      "title": "ADWs are code phases wrapped around agent calls",
+      "detail": "Workflows live in an adws/ directory as plain Python (~180 lines for the full simple SDLC). Each phase is a with-statement block denoting entry and exit, mixing direct code (running the test suite, validating JSON, committing) and agent calls (plan, build, review, document). Code checks that fail send the work back to the previous agent for correction, e.g. JSON validation failure loops back to the agent until it outputs the right structure.",
+      "time_hint": "17:15"
+    },
+    {
+      "title": "The core four: context, model, prompt, tools",
+      "detail": "Every agent in the factory is configured through the same four axes in a YAML config file. Example: the planner runs Kimi K3 through Fireworks with thinking high; the builder uses Gemini 3.6 Flash with a build-task prompt and its own tool set. Master the core four and you master the agent. The pattern repeats for scouter, planner, builder, tester, reviewer — each specialized.",
+      "time_hint": "18:15"
+    },
+    {
+      "title": "Hand off context with typed envelopes in a shared directory",
+      "detail": "Between phases the factory writes structured JSON to a shared adws/sessions directory: the plan phase emits a typed plan envelope (request, plan, theme tokens, a note for the next agent), and the build step reads 'the previous envelope' as its context plus its task and its own response report format. Typed, validated handoffs keep agents consistent across hundreds of runs.",
+      "time_hint": "11:35"
+    },
+    {
+      "title": "Harness engineering: custom agent harnesses per role",
+      "detail": "Using the Pi coding agent as the execution engine, Dan builds custom agent harnesses per role — e.g. the planner and scouter harnesses get sub-agent support so they can spin up their own sub-agents when needed. Prompt engineering, context engineering, harness engineering, and SDLC management are the sub-disciplines ('sub-engineering') that the factory lets you practice inside agentic engineering.",
+      "time_hint": "18:50"
+    },
+    {
+      "title": "Match the model tier to the phase, not the hype",
+      "detail": "Dan tracks a model stack with three tiers: state-of-the-art (Opus 5, Fable 5 — he still prefers Fable 5 in critical situations), workhorse (Gemini 3.6 Flash at $1.50/M in, DeepSeek V4 Flash, GPT 5.6 Luna), and lightweight on-device models. A trivial scout workflow runs on cheap Gemini Flash; the full SDLC can be pointed at state-of-the-art. It is about the right model at the right cost, speed, and performance — a stack, not a single model.",
+      "time_hint": "05:05"
+    },
+    {
+      "title": "Stay in distribution: plain Python, YAML, agents, skills",
+      "detail": "The factory deliberately avoids inventing a DSL — the only custom artifact is a YAML config, and everything else is idiomatic Python that the models already know from training. Staying 'in distribution' of what the models understand makes the system predictable for agents to read, modify, and operate.",
+      "time_hint": "20:25"
+    },
+    {
+      "title": "Agentic access: teach an agent to operate the factory",
+      "detail": "The SSSF ships as a skill (SSF) with cookbook-style lazy-loaded recipes: set up the factory in a new repo, create or modify an ADW, create configs, set up agent rosters. Running /install has an agent copy the whole system into your codebase. This is agentic access — if you're doing something by hand that you could teach an agent to do, you're moving too slowly (unless you're building the system that builds the system).",
+      "time_hint": "24:45"
+    },
+    {
+      "title": "Engineer for the thousandth run, not the first",
+      "detail": "The closing argument: one-off agent runs can be done by any single prompt, but real systems grow until validation is the only way forward. Determinism is wired into every agent step — specific output types, specific structures, gate checks, cost tracking — so the factory works reliably over hundreds and thousands of executions without you. Vibe coding is not knowing how your system works and not looking; agentic engineering is knowing it so well you don't have to look.",
+      "time_hint": "22:30"
+    }
+  ],
+  "key_points": [
+    "A software factory gives you leverage on your prompt — nothing more, nothing less.",
+    "Agents propose, code disposes: deterministic Python validates every agent phase.",
+    "Master the core four — context, model, prompt, tools — and you master any agent.",
+    "Agents hand off work as typed JSON envelopes in a shared sessions directory.",
+    "Failed gate checks bounce work back to the agent until the structure is right.",
+    "Stay in distribution: plain Python plus YAML, no custom DSL.",
+    "Match model tiers to workflow phases — workhorses like Gemini 3.6 Flash handle most daily work.",
+    "Build for the thousandth run, not the first: determinism, observability, cost tracking.",
+    "Vibe coding is not looking; agentic engineering is knowing so well you don't have to look."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Engineer or Orchestrator Agent\"] --> B[\"SSSF Skill - install and operate\"]\n  B --> C[\"ADW - Python Workflow File\"]\n  C --> D[\"Plan Phase - agent plus gate check\"]\n  D --> E[\"Build Phase - agent reads envelope\"]\n  E --> F[\"Test Phase - deterministic code\"]\n  F --> G{\"Gate Passed\"}\n  G -->|\"yes\"| H[\"Review Phase - agent\"]\n  G -->|\"no - back to build\"| E\n  H --> I[\"Document Phase - agent\"]\n  I --> J[\"Shared Sessions Directory - typed JSON envelopes\"]\n  J --> E\n  C --> K[\"YAML Config - context model prompt tools\"]\n  L[\"Pi Coding Agent - custom harnesses\"] --> D\n  L --> E\n  L --> H\n  L --> I\n  C --> M[\"Observability UI - swim lanes and cost\"]\n  M --> A",
+  "generated": "2026-10-21"
+}

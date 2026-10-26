@@ -1,0 +1,87 @@
+{
+  "port": 8471,
+  "channel_default_limit": 30,
+  "request_delay": 0.8,
+  "accent": "#7c5cff",
+  "theme": "dark",
+  "profile_path": "../nils-profile.md",
+  "tabs": [
+    {
+      "id": "overview",
+      "label": "Overview",
+      "color": "#7c5cff",
+      "order": 0,
+      "visible": true
+    },
+    {
+      "id": "teach",
+      "label": "Teach Me",
+      "color": "#f472b6",
+      "order": 1,
+      "visible": true
+    },
+    {
+      "id": "visualize",
+      "label": "Visualization",
+      "color": "#22d3ee",
+      "order": 2,
+      "visible": true
+    },
+    {
+      "id": "relations",
+      "label": "Relationships",
+      "color": "#a3e635",
+      "order": 3,
+      "visible": true
+    },
+    {
+      "id": "videos",
+      "label": "Videos",
+      "color": "#fbbf24",
+      "order": 4,
+      "visible": true
+    },
+    {
+      "id": "learned",
+      "label": "Learned",
+      "color": "#34d399",
+      "order": 5,
+      "visible": true
+    },
+    {
+      "id": "skills",
+      "label": "My Skills",
+      "color": "#e879f9",
+      "order": 6,
+      "visible": true
+    },
+    {
+      "id": "profile",
+      "label": "Profile",
+      "color": "#fb7185",
+      "order": 7,
+      "visible": true
+    },
+    {
+      "id": "tests",
+      "label": "Tests",
+      "color": "#60a5fa",
+      "order": 8,
+      "visible": true
+    },
+    {
+      "id": "structure",
+      "label": "Structure",
+      "color": "#4ade80",
+      "order": 9,
+      "visible": true
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "color": "#94a3b8",
+      "order": 10,
+      "visible": true
+    }
+  ]
+}

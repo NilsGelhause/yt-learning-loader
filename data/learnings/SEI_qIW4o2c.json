@@ -1,0 +1,79 @@
+{
+  "video_id": "SEI_qIW4o2c",
+  "title": "Engineers… Your Software Factory NEEDS Agent Sandboxes to SCALE (exe.dev)",
+  "summary": "Indie Dev Dan demonstrates 'factory in a box': taking his open-source Super Simple Software Factory (from the previous video) and placing it inside cloud agent sandboxes from exe.dev. A top-level orchestrator agent running on his machine (Claude Code with Fable) receives one prompt — 'redesign the Inkwell writing app as a quiet room' — and spins up five exe.dev VMs, each hosting an in-sandbox orchestrator plus a full software factory running a different model configuration (Default, Frontier, Deepest Seek, Open Weights, Top Speed). This 'Best of N' pattern runs the complete software developer life cycle (plan, build, test, review, document) five times in parallel with full isolation, observability via per-sandbox URLs, SSH access, and OpenRouter provisioned keys for per-run API security. One config fails (GLM 5.2 open-weights), the rest ship comparable redesigns at wildly different costs, and the takeaway is that sandboxes give isolation, scale, and autonomy — if you are in the loop, you are the bottleneck.",
+  "what_you_learn": "You learn how to get yourself out of the loop by moving a multi-agent software factory off your laptop and into disposable cloud sandboxes, with a concrete three-tier orchestration architecture and a Best-of-N evaluation pattern. It shows how to safely give agents real computers (SSH, API keys, ports) while keeping the blast radius contained and measurable.",
+  "skills": [
+    {"name": "Agent Guardrails", "description": "Running agents on dedicated cloud VMs (exe.dev) instead of a corner of your own machine, giving isolation, scale, and autonomy."},
+    {"name": "Model Selection & Routing", "description": "Tracking models in state-of-the-art, workhorse, and lightweight tiers and assigning the right model to each workflow role."},
+    {"name": "Multi-Agent Orchestration", "description": "Architecture with an out-sandbox orchestrator on your machine, an in-sandbox orchestrator per VM, and the ADW agents inside the software factory."},
+    {"name": "Software Factory", "description": "Packaging a software factory so an orchestrator can spin it up inside a fresh sandbox, run it, observe it, and tear it down."},
+    {"name": "AI Vendor Management", "description": "Using OpenRouter provisioned keys with a spend limit per sandbox fleet, then killing the key when sandboxes are torn down."},
+    {"name": "Agent Observability", "description": "Per-sandbox URLs and a live workflow view showing prompts, tool calls, gate checks, token spend, and failures per phase."},
+    {"name": "Agent Harness Engineering", "description": "An agent layer (skills) wrapping your own operations — SSH into all sandboxes, boot interactive Claude Code inside running boxes — so you move at agent speed."}
+  ],
+  "learnings": [
+    {
+      "title": "If you are in the loop, you are the bottleneck",
+      "detail": "The central thesis: most engineers give agents a tiny corner of their own computer or lean on CI/CD, which only provides isolation. Containers on your device cannot give scale or autonomy. Sandboxes let agents own an entire computer, so they can run for 45+ minutes across the full software developer life cycle while you stay out of the loop and only show up for planning, reviewing, and validating.",
+      "time_hint": "01:23"
+    },
+    {
+      "title": "Agent sandboxes give isolation, scale, and autonomy",
+      "detail": "exe.dev is introduced as the sandbox provider ('computers for developers and agents'). Durable VMs give true isolation (an agent that goes rogue cannot touch your AWS, GCP, or production; the blast radius is the box), scale (one orchestrator spins up five sandboxes, each running a factory — ask 'what if I ran this 10x or 100x?'), and autonomy (agents own the computer, with SSH access and their own keys).",
+      "time_hint": "03:55"
+    },
+    {
+      "title": "Best of N: one prompt, N parallel futures",
+      "detail": "Dan pastes a single prompt ('redesign Inkwell into a quiet room') into a top-level orchestrator. It boots five exe.dev VMs and inside each deploys the Super Simple Software Factory with a different model roster: Default, Frontier, Deepest Seek (pure DeepSeek V4 Flash), Open Weights (pure GLM/Kimi/Qwen), and Top Speed (fast cheap models like Gemini 3.6 Flash, V4 Flash, GPT 5.6 Luna). All five run the same AI developer workflow in parallel and you fuse/pick the best result — Best of N is how you explore multiple product futures at once.",
+      "time_hint": "02:11"
+    },
+    {
+      "title": "Three-tier orchestration architecture",
+      "detail": "The system has three tiers: (1) an out-sandbox orchestrator running on Dan's machine whose only job is to create sandboxes and kick off workflows, then stop; (2) an in-sandbox orchestrator running on each VM whose only job is to run and kick off workflows; (3) the ADW agents (scouts, planners, builders, testers) executing inside the software factory. You can skip tier 2, but the in-sandbox orchestrator keeps responsibilities clean and the system simple.",
+      "time_hint": "13:30"
+    },
+    {
+      "title": "Every run is a different team of agents plus code",
+      "detail": "Inside each sandbox the factory runs the full software developer life cycle: plan, build, test (deterministic gate checks like lints, formats, type checks — if a check fails the work is sent back to the build agent), review, revise, document, commit. This is deliberately not random Claude Code workflow execution: the workflow is templated engineering, fully observable, and gives you control over model, thinking level, tools, and harness per agent.",
+      "time_hint": "11:10"
+    },
+    {
+      "title": "Provisioned keys make ephemeral fleets safe",
+      "detail": "All Pi coding agents inside the sandboxes call models through an OpenRouter provisioned key with a $50 limit. When the run is done and the sandboxes are torn down, the key is killed. This pattern — scoped, spend-capped, disposable credentials per fleet — is how you spin up intelligence safely on throwaway infrastructure.",
+      "time_hint": "29:08"
+    },
+    {
+      "title": "Agentic access: agents that operate your sandboxes",
+      "detail": "Dan teaches an agent (via four skills: Herder, exe.dev, Super Simple Software Factory, and an SSF orchestrator composite skill) to do the operations for him: it opens SSH into all five panes at once, reads status and logs, and boots interactive Claude Code sessions on top of the already-run agents inside the boxes so he can ask 'summarize the changes made, bullets' across all sandboxes. Agentic access is the meta layer — building the system that builds the system — and one of the five pillars of agentic engineering.",
+      "time_hint": "21:30"
+    },
+    {
+      "title": "Failures are data: Best of N absorbs broken runs",
+      "detail": "The Open Weights configuration completely fails (GLM 5.2 cannot produce the required JSON output format). Because this is Best of N with deterministic gate checks and per-run observability, one failure costs nothing: the other four runs still ship, and you learn which configurations cannot yet handle structured output. Best of N plus scale is also a benchmarking machine — each run shows you cost, speed, and quality per model stack.",
+      "time_hint": "14:00"
+    },
+    {
+      "title": "Workhorse models change the economics",
+      "detail": "Dan's model stack has three tiers: state-of-the-art (roughly 56+ on the Artificial Analysis intelligence index), workhorse (A-tier, ~50+, e.g. DeepSeek V4 Flash, Gemini 3.6 Flash), and lightweight (runnable on-device). Deepest Seek finishes cheapest and among the fastest with a fully working redesign — 'stock market crashing economics'. The lesson: stop fixating on one frontier model; combine compute, don't select compute, and let the factory pick the right model per role.",
+      "time_hint": "16:20"
+    },
+    {
+      "title": "Agentic engineering is knowing the system so well you don't have to look",
+      "detail": "Dan closes by distinguishing vibe coding (not knowing what your system does and not looking) from agentic engineering (knowing the system so well you don't have to look). Running variants of your factory in sandboxes generates data about cost, speed, and quality; the engineer's job shifts to planning, reviewing, and improving the system — including knowing the exact file doing the exact thing.",
+      "time_hint": "33:00"
+    }
+  ],
+  "key_points": [
+    "If you are in the loop, you are the bottleneck.",
+    "A container on your machine gives isolation only — sandboxes add scale and autonomy.",
+    "Best of N: one prompt, five sandboxes, five model stacks, pick the best result.",
+    "The blast radius of an agent sandbox is the box.",
+    "Use OpenRouter provisioned keys with spend limits, then kill the key when you tear down.",
+    "DeepSeek V4 Flash class workhorse models deliver frontier-ish results at a fraction of the cost.",
+    "One failed run in a Best-of-N fleet is free data, not a disaster.",
+    "Vibe coding is not looking; agentic engineering is knowing your system so well you don't have to look."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Engineer - plans and reviews only\"] --> B[\"Out-Sandbox Orchestrator - Claude Code Fable\"]\n  B --> C1[\"Sandbox VM 1 - Default config\"]\n  B --> C2[\"Sandbox VM 2 - Frontier config\"]\n  B --> C3[\"Sandbox VM 3 - Deepest Seek config\"]\n  B --> C4[\"Sandbox VM 4 - Open Weights config\"]\n  B --> C5[\"Sandbox VM 5 - Top Speed config\"]\n  C1 --> D1[\"In-Sandbox Orchestrator\"]\n  C2 --> D2[\"In-Sandbox Orchestrator\"]\n  C3 --> D3[\"In-Sandbox Orchestrator\"]\n  C4 --> D4[\"In-Sandbox Orchestrator\"]\n  C5 --> D5[\"In-Sandbox Orchestrator\"]\n  D1 --> E[\"Software Factory - plan build test review document\"]\n  D2 --> E\n  D3 --> E\n  D4 --> E\n  D5 --> E\n  E --> F[\"ADW Agents - scouts planners builders testers\"]\n  F --> G[\"OpenRouter Provisioned Key - spend capped\"]\n  F --> H[\"Observability UI - per-sandbox URL\"]\n  H --> A",
+  "generated": "2026-10-21"
+}

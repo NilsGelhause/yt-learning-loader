@@ -1,0 +1,82 @@
+{
+  "video_id": "gaDdrDdczO4",
+  "title": "New Skills! v1.2 brings /wait-what, /writing-for-agents, and fixes /grill-me",
+  "summary": "Matt Pocock releases version 1.2.0 of his AI engineering skills repo (then the 24th most-starred repo on GitHub). The release ships a new documentation site at aihero.dev/skills, official Claude Code plugin-marketplace installation (read-only bundles with automatic updates), and openai.yaml sidecar files so every skill's user-invoked behavior (allow_implicit_invocation: false) also works in Codex. New skills: Wait What, which rewrites verbose Opus output using ASD-STE 100 simplified technical English plus grounding in the project's ubiquitous language; an updated Grill Me that asks questions in dependency-graph rounds instead of one per turn; Writing for Agents, a renamed and generalized skill for making any agent-read document concise; the Wizard skill, which generates a deterministic interactive bash wizard that walks a human through provisioning steps only a human can do; and To Questionnaire, which exports a grilling session into a markdown document non-technical stakeholders can answer.",
+  "what_you_learn": "You learn practical techniques for the unglamorous side of working with coding agents: forcing verbose models into plain language, batching interview questions as a dependency graph so humans are not click-through machines, keeping agent-invoked skills out of the context window via harness sidecar files, and using deterministic scripts (not LLMs) for credential-touching setup steps.",
+  "skills": [
+    {"name": "Documentation", "description": "A skill for writing or improving any document an agent reads - skills, agents.md, steering files - so it is concise and the agent's output is predictable."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Generating a deterministic bash wizard that walks a human through steps only they can perform, like AWS provisioning and pasting API keys."},
+    {"name": "Agent Skill Design", "description": "Shipping openai.yaml sidecars and marketplace bundles so skills behave identically across Claude Code, Pi, and Codex."},
+    {"name": "Domain Modeling", "description": "Grounding agent responses in the project's ubiquitous language from glossary.md to cut verbosity and jargon."},
+    {"name": "Token Economics", "description": "User-invoked skills stay hidden from the agent's context window until needed, saving tokens."}
+  ],
+  "learnings": [
+    {
+      "title": "Skills v1.2.0 launches with a full documentation site",
+      "detail": "The repo (24th most starred on GitHub at the time) gets proper docs at aihero.dev/skills: the main page groups skills into flows (grill with docs, to spec, to ticket, implement, code review), a left panel gives a reference of every skill, common questions are sourced from Matt's personal wiki, and terms link into an AI coding dictionary (for example the definition of a ticket). The docs double as a way to learn AI coding concepts, not just the skills themselves.",
+      "time_hint": "00:18"
+    },
+    {
+      "title": "Claude Code marketplace install gives read-only auto-updating bundles",
+      "detail": "The skills are now an official part of the Claude Code plugin marketplace: you run plugin, search for Matt Pocock skills, and install from inside Claude Code. The result is a read-only bundle with no extra steps, and any skill updates Matt ships are automatically pulled down to users.",
+      "time_hint": "01:20"
+    },
+    {
+      "title": "openai.yaml sidecars make user-invoked skills work on Codex",
+      "detail": "Every skill now ships an openai.yaml file so it works out of the box with UIs like Codex. The key flag is allow_implicit_invocation false: user-invoked skills are hidden from the agent's context window until the user invokes them, which works on Claude Code and Pi natively but not on Codex - the sidecar makes the same behavior portable. Distinction: model-invoked skills are pulled in by the model when relevant; user-invoked ones (like the PR skill) stay invisible until asked for.",
+      "time_hint": "01:45"
+    },
+    {
+      "title": "Wait What tames verbose Opus output with simplified technical English",
+      "detail": "Matt found Opus 5 almost unreadable - incredibly verbose, full of weird LLM phrases. Fixes like output styles or agent.md tweaks did not work, so he built the Wait What skill: invoke it when the agent produces garbage and it replies with a much better alternative. The skill does two things - it instructs the agent to use ASD-STE 100 Simplified Technical English (simple language, clear declarative sentences) and to ground itself in the ubiquitous language from context.md.",
+      "time_hint": "02:35"
+    },
+    {
+      "title": "The real cure for verbosity is your own ubiquitous language",
+      "detail": "Simple-language instructions only partly work. The load-bearing part of Wait What is telling the agent to use the language the team coined in Grill with Docs - the project's own terms - instead of generic LLM jargon. Grounding responses in glossary language is what actually makes output readable.",
+      "time_hint": "03:40"
+    },
+    {
+      "title": "Grill Me now asks questions in rounds along a dependency graph",
+      "detail": "The old one-question-per-turn grilling had a horrible failure mode: at the end of a session you just say yes, that sounds good to a parade of easy questions, one per turn. The fix is multi-question rounds. The catch: question three may depend on question one. Solution: treat questions as a graph - one critical question may unlock a raft of others - and only ask the questions currently available, pushing the user as fast as possible down the frontier of the question graph.",
+      "time_hint": "04:05"
+    },
+    {
+      "title": "Round-based grilling with recommendations makes review scannable",
+      "detail": "The new Grill Me output shows round one with Q1, Q2, Q3, each with a recommended answer (with emojis for visual pop), then round two opens after round one is answered. Because Matt dictates his answers, he can blast through - Q1 agree, Q2 agree, Q3 needs a change - making the human turn nearly free while the dependency graph keeps answers valid.",
+      "time_hint": "05:45"
+    },
+    {
+      "title": "Writing for Agents generalizes skill-writing advice to any agent-read doc",
+      "detail": "The writing-great-skills skill was being used for anything an agent reads - agents.md, CLAUDE.md, other config - so it was renamed to Writing for Agents. It makes documents more concise and the agent's output more predictable, and ships with extra skill-mechanics reference material. A key use: pulling bloated front-loaded instructions out of agents.md and into focused skills.",
+      "time_hint": "06:30"
+    },
+    {
+      "title": "The Wizard skill generates deterministic bash wizards for human-only steps",
+      "detail": "Built for hated chores like AWS provisioning. The agent could theoretically do computer-use automation, but that felt icky for credentials - so the wizard generates an interactive bash script that walks the human through the exact steps only they can do. Demo: it opens the exact page needed, has you log in, paste API keys (saved to files and even GitHub secrets), and proceeds through stages with a nice UI. Crucially it is deterministic - no agent or LLM call runs in the loop, nothing is sent to Anthropic. Matt says it turned provisioning from painful to weirdly joyful.",
+      "time_hint": "07:30"
+    },
+    {
+      "title": "To Questionnaire exports grilling decisions for non-technical stakeholders",
+      "detail": "During a Wayfinder session for a garden office, Matt realized the person who needed to answer the agent's questions was his wife, not him. To Questionnaire takes the decisions a grilling session would ask and turns them into a markdown document you can paste into a Google Doc; stakeholders comment, and answers get pulled back into the agent. Matt hopes to delete the skill someday - it patches the fact that agents are hard to collaborate with (the ideal being an agent in Slack that the whole team can tag into a conversation).",
+      "time_hint": "09:00"
+    },
+    {
+      "title": "Deterministic scripts beat agent autonomy for credential-touching steps",
+      "detail": "A design principle behind Wizard: when a workflow involves secrets, purchases, or irreversible dashboard actions, generate a script with no model in the loop rather than letting an agent drive a browser. The agent plans and generates; the human executes; the script remembers state and files things in the right places.",
+      "time_hint": "08:25"
+    }
+  ],
+  "key_points": [
+    "allow_implicit_invocation false keeps user-invoked skills out of the agent's context window - and needs an openai.yaml sidecar to work on Codex.",
+    "When Opus talks garbage, do not re-read it - say wait, what.",
+    "Simple English helps, but grounding the agent in your own ubiquitous language is what cures verbosity.",
+    "Interview questions are a dependency graph - ask them in rounds, not one per turn.",
+    "End-of-session grilling dies by a thousand yes-that-sounds-good replies.",
+    "For secrets and dashboards, generate a deterministic bash wizard - no model in the loop.",
+    "Your stakeholders cannot tag an agent in Slack - so export the interview as a Google Doc questionnaire.",
+    "Pull bloated front-loaded instructions out of agents.md and into focused, well-written skills."
+  ],
+  "mermaid": "flowchart TD\n  repo[\"Skills repo v1.2.0\"] --> docs[\"Docs site aihero dot dev\"]\n  repo --> mkt[\"Claude Code marketplace - read only auto updating\"]\n  repo --> sidecar[\"openai dot yaml sidecar - allow implicit invocation false\"]\n  sidecar --> codex[\"Codex compatibility\"]\n  opus[\"Verbose Opus 5 output\"] --> waitwhat[\"Wait What skill\"]\n  waitwhat --> ste[\"ASD STE 100 simplified technical english\"]\n  waitwhat --> glossary[\"Ground in ubiquitous language from context dot md\"]\n  grill[\"Grill Me question graph\"] --> rounds[\"Rounds of questions with recommendations\"]\n  rounds --> human[\"Human answers - dictation friendly\"]\n  wizard[\"Wizard skill\"] --> bash[\"Deterministic bash script - no LLM in loop\"]\n  bash --> steps[\"Human only steps - AWS login paste API keys GitHub secrets\"]\n  questionnaire[\"To Questionnaire\"] --> gdoc[\"Markdown doc for stakeholders\"]\n  gdoc --> answers[\"Answers pulled back into agent\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,101 @@
+{
+  "video_id": "MN9dGgmLyso",
+  "title": "LIVE: Poteto (creator of pstack) on shipping 1,000's of PR's a month at SpaceX",
+  "summary": "Matt Pocock interviews Lauren Tan (poteto) - ex-React team at Meta, now at Cursor/SpaceX AI - about how she ships 2,500 PRs a month using agents. Lauren explains her trust ladder metaphor: she climbed it by building skills that encode her own expertise, then by building verification skills that let agents see and run their own work instead of relying on her as a 'meat proxy'. She prefers the 'Michelin kitchen' metaphor over software factory: you are the chef, your environment (skills, lint rules, conventions, internal frameworks like Dune) is the kitchen, and once it is good enough you can open chain restaurants - multiple Cursor projects run by coordinator agents that act as executive chefs. She describes her outer loop (Grockbot subscribing to Slack, X, email, Linear and feeding context to Cursor projects) and how verification loops plus fuzzing let her agents merge their own PRs while she sleeps, with her reviewing a sample after the fact.",
+  "what_you_learn": "You get a concrete mental model for scaling from one micromanaged agent to hundreds of autonomous ones: invest in verification skills first, push deterministic work out of prompts into scripts, harden the codebase so bad code is impossible, then wire external triggers into coordinator agents. It also shows what 'review at scale' actually means - sampling and course-correcting the environment instead of reading every diff.",
+  "skills": [
+    {"name": "Continuous Improvement", "description": "Deliberately climbing trust in agents through verification and environment work so they can take on bigger and more autonomous tasks."},
+    {"name": "Agent Skill Design", "description": "Skills that give agents hands and eyes - running the app, clicking around, taking traces - so they can verify their own output."},
+    {"name": "Agent Guardrails", "description": "Encoding the mechanical parts of a skill into CLIs and scripts so only judgment is left to the model."},
+    {"name": "Developer Experience", "description": "Designing the codebase - lint rules, conventions, type constraints - so the easy thing for the agent is the right thing."},
+    {"name": "Autonomous Agent Operations", "description": "Connectors like Grockbot that watch Slack, X, email and Linear and pull external context into the inner loop."},
+    {"name": "Multi-Agent Orchestration", "description": "Chief-of-staff agents that do no work themselves but delegate and supervise a team of sub-agents."},
+    {"name": "Context Engineering", "description": "Leading agents by feeding them context so they can answer their own questions instead of micromanaging them."},
+    {"name": "Software Factory", "description": "Agents merging their own code behind intense verification and fuzzing loops while the human reviews after landing."}
+  ],
+  "learnings": [
+    {
+      "title": "Climbing the trust ladder starts with replacing yourself as the proxy",
+      "detail": "Lauren's journey began with a burnout side project where she was micromanaging one agent and finding it hard to measure the impact of her skills. At Cursor, she was manually doing performance work on the agents window - flame graphs, heap snapshots - and realized she was the 'meat proxy' between her agent and Chrome DevTools. The skills that changed this encoded her own way of working, extracted from observing how she herself writes code (early work open-sourced as poteto/noodle on GitHub).",
+      "time_hint": "02:00"
+    },
+    {
+      "title": "Domain expertise matters more than ever - the bottleneck is intent transfer",
+      "detail": "As frontier models get better, the bottleneck stops being the agent and becomes your ability to express intent and goals clearly enough for the agent to carry out. People with deep domain expertise (a doctor, a lawyer) plus a little tech curiosity have a huge advantage because they know exactly what they want. Matt's framing: language is compressed intent - find the word the agent hooks onto, and it will reinforce that word in its thinking.",
+      "time_hint": "06:50"
+    },
+    {
+      "title": "Verification is the single most important skill",
+      "detail": "Lauren calls verification the most important skill in pstack and many tool sets: giving the agent 'hands and eyes' so it can run the code, interact with it like a normal user, debug it and take traces. Without it, the agent cannot see the result of its work and cannot iterate - you stay the proxy. It was the first skill she built at Cursor and it started her ascent of the trust ladder, and today every app at Cursor/SpaceX AI has an auto-maintained verification skill used by everybody.",
+      "time_hint": "16:30"
+    },
+    {
+      "title": "Rubric plus loop equals hill climbing",
+      "detail": "The labs talk about 'hill climbing': define a rubric or scoring method, put the agent in a loop, and let it continually try to improve against that score. This only works when verification is automated - for example her agents window performance work, where the agent measured its own changes. Karpathy's auto-research release plays with the same ideas.",
+      "time_hint": "18:10"
+    },
+    {
+      "title": "Extract the deterministic parts of skills into CLIs",
+      "detail": "Work in skills ranges from pure judgment to purely mechanical (like a codemod crawling an AST). Lauren extracts the mechanical parts into scripts and CLIs - her verification CLI is just glue around Playwright and the Chrome DevTools protocol - so the skill becomes a thin wrapper of light instructions plus tools. Before the CLI, every agent rebuilt its own verification scripts differently, wasting context and time; now every agent benefits from the same deterministic tool, and only judgment work goes to the model.",
+      "time_hint": "21:00"
+    },
+    {
+      "title": "Constrain the codebase so bad code is nearly impossible to write",
+      "detail": "Her team built an internal framework called Dune (not open source), described as an internal Next.js for Electron apps, loaded with restrictive lint rules. Conventions like 'every feature gets its own directory, discovered through a registry' mean there is only one way to do something - inspired by breaking up the first versions of Grockbot, which were eight god files of 10,000+ lines. She likens it to TypeScript type narrowing: constrain the space of possible things so both you and the agent know precisely what you are working with.",
+      "time_hint": "30:00"
+    },
+    {
+      "title": "Watch how agents fail and turn each failure into an environment rule",
+      "detail": "Every time you see the agent make a mistake, step back and ask: how do I turn this into a lint rule, a convention, or a type constraint so the codebase makes it impossible? Putting rules in the environment beats overloading the agent's context with instructions - the agent stumbles into the constraints at exactly the right moment. Fixing repeated failures in the environment (not scolding one agent) is what eventually lets you step away entirely.",
+      "time_hint": "31:50"
+    },
+    {
+      "title": "Connect the outer loop to the inner loop",
+      "detail": "The inner loop is agent engineers working the code toward a snapshot of your intent; the outer loop is where context actually arrives - bug reports in Slack, Linear, X, email. For a long time Lauren was the proxy ferrying that context over, and the snapshot went stale. Tools like Grockbot automate the outer loop: she tells a Grockbot to watch a Slack channel for bug reports and send them to her Cursor project, and agents triage, reproduce with the verification skills, and confirm the bug still exists on main - all without her.",
+      "time_hint": "35:30"
+    },
+    {
+      "title": "Coordinator agents are the executive chef - context, not control",
+      "detail": "Cursor projects are coordinator agents living in the cloud with their own computer: managers of agents that delegate rather than do work. A burst of 30 related issues becomes one project that figures out the best topology and distributes tasks to sub-agents. This mirrors the Netflix management mantra 'context not control': you can drive an outcome by micromanaging, or you can make agents self-sufficient by feeding them context. She runs more than ten such chiefs of staff, each on a different area (desktop performance, user-reported bugs, even a toy rewrite exploration).",
+      "time_hint": "42:50"
+    },
+    {
+      "title": "Use buffers and queues so pattern spotting survives high volume",
+      "detail": "An agent routinely scans the codebase for React foot-guns, but instead of fixing findings immediately it appends them to a document that Lauren reads every couple of days. A buffer or queue forces you to see the big picture: five similar bug reports often mean the real bug is somewhere higher than any single report suggests, and the chief of staff can see the forest while others execute. Pure execution mode on every incoming order hides patterns you would otherwise catch.",
+      "time_hint": "47:50"
+    },
+    {
+      "title": "Review by sampling and course-correct the environment, not the one-off agent",
+      "detail": "Faced with 2,500 PRs a month you cannot review everything - like a factory quality supervisor, you sample. Scrutinize a sample's code rigorously, and when multiple agents take the same shortcut or propagate the same workaround, that is the signal to amend the kitchen: skills, constraints, lints, type systems - not to fix that one agent. This is a dark factory in the sense that agents merge their own PRs and work 24/7, but with a dimmer switch: she reviews landed commits in the morning and reverts or adds rules when she sees problems.",
+      "time_hint": "50:00"
+    },
+    {
+      "title": "Full autopilot works when verification plus fuzzing gate every merge",
+      "detail": "Full autopilot triggers an intense verification loop: verifier agents spawn per PR, fuzz the app (actually run it, click around like a human), hunt regressions, fix what they find, and repeat until the PR can land. It is token-intensive and tunable (ten verifiers down to one), but verification plus environment is the combination that gives the confidence to say 'merge it, I will review in the morning'. The first night was scary; now the agents merge while she sleeps - but it took deliberate, effortful guardrail-building to get there.",
+      "time_hint": "52:30"
+    },
+    {
+      "title": "One-way doors demand verifiability - watch proof-carrying languages",
+      "detail": "PRs are two-way doors (merge then revert) until data loss enters the picture; domains that are hard to verify programmatically make autonomy very hard. Where work is verifiable, one-way doors become two-way doors. Her hope: agent-oriented programming languages like bend that marry code with mathematical proofs, so 'if the proofs show it is correct, why wouldn't you merge it' - replacing the old separate proof languages like Lean or TLA+.",
+      "time_hint": "56:30"
+    },
+    {
+      "title": "Own your knives: mine your transcripts and combine skill libraries",
+      "detail": "Trust is really trust in your own tools - chefs carry their knives between restaurants. Lauren's recall skill collapsed a repeated workflow of mining past chat transcripts (a 'treasure trove' where process is materialized) for context; her tip is to have an agent read your transcripts, find where you constantly intervene, and suggest new lint rules or skills. Skills are just markdown - weave pstack and Matt's skills together into your own. As models improve, implementation-detail skills shrink into compact workflow descriptions.",
+      "time_hint": "61:00"
+    }
+  ],
+  "key_points": [
+    "The bottleneck is no longer the agent - it is your ability to transfer intent.",
+    "Verification is the single most important skill; without it you stay the meat proxy.",
+    "Put the deterministic parts of your skills in CLIs; leave only judgment to the model.",
+    "A good codebase makes the easy thing the right thing.",
+    "Every repeated agent failure is a lint rule waiting to be written.",
+    "Context, not control: teach agents to fetch their own context and you can leave the room.",
+    "You cannot review 2,500 PRs - you sample, then fix the kitchen, not the cook.",
+    "Agents merging their own PRs at night is scary once and magical after that.",
+    "Do not download her tools - point your agent at them and build your own."
+  ],
+  "mermaid": "flowchart TD\n  human[\"Human Chef - intent and taste\"] --> kitchen[\"Environment - skills lint rules types conventions\"]\n  kitchen --> agents[\"Agent Engineers - inner loop\"]\n  slack[\"Slack X Email Linear\"] --> grockbot[\"Grockbot - outer loop connectors\"]\n  grockbot -->|context not control| project[\"Cursor Project - coordinator chief of staff\"]\n  project -->|delegates| sub[\"Sub agents - many parallel\"]\n  sub -->|open PR| verify[\"Verifier agents - fuzz and regression loop\"]\n  verify -->|conformance| merge[\"Agents merge own PRs\"]\n  merge --> sample[\"Human samples landed PRs in the morning\"]\n  sample -->|course correct rules not agents| kitchen",
+  "generated": "2026-10-22"
+}

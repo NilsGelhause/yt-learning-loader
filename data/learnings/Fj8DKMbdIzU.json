@@ -1,0 +1,57 @@
+{
+  "video_id": "Fj8DKMbdIzU",
+  "title": "Delete (most of) your docs",
+  "summary": "Matt Pocock argues that creating a layer of markdown docs and training AI coding tools to rely on them is an anti-pattern that makes AI output worse and burns tokens. His position: the code itself should be the source of truth - well formatted, organized into reasonable chunks, with interfaces separated from implementations - so the AI can interpret it directly. Docs are not executable and cannot be tested against the code, so they drift, and when docs and code conflict the AI has no way to know which one is real. He is not against all docs: he explicitly recommends keeping architectural decision records (ADRs), a domain glossary, and a thin layer of navigation docs to speed up AI exploration of the codebase. The outcome is a rule of thumb for what to keep in an AI-first repo: code as truth, plus only the docs that capture what code can never say.",
+  "what_you_learn": "You learn how to structure a repository so an AI coding agent can navigate it without a heavy documentation layer: invest in self-explanatory code, and keep only ADRs, a glossary, and thin navigation docs. This matters directly for agent systems, because every doc you feed an agent is context tokens - and stale docs actively mislead the model.",
+  "skills": [
+    {"name": "Documentation", "description": "Code carries enough information on its own - good formatting, sensible file organization, interfaces separated from implementations - so AI can interpret it without docs."},
+    {"name": "Domain Modeling", "description": "A glossary defines the domain language of the codebase so AI knows what an order or a shipment actually means in your system."},
+    {"name": "Codebase Navigation", "description": "A thin layer of orientation docs that speeds up the AI's exploration of the main parts of the codebase."}
+  ],
+  "learnings": [
+    {
+      "title": "The code itself should be the source of truth for AI",
+      "detail": "When AI explores a codebase it should be able to rely on the code alone. That puts the burden on the code: it must be well formatted, organized into reasonable chunks the AI can look at, and structured with interfaces and implementations separated so the agent can take what it needs. Self-explanatory code is the foundation everything else is optional on.",
+      "time_hint": "0:10"
+    },
+    {
+      "title": "Docs-as-source-of-truth is an anti-pattern that costs tokens",
+      "detail": "The pattern Matt pushes back on: people create a layer of docs for their code and get the AI to primarily rely on those docs instead of reading the code. He considers this a massive anti-pattern - it makes AI coding output worse, not better, and wastes tokens re-reading documentation that duplicates what the code already says.",
+      "time_hint": "0:39"
+    },
+    {
+      "title": "Docs drift because they are not executable or testable",
+      "detail": "Markdown files inside the repository are usually not executable and cannot be tested against the code. Nothing fails when a doc stops matching reality, so the docs say one thing while the code - the actual source of truth - says another. Every undocumented behavior change widens the gap silently.",
+      "time_hint": "0:50"
+    },
+    {
+      "title": "Two conflicting sources of truth break the AI",
+      "detail": "The real damage of drift: when docs and code conflict, the AI does not know which one is the real one. It may follow the stale doc and generate code that contradicts your actual system. One authoritative source of truth is what keeps an agent's output reliable.",
+      "time_hint": "1:03"
+    },
+    {
+      "title": "Keep ADRs for decisions code cannot express",
+      "detail": "Code cannot tell you what alternatives were considered instead of the code that is there. Architectural decision records capture those rejected options and the reasoning, so future readers (human or AI) understand why the system looks the way it does. This is the first category of docs Matt says to keep.",
+      "time_hint": "1:28"
+    },
+    {
+      "title": "Keep a glossary for domain language",
+      "detail": "Code cannot explain the domain language it is written in - whether an order in your codebase means a purchase order or a database write order. A glossary of domain terms is extremely helpful for AI to reason correctly about the business concepts behind the code.",
+      "time_hint": "1:39"
+    },
+    {
+      "title": "Keep only a thin navigation layer on top",
+      "detail": "The third keeper: a thin layer of docs to navigate around the main aspects of the code, which speeds up the AI's exploration. Together with ADRs and the glossary, that is the whole docs budget - everything beyond that risks becoming a second, drifting source of truth.",
+      "time_hint": "1:50"
+    }
+  ],
+  "key_points": [
+    "Docs are not executable and not testable - so they drift, and drift breaks AI.",
+    "If docs and code conflict, the AI cannot know which one is real.",
+    "Code should be self-explanatory; docs are for what code can never say.",
+    "Keep ADRs for rejected alternatives, a glossary for domain language, and a thin navigation layer - delete the rest.",
+    "Every doc you maintain is tokens spent twice: once writing it, once misreading it when it goes stale."
+  ],
+  "mermaid": "flowchart TD\n  ai[\"AI coding agent explores repo\"] --> code[\"Code - the source of truth\"]\n  code --> shape[\"Well formatted - reasonable chunks - interfaces separated from implementations\"]\n  docs[\"Docs layer as source of truth\"] -->|anti pattern - drifts - not executable| conflict[\"Docs conflict with code\"]\n  conflict -->|AI cannot decide what is real| worse[\"Worse output and wasted tokens\"]\n  keep[\"Docs worth keeping\"] --> adr[\"Architectural decision records - why not the alternatives\"]\n  keep --> gloss[\"Domain glossary - what the terms mean\"]\n  keep --> nav[\"Thin navigation layer - faster exploration\"]\n  ai --> keep",
+  "generated": "2026-10-22"
+}

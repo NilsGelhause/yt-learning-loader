@@ -1,0 +1,59 @@
+{
+  "video_id": "k2zgcTDq4aQ",
+  "title": "When should you NOT use /grill-me?",
+  "summary": "Matt Pocock presents a decision tree for choosing how much upfront alignment an agent task needs before any code is written. For a new piece of work, the first question is whether the resulting diff is really small: if yes, skip alignment entirely and just one-shot it, because a small change is cheap to redo if it is wrong. For medium-sized work, use a /grill-me session where the agent interviews you until you reach a shared understanding, which pays off by preventing a massive diff of stuff you did not want. If the grilling session starts expanding beyond what fits one conversation, switch to Wayfinder, which stretches planning across multiple sessions with a Wayfinder map and prototyping, letting you effectively grill at infinite scale for huge pieces of work or apps planned almost from scratch.",
+  "what_you_learn": "You get a practical, three-way decision rule for a daily agent-workflow question: when to fire off a change with no planning, when to invest in an upfront specification interview with the agent, and when the scope is too big for one session and needs a multi-session planning method. The core insight is matching alignment effort to the cost of being wrong on the diff.",
+  "skills": [
+    {"name": "Human-in-the-Loop Collaboration", "description": "A /grill-me session where the agent interviews you until you reach a shared understanding before building."},
+    {"name": "Planning & Prioritization", "description": "Stretching planning over multiple sessions with a Wayfinder map and prototyping for very large work."},
+    {"name": "Task Management", "description": "Skipping alignment for really small diffs and directly asking the agent to make the change."},
+    {"name": "Spec-Driven Development", "description": "Investing interview time up front so the thing built is actually the thing you wanted."}
+  ],
+  "learnings": [
+    {
+      "title": "Start every new piece of agent work by sizing the diff",
+      "detail": "When you open a new session and do not know which approach to choose, the first question is: is the resulting diff - the actual code change being created - really small? That single judgment is the root of the whole decision tree, because it determines the cost of getting the work wrong.",
+      "time_hint": "00:12"
+    },
+    {
+      "title": "Really small changes should be one-shot, not grilled",
+      "detail": "If the diff is really small, Matt recommends not using /grill-me at all - just one-shot it and let the agent make the change directly. Grilling exists to prevent massive unwanted diffs, and a tiny diff cannot become a massive one, so the upfront interview adds overhead without proportional payoff.",
+      "time_hint": "00:25"
+    },
+    {
+      "title": "Grilling works by interviewing you into a shared understanding",
+      "detail": "In a /grill-me session, the agent interviews you until both sides reach a shared understanding of what should be built. The time you invest there pays off because the resulting build is actually what you want, instead of a large diff containing a wrong interpretation of your request.",
+      "time_hint": "00:37"
+    },
+    {
+      "title": "Small changes have a low cost of being wrong",
+      "detail": "The economic argument for one-shotting: if the thing you are building is really small, there is very little cost in getting it wrong - you can simply say 'no, that was not right, do it better' and the agent redoes it. Cheap reversibility removes the need for expensive upfront alignment.",
+      "time_hint": "00:48"
+    },
+    {
+      "title": "Escalate to Wayfinder when grilling outgrows one session",
+      "detail": "Sometimes a grilling session grows beyond what you expected - the implications multiply and you realize you cannot cover it in a single session. That is the signal to switch to Wayfinder, a method for stretching the planning over multiple sessions instead of forcing everything into one conversation.",
+      "time_hint": "01:02"
+    },
+    {
+      "title": "Wayfinder lets you grill at infinite scale",
+      "detail": "Wayfinder turns extended planning into a Wayfinder map, supports loads of prototyping, and lets you essentially grill at infinite scale and size. Matt recommends it for a huge piece of work or a huge application you want to plan almost from scratch - work where even a long grilling session is not enough.",
+      "time_hint": "01:13"
+    },
+    {
+      "title": "The full decision tree in one line",
+      "detail": "The summary of the flowchart: if the diff is really small, just one-shot it; if it ends up bigger than one grilling session can cover, Wayfinder it. Alignment effort is a dial you set by scope - none for tiny work, interview for medium work, multi-session planning for large work.",
+      "time_hint": "01:30"
+    }
+  ],
+  "key_points": [
+    "The first question of any agent task is: how big will the diff be?",
+    "Really small change? Do not grill - just one-shot it.",
+    "Grilling pays off when a wrong interpretation would produce a massive unwanted diff.",
+    "A tiny change is cheap to redo, so alignment on it is wasted overhead.",
+    "When one grilling session cannot hold the scope, switch to Wayfinder.",
+    "Wayfinder stretches planning across sessions so you can grill at infinite scale."
+  ],
+  "mermaid": "flowchart TD\n  new[\"New session - new piece of work\"] --> size{\"Is the resulting diff really small\"}\n  size -->|yes| oneshot[\"One shot it - no alignment needed\"]\n  size -->|no| grill[\"Grill me session - agent interviews you\"]\n  grill --> shared[\"Shared understanding reached\"]\n  grill --> expand{\"Session growing beyond one conversation\"}\n  expand -->|yes| wayfinder[\"Wayfinder - planning over multiple sessions\"]\n  wayfinder --> map[\"Wayfinder map plus prototyping\"]\n  map --> infinite[\"Grill at infinite scale\"]\n  expand -->|no| shared\n  shared --> build[\"Build what you actually want\"]",
+  "generated": "2026-10-22"
+}

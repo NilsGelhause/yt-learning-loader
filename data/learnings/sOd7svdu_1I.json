@@ -1,0 +1,61 @@
+{
+  "video_id": "sOd7svdu_1I",
+  "title": "What is the dumb zone?",
+  "summary": "Matt Pocock explains why a 1-million-token context window is far less usable than it sounds. Every token added to the context must be attended to in relation to every other token, so attention relationships grow quadratically - 5 tokens means 10 relationships, 10,000 tokens means about a million. Beyond a point this attention degradation makes models hallucinate more, retrieve information worse, and write worse code. He frames the context window as a smart zone that slowly sinks into a dumb zone, gives a rule of thumb of ~150,000 tokens for where the dumb zone begins (up from ~100K six months ago, still creeping up), and recommends breaking work into small chunks run in fresh context windows - which both costs fewer tokens and produces better results. Hallucinations, especially faithfulness hallucinations, are the tell that you are in the dumb zone.",
+  "what_you_learn": "The core mental model for tokenomics: context window size is not usable working memory, and quality degrades quadratically as you fill it. You learn a practical operating rule (keep sessions under ~150K tokens, chunk tasks into fresh context windows) and the signals for when to clear, compact, or hand off context - which maps directly onto designing reliable long-running agent workflows.",
+  "skills": [
+    {"name": "Token Economics", "description": "Managing context window spend as a scarce resource where quality degrades as tokens accumulate."},
+    {"name": "Context Window Management", "description": "Model performance declines as context grows because attention relationships grow quadratically."},
+    {"name": "Learning & Teaching", "description": "Treating the context window as a smart zone that slowly sinks into a dumb zone as it fills."},
+    {"name": "Context Engineering", "description": "Breaking tasks into small chunks and running them in fresh context windows for better results at lower token cost."},
+    {"name": "Hallucination Management", "description": "Using faithfulness hallucinations as the signal that context has entered the dumb zone."}
+  ],
+  "learnings": [
+    {
+      "title": "Attention relationships grow quadratically with context size",
+      "detail": "Whenever a token is added to the context window, the model must track not just that token but its relationships to every other token. 5 tokens means 10 attention relationships; 10,000 tokens means roughly 1 million. This quadratic growth is the mechanical reason large contexts degrade model performance.",
+      "time_hint": "0:15"
+    },
+    {
+      "title": "Attention degradation is universal across models",
+      "detail": "All models suffer from attention degradation: the more tokens in the context window, the worse the agent performs. Symptoms include more hallucinations, worse information retrieval, and worse code. So a 1M-token window is mostly unusable for real work despite the marketing number.",
+      "time_hint": "0:05"
+    },
+    {
+      "title": "The smart zone slowly sinks into a dumb zone",
+      "detail": "Practically, think of the agent as having a smart zone and a dumb zone. This is not an immediate drop-off - performance slowly sinks as context accumulates. Some low-demand tasks can still be done in the dumb zone, but anything requiring real quality should run in the smart zone.",
+      "time_hint": "0:41"
+    },
+    {
+      "title": "~150K tokens is the dumb-zone rule of thumb",
+      "detail": "Where the dumb zone begins is hotly debated, differs per model, and probably differs per task. Matt's useful rule of thumb is around 150,000 tokens - revised upward from ~100K about six months ago, and still creeping up as models improve. Treat it as a moving target, not a constant.",
+      "time_hint": "1:08"
+    },
+    {
+      "title": "Chunk tasks into fresh context windows for better and cheaper results",
+      "detail": "It is pretty easy to design workflows that break tasks into small chunks and run them in new context windows. Matt's experience: this spends fewer tokens AND gets better results. Smaller contexts are a strict win on both axes, which is the practical counter to 'just use a bigger window'.",
+      "time_hint": "1:12"
+    },
+    {
+      "title": "The dumb zone is a signal to redesign the workflow",
+      "detail": "When you reach the dumb zone, use it as a trigger: clear the context, compact the context, hand off to a fresh session, or redesign the workflow so tasks need less context. It is a system-design feedback signal, not just a quality nuisance.",
+      "time_hint": "1:29"
+    },
+    {
+      "title": "Faithfulness hallucinations mean you are in the dumb zone",
+      "detail": "A practical diagnostic: if you are seeing hallucinations, especially faithfulness hallucinations (the model claiming something inconsistent with the context it was given), you are probably in the dumb zone. Use this as an operational alarm to compact or reset context.",
+      "time_hint": "1:41"
+    }
+  ],
+  "key_points": [
+    "A million-token context window is mostly unusable for real work.",
+    "Attention relationships grow quadratically: 10K tokens means about 1 million relationships.",
+    "The smart zone slowly sinks into a dumb zone - there is no cliff, just decay.",
+    "~150K tokens is today's dumb-zone rule of thumb, and it keeps creeping up.",
+    "Chunking tasks into fresh contexts costs fewer tokens and gets better results.",
+    "Faithfulness hallucinations are the alarm bell that you are in the dumb zone.",
+    "Reach the dumb zone? Clear, compact, hand off, or redesign the workflow."
+  ],
+  "mermaid": "flowchart TD\n  window[\"Context window fills with tokens\"] --> quad[\"Attention relationships grow quadratically\"]\n  quad --> degrade[\"Attention degradation - worse retrieval more hallucinations worse code\"]\n  degrade --> zones[\"Smart zone slowly sinks into dumb zone\"]\n  zones --> rule[\"Dumb zone begins around 150K tokens - moving target\"]\n  rule --> signal{\"Reached the dumb zone\"}\n  signal --> clear[\"Clear context\"]\n  signal --> compact[\"Compact context\"]\n  signal --> handoff[\"Hand off to fresh session\"]\n  signal --> chunk[\"Chunk tasks into small fresh context windows\"]\n  chunk --> win[\"Fewer tokens and better results\"]\n  halluc[\"Faithfulness hallucinations\"] --> signal",
+  "generated": "2026-10-22"
+}

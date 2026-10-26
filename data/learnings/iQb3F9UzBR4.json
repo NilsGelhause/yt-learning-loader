@@ -1,0 +1,54 @@
+{
+  "video_id": "iQb3F9UzBR4",
+  "title": "Your effort level is TOO DAMN HIGH",
+  "summary": "Matt Pocock argues that almost every developer gets better value by running AI agents at lower effort levels than they think. Higher effort means the model spends more thinking (reasoning) tokens on exploration - which is a task that does not need deep reasoning - so it burns tokens pushing hard on things that did not need pushing. Benchmark charts that show max effort producing higher quality miss a crucial asymmetry: benchmarks keep tasks static, while you as the developer can change how you specify the task. The more high-quality information you put into the task specification, the lower the effort level you need. His concrete recommendation: on models like Opus or Fable, start at the lowest available effort and crank up only when needed, keeping some thinking tokens because chain-of-thought is genuinely useful.",
+  "what_you_learn": "You learn that effort level is a tokenomics dial, not a quality dial: exploration does not need deep reasoning, so cranking effort mostly wastes reasoning tokens. The lever that actually raises quality is your task specification - investing tokens in a better-specified task beats investing them in a higher effort level, which is a direct, practical cost-and-quality optimization for anyone running agents daily.",
+  "skills": [
+    {"name": "Token Economics", "description": "Treating thinking-token spend as a budget: lower effort means fewer reasoning tokens wasted on exploration."},
+    {"name": "Spec-Driven Development", "description": "Investing in a higher-quality task spec - context, constraints, examples - to lower the effort the agent needs."},
+    {"name": "AI Benchmarking", "description": "Reading benchmark charts critically: they keep tasks static and ignore that developers can change the task itself."},
+    {"name": "Prompt Engineering", "description": "Keeping some thinking tokens enabled because explicit reasoning is a useful way of working with agents."}
+  ],
+  "learnings": [
+    {
+      "title": "Lower effort level means fewer tokens spent on exploration",
+      "detail": "Matt's core claim: nearly everyone gets more bang for their buck at a lower effort setting. Effort level maps directly to how many thinking tokens the model spends, and a large share of an agent's token spend is exploration - reading through the codebase to understand what to change. Exploration is a task where extra reasoning does not buy much, so high effort inflates the bill without improving the outcome.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Exploration is a task that does not need effort",
+      "detail": "Walking through a codebase, finding the relevant files, and mapping the structure is mechanical scanning work. Spending deep reasoning tokens on it is wasted spend - the agent can explore efficiently at low effort and reserve its heavy thinking for the actual problem-solving steps that follow.",
+      "time_hint": "00:12"
+    },
+    {
+      "title": "Cranking effort up burns thinking tokens on things you do not need pushed",
+      "detail": "As you raise effort, the model spends more thinking and reasoning tokens to do the same work. That extra push is indiscriminate: it pushes harder on everything, including the parts of the task that did not need pushing. You pay more tokens for the same output, and sometimes a worse one because the agent overthinks simple changes.",
+      "time_hint": "00:16"
+    },
+    {
+      "title": "Benchmark charts hide the fact that you can change the task",
+      "detail": "Benchmark graphs seem to show that max effort yields higher-quality outputs, so developers default to high effort. The flaw: in a benchmark the task stays static, so effort is the only variable. In real work you control the task specification itself - you can add context, constraints, and examples that no benchmark accounts for, changing the quality equation entirely.",
+      "time_hint": "00:30"
+    },
+    {
+      "title": "Better task specification directly lowers the effort you need",
+      "detail": "The more high-quality information you give the agent up front - relevant files, intent, constraints, examples - the lower the effort level it needs to complete the task well. This is the practical optimization: spend your tokens once on a good specification instead of continuously on a high effort level. A well-specified easy task beats a poorly-specified hard one.",
+      "time_hint": "00:50"
+    },
+    {
+      "title": "Start at the lowest effort and crank up - but keep some thinking tokens",
+      "detail": "Concrete workflow for models like Opus or Fable: begin at the lowest effort level you have access to, evaluate the result, and raise effort only where the task proves to need it. Do not go to zero - chain-of-thought reasoning is a genuinely useful working style for agents - but default low and escalate deliberately. Matt's prediction: you will be surprised by how much the low setting already handles.",
+      "time_hint": "00:56"
+    }
+  ],
+  "key_points": [
+    "Your effort level is probably too damn high - default lower.",
+    "Exploration does not need reasoning tokens; save them for problem solving.",
+    "Benchmarks hold tasks static; you can change the task - so benchmark charts mislead real usage.",
+    "The better your task specification, the lower the effort level you need.",
+    "Spend tokens on a great spec once instead of a high effort level forever.",
+    "Start at the lowest effort, keep some chain-of-thought, and crank up only when proven necessary."
+  ],
+  "mermaid": "flowchart TD\n  effort[\"Effort level dial\"] --> tokens{\"Thinking tokens spent\"}\n  tokens --> explore[\"Exploration - does not need effort\"]\n  tokens --> reason[\"Reasoning - needs some chain of thought\"]\n  bench[\"Benchmark charts - quality rises with effort\"] --> flaw[\"Flaw - tasks stay static in benchmarks\"]\n  dev[\"Developer control - task specification\"] --> spec[\"Higher quality spec given\"]\n  spec --> loweffort[\"Lower effort level suffices\"]\n  rec[\"Recommendation - start at lowest effort then crank up\"] --> result[\"Same or better output for fewer tokens\"]",
+  "generated": "2026-10-22"
+}

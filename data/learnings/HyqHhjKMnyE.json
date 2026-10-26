@@ -1,0 +1,93 @@
+{
+  "video_id": "HyqHhjKMnyE",
+  "title": "Testing in TypeScript SUCKS - let's make it better",
+  "summary": "Matt Pocock live-streams the creation and first npm publish of a small open-source library (github.com/mattpocock/test-utils, published as mock-utils) that solves the 'as problem' in TypeScript tests: functions demanding large object types force you to either mock enormous structures or cast with as, which hides intent. The library offers fromPartial (accepts a deep partial while inferring the target type), fromAny, and fromExact, plus a createFixture factory. Mid-stream, a chat suggestion sends him down a rabbit hole: implement fromPartial with a JavaScript Proxy that throws at runtime when a test accesses a property the fixture never defined - giving runtime safety on top of type safety. He learns the Proxy API live, fights vitest internals (symbol.iterator, toEqual's asymmetric matcher and nodeType probes), gets it working with an allowlist of protected keys, sets up GitHub Actions CI with pnpm and Turborepo, wires up changesets with an npm granular access token, survives a first failed publish (NPM_TOKEN not passed to the action), and ships the package to npm.",
+  "what_you_learn": "You watch a senior developer take a library from idea to npm in one session and learn the full toolchain in miniature: deep-partial typing tricks, the Proxy get/ownKeys/has traps for runtime guards, CI with GitHub Actions and Turborepo, and changesets-based publishing. The meta-lesson is honest scope management: he shelves the fancy proxy feature in a draft PR when it threatens the release, then lands it later once the core library is shipped.",
+  "skills": [
+    {"name": "Testing Strategy", "description": "Building small typed utilities that let tests pass partial data without casting, choosing names like fixture over mock to avoid implying behavior."},
+    {"name": "TypeScript Type System", "description": "Using recursive Partial mapped types so a function slot expecting a full object accepts a nested subset safely."},
+    {"name": "Package & Build Tooling", "description": "Standing up GitHub Actions CI with pnpm cache, Turborepo lint-build-test, and npm tokens as repository secrets."},
+    {"name": "Software Architecture", "description": "Iterating on API names in public and picking boring, intent-revealing names over clever puns."},
+    {"name": "Task Management", "description": "Shipping the core value first and parking risky features in draft PRs instead of blocking the release."}
+  ],
+  "learnings": [
+    {
+      "title": "The problem: tests must pass less than the type system demands",
+      "detail": "When a function takes a User with nested reports, a test that only cares about one field still must satisfy the whole type. The usual escapes are mocking everything (tedious) or writing data as User (a cast). Matt's demo for the README: 'I only care about user.id for this test - I need to pass in the whole user object.' The library makes the cast more palatable and more honest.",
+      "time_hint": "10:30"
+    },
+    {
+      "title": "fromPartial reverses what TypeScript normally does in that position",
+      "detail": "fromPartial(value) is exactly equivalent to value as User at the type level - it does not generate any data - but it infers the expected type from the slot it is passed into instead of requiring you to write the type manually. It accepts a deep partial: nested objects like reports can be incomplete, and it still guarantees nothing unexpected is passed, unlike fromAny which accepts anything.",
+      "time_hint": "13:30"
+    },
+    {
+      "title": "fromExact acts as an identity function for full objects",
+      "detail": "The third API member exists for the opposite case: when a test SHOULD pass the complete object, fromExact forces exactness, so a fixture missing required fields fails the type check. Combined with fromPartial and fromAny the library covers strict-to-loose test data needs, built around createFixture (briefly createBase/createMock) as the factory entry point.",
+      "time_hint": "15:00"
+    },
+    {
+      "title": "Why as feels bad: manual type, no intent, trained against",
+      "detail": "Matt's analysis of the instinctive aversion: you must manually dig out and specify the target type; as gives no signal about intent (unlike satisfies); and developers are trained to treat casting as a hack. fromPartial reads like satisfies - it checks the value against the expected type instead of the other way around. A chat suggestion crystallizes the alternative direction: Proxies.",
+      "time_hint": "39:00"
+    },
+    {
+      "title": "The Proxy idea: throw when a test touches an undefined property",
+      "detail": "Chat suggestion by Johannes: wrap the partial in a JavaScript Proxy whose get trap throws an error when the test itself accesses a property not present in the input. This gives runtime safety and type safety together - the test fails loudly if the implementation under test reads data the fixture never provided, catching over-mocked tests. Matt red-green-refactors it live despite never having used Proxies.",
+      "time_hint": "44:15"
+    },
+    {
+      "title": "Learning the Proxy API: get, ownKeys, and has traps",
+      "detail": "Working through MDN live: new Proxy(target, handler); the get trap fires on property access with (target, prop, receiver); un-overridden operations fall through to the target. He discovers he also needs ownKeys (called by Object.keys and deep-equality checks) and has (the in operator), and that getPrototypeOf and defineProperty traps exist for classier cases. A generic constraint T extends object is enough to type the wrapper.",
+      "time_hint": "50:15"
+    },
+    {
+      "title": "Vitest internals break naive proxies - allowlist protected keys",
+      "detail": "The proxy keeps throwing inside vitest's own machinery: toEqual probes the object with symbol.iterator, plus internal properties like nodeType and asymmetricMatch. The fix is an allowlist of protected keys the get trap returns undefined for instead of throwing - after which the tests pass. The general lesson: runtime guards on test doubles must tolerate the test framework's introspection.",
+      "time_hint": "58:30"
+    },
+    {
+      "title": "The proxy guard risks weird breakage - park it in a draft PR",
+      "detail": "Mid-debugging, Matt honestly assesses that the proxy introduces failure modes into people's tests for real weird reasons and comments it out to ship the simple version first. Later, after the publish succeeds, he fixes the protected-keys list, re-enables the tests, adds a failing nested-recursion test, and opens a draft PR ('Add proxy behavior to fromPartial') - core value shipped, experiment continued safely.",
+      "time_hint": "70:30"
+    },
+    {
+      "title": "CI in minutes: GitHub Actions plus pnpm plus Turborepo",
+      "detail": "He copies a workflow from another repo: checkout, setup pnpm, setup node with pnpm cache, install, then pnpm turbo lint build test. Using Turborepo means one command runs lint, build, and test across the workspace; the entire CI run finishes in about 15 seconds. The publish workflow adds a release script running turbo build lint test plus changeset publish.",
+      "time_hint": "74:15"
+    },
+    {
+      "title": "Publishing with changesets and an npm granular access token",
+      "detail": "Setup sequence: pnpm add changesets, changeset init, set config.json access to public, add a patch changeset, first version. On the repo he grants Actions permission to create pull requests, then generates an npm granular access token (read/write packages only) as the NPM_TOKEN secret. The changeset action opens a 'Version Packages' PR; merging it publishes to npm.",
+      "time_hint": "78:00"
+    },
+    {
+      "title": "First publish failed - the token was never passed to the action",
+      "detail": "The release workflow fails because NPM_TOKEN was not exposed to the publish step; the fix is a one-line env addition. Then it works: the version-packages PR merges, the package lands on npm, and he fixes .npmignore to exclude .github and turbo.json while keeping the changelog, license, and readme. Shipping rarely works first time; the CI loop is what makes retrying cheap.",
+      "time_hint": "91:30"
+    },
+    {
+      "title": "Naming is 90% of library work - fixture beats mock",
+      "detail": "A long, funny public naming debate (createBase, createMock, pofo, pomock, Mocky Tills) with a serious core: mock implies stubbing behavior, which this library does not do; fixture means dummy data, which is exactly what it provides. He lands on createFixture for the factory and keeps the boring, descriptive mock-utils as the package name.",
+      "time_hint": "36:45"
+    },
+    {
+      "title": "Turbopack's engine caches at function level for warm starts",
+      "detail": "While CI runs, Matt tours turbo.build docs he helped write: the Turbopack engine turns bundling into granular function calls (read file, bundle module, concatenate), caches every function result, parallelizes across all CPU cores, and replays from cache on warm starts - potentially the fastest incremental rebuilds available. He predicts Vite will adopt Turbopack eventually, noting it is not production-ready yet.",
+      "time_hint": "94:30"
+    }
+  ],
+  "key_points": [
+    "as feels bad because you hand-type the target and it says nothing about intent.",
+    "fromPartial is just value as User at the type level - but the type is inferred from the slot, not written by you.",
+    "A Proxy get trap can make a fixture throw when the test reads a property it never defined.",
+    "Test frameworks probe your objects with symbol.iterator and matcher internals - allowlist those keys.",
+    "Ship the boring core first; park the clever proxy in a draft PR.",
+    "changesets flow: init, config access public, patch changeset, Version Packages PR, merge, published.",
+    "The first publish failed because NPM_TOKEN never reached the action; CI makes the retry cheap.",
+    "Call it fixture, not mock: it is dummy data, not stubbed behavior.",
+    "Naming the library is 90% of the work - the implementation was already done."
+  ],
+  "mermaid": "flowchart TD\n  PROB[\"Tests need less data than types demand\"] --> AS[\"as User cast feels bad\"]\n  AS --> LIB[\"mock-utils library\"]\n  LIB --> FP[\"fromPartial - deep partial inferred\"]\n  LIB --> FA[\"fromAny - anything goes\"]\n  LIB --> FE[\"fromExact - full object required\"]\n  LIB --> CF[\"createFixture factory\"]\n  CHAT[\"Chat suggestion\"] --> PROXY[\"JS Proxy runtime guard\"]\n  PROXY --> TRAP[\"get ownKeys has traps throw on missing keys\"]\n  VITEST[\"Vitest introspection\"] --> ALLOW[\"Protected keys allowlist\"]\n  LIB --> CI[\"GitHub Actions - pnpm turbo lint build test\"]\n  CI --> CS[\"Changesets version packages PR\"]\n  CS --> TOK[\"npm granular access token\"]\n  TOK --> NPM[\"Published on npm\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,56 @@
+{
+  "video_id": "9uSygtI-6lw",
+  "title": "Tell your agents to CARE about the codebase",
+  "summary": "A short on why AI coding agents are excellent at tactical programming (solving the problem directly in front of them) but poor at strategic programming (the long view: architecture, refactoring, keeping the codebase healthy). The root cause is incentive: agents are reinforcement-learned on tactical benchmarks like SWE-bench, where quick fixes score and refactors do not, and harness builders avoid pushing 'annoying' strategic behavior on a model meant to be generally useful. Dan's argument is that the human must own the strategic layer - explicitly tell agents you care about the codebase improving over time, not getting worse. When told to care, agents turn out to be genuinely good at it, and skills like the improved codebase architecture skill let them plow through module-deepening and test-coverage work at scale.",
+  "what_you_learn": "You learn that an agent's blind spots are usually training incentives, not capability limits - and that the fix is explicit steering: state that long-term code quality matters and the agent will act on it. For a junior-mid developer building agent workflows this is the key to avoiding 'ball of mud' codebases: you remain the strategic layer while agents execute tactical and quality-improvement work.",
+  "skills": [
+    {"name": "Strategic Thinking", "description": "Owning the long view of a codebase - architecture, refactoring, velocity over time - while agents handle tactical tasks."},
+    {"name": "AI Benchmarking", "description": "Understanding that RL training on tactical benchmarks like SWE-bench makes agents optimize for the fix in front of them, not long-term health."},
+    {"name": "Prompt Engineering", "description": "Explicitly telling agents that codebase quality matters, which unlocks strategic behavior they are otherwise not incentivized to show."},
+    {"name": "Agent Skill Design", "description": "A skill that drives agents to find module-deepening candidates and improve test coverage across a codebase."},
+    {"name": "API & Module Design", "description": "Improving a module's interface and hiding its internals, one of the concrete improvements the architecture skill hunts for."},
+    {"name": "Agent Harness Engineering", "description": "Recognizing what the harness level will and will not enforce, and supplying the missing strategic pressure yourself."}
+  ],
+  "learnings": [
+    {
+      "title": "Agents are tactical geniuses but strategic no-shows",
+      "detail": "Agents excel at on-the-ground programming - solving the problem directly in front of them - but are bad at strategic programming: thinking about the long view, being the general that wins the war. Any agent workflow you build will show this split, so you have to plan for who covers the strategic side.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "The cause is training incentives, not missing intelligence",
+      "detail": "Agents are effectively reinforcement-learned on tactical problems and benchmarks like SWE-bench, so they are neither trained nor incentivized to think long-term. An agent thinking long-term is like the 'annoying' developer who tells the PM the codebase needs a refactor before piling more mud onto the ball of mud - behavior benchmark scoring actively discourages.",
+      "time_hint": "00:19"
+    },
+    {
+      "title": "The harness layer will not fix this for you",
+      "detail": "Because agents are trained to be generally useful across many use cases, it does not make sense even at the harness level to push them toward strategic behavior - it reads as slightly annoying. So the responsibility lands on you: you need to be the one bearing the brunt of strategic thinking and pushing the agent toward strategic improvements, without needing to be in the code all the time.",
+      "time_hint": "00:50"
+    },
+    {
+      "title": "Tell agents you care about the strategic layer and they will too",
+      "detail": "In benchmarks agents learn that tactical programming is all that matters, but if you tell them you care about the codebase improving over time instead of getting worse, the agents will care about it too - and they are actually really good at it once told.",
+      "time_hint": "01:21"
+    },
+    {
+      "title": "Skills are the lever for agent-driven code quality",
+      "detail": "Skills like the improved codebase architecture skill are great when driven by agents because they can plow through and find candidates for module deepening, for improving test coverage, and the other work a good codebase needs. The pattern: you set the strategic goal, a skill operationalizes it, and the agent executes it broadly.",
+      "time_hint": "01:40"
+    },
+    {
+      "title": "Better results come from re-incentivizing, not re-prompting harder",
+      "detail": "The closing argument: agents are not bad at strategic thinking, they are incentivized not to do it. When you tell them strategic health is what you care about, you get much better results - the highest-leverage prompt engineering is changing what the agent believes you reward.",
+      "time_hint": "02:00"
+    }
+  ],
+  "key_points": [
+    "Agents are RL-trained on tactical benchmarks, so tactical is all they think matters.",
+    "You have to be the annoying one who says 'we need to refactor before we do this'.",
+    "The harness layer will not push strategic behavior - it would make agents less generically useful.",
+    "Tell agents you care about the codebase improving over time and they will care too.",
+    "Once told to care, agents are really good at architecture and test-coverage work.",
+    "You do not need to live in the code - you need to own the strategic layer."
+  ],
+  "mermaid": "flowchart TD\n  bench[\"RL training on tactical benchmarks like SWE bench\"] -->|incentivizes| tact[\"Tactical programming - fix the problem in front\"]\n  bench -->|discourages| strat[\"Strategic programming - refactor architecture long view\"]\n  strat --> you[\"You own the strategic layer\"]\n  you -->|tell agents you care| steer[\"Explicit steering - codebase must improve over time\"]\n  steer --> skill[\"Improved codebase architecture skill\"]\n  skill --> work[\"Module deepening candidates and test coverage improvements\"]\n  tact --> outcome[\"Fast fixes but ball of mud over time\"]\n  work --> outcome2[\"Healthy codebase at scale\"]",
+  "generated": "2026-10-22"
+}

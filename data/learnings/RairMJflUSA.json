@@ -1,0 +1,99 @@
+{
+  "video_id": "RairMJflUSA",
+  "title": "My Pi Agent Teams. Claude Code Leak SIGNAL. Harness Engineering",
+  "summary": "Reacting to the Claude Code source leak, Dan argues the real signal is that the agent harness is the product: it owns deterministic code, token caching, orchestration, prompts, skills, and model control — Claude Code is worth ~2.5 billion ARR and models are being commoditized, so harness engineering is the highest-leverage skill. He demonstrates his own multi-team harness built on the Pi coding agent (pi.dev): a chat room where a single orchestrator agent receives all input and delegates to team leads (setup, UI generation teams A/B/C) and hyper-specialized workers (scaffold worker, view generator, animation specialist, soft and hard validators). The demo builds an Infinite UI system — a brand-consistent, multi-brand application for an agent security command center called Aegis — generating three new UI variants in parallel, mixing Claude Sonnet 4.6 with open-source MiniMax 2.7 and Step 3.5 Flash models per team. Mid-demo the open-source models stop responding, and the team leads break the no-writing rule to complete the work themselves, which Dan uses to showcase why multi-model, multi-team redundancy matters. He then tours the harness internals: the multi-team config file, .pi directory, per-agent front matter with hot-loaded skills and domain restrictions, expertise/mental-model files (~7K tokens) the agents maintain themselves, and reusable prompts (variables, instructions, workflow) where delegate is a literal tool and information-dense keywords drive the workflow. He explains his 80/20 split — Claude Code as a meta-builder for the system that builds the system — and pitches agentic security as a major business opportunity before the course pitch for Tactical Agentic Coding and Agentic Horizon.",
+  "what_you_learn": "You learn the anatomy of an owned agent harness: why one orchestrator should be your only entry point, how to structure three-tier agent teams (orchestrator, leads, workers) with delegation-only leads and till-done task lists, and how per-agent system prompts, skills, expertise files, and domain locks turn a coding agent into a reusable team that solves problem classes instead of one-off tasks.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "Building and customizing your own agent harness on the Pi coding agent to own context, model, prompt, and tools instead of renting Claude Code's defaults."},
+    {"name": "Multi-Agent Orchestration", "description": "Running three-tier teams where an orchestrator delegates to leads and leads delegate to specialized workers, all coordinated through a single chat interface."},
+    {"name": "Strategic Thinking", "description": "Designing orchestrators and team leads as thinkers and delegators that never write files themselves, keeping hierarchy and execution cleanly separated."},
+    {"name": "Task Management", "description": "Replacing to-do lists with till-done lists where agents keep working until every task is complete rather than stopping at plan boundaries."},
+    {"name": "Prompt Engineering", "description": "Templated prompts with variables, instructions, and workflow sections that turn repeated work into one-shot commands against the team."},
+    {"name": "Model Selection & Routing", "description": "Running different models per team (Sonnet 4.6 alongside MiniMax 2.7 and Step 3.5 Flash) and swapping them via config for redundancy and cost control."},
+    {"name": "Domain Modeling", "description": "Restricting each agent to specific file paths and operations through front-matter domain config, critical for mid-to-large codebases."}
+  ],
+  "learnings": [
+    {
+      "title": "The Claude Code leak signal: the agent harness is the product",
+      "detail": "Dan's take on the leak is not features but leverage: the harness supplies deterministic code, token caching, agent orchestration, prompts, skills, and model control — without it there is no agentic coding at all. With Claude Code at ~2.5B ARR and models commoditizing, building a specialized harness for your own domain is one of the most viable skills an agentic engineer can learn.",
+      "time_hint": "0:45"
+    },
+    {
+      "title": "Infinite UI system: solving problem classes, not one-off tasks",
+      "detail": "The demo system generates unlimited UI variants inside a consistent brand. It is structured as brands (Aegis, AgentX, AgentDan) containing applications containing versioned branch trees, and the agent team operates this product end-to-end — Dan frames the shift as solving problem classes instead of prompting a single agent to build one UI.",
+      "time_hint": "3:15"
+    },
+    {
+      "title": "Three-tier team architecture: orchestrator, leads, workers",
+      "detail": "The full team has 15 unique agents; a reduced 9-agent min version runs in the demo. One orchestrator talks to multiple team leads (setup, UI generation A/B/C), and each lead manages hyper-specialized workers: scaffold worker, view generator, animation specialist, soft validators, hard validators, and a dropped brand analyst.",
+      "time_hint": "2:15"
+    },
+    {
+      "title": "Single orchestrator entry point keeps input flat as teams scale",
+      "detail": "Dan pastes one prompt into a chat room and only ever talks to the orchestrator. This is deliberate: your cognitive input must not scale with the number of agents, so all horizontal scaling happens behind the orchestrator while the human interface stays at one chat message.",
+      "time_hint": "5:50"
+    },
+    {
+      "title": "Teach the orchestrator to prompt engineer",
+      "detail": "The orchestrator rewrites Dan's rough input into a full detailed prompt before at-mentioning the setup team, and leads do the same for workers — a meta-meta pattern where the system carries the prompt-engineering skill so the human doesn't have to.",
+      "time_hint": "6:25"
+    },
+    {
+      "title": "Till-done lists instead of to-do lists",
+      "detail": "The system tracks a till-done list: agents work until every task is complete. Combined with delegation-only rules (orchestrators and leads think, plan, and delegate but never do raw file work), this keeps the hierarchy honest while guaranteeing completion.",
+      "time_hint": "6:30"
+    },
+    {
+      "title": "Live failure case: open-source models stall and leads break the rules",
+      "detail": "Teams A and B running MiniMax 2.7 and Step 3.5 Flash return no response mid-demo. The leads recognize the workers are down and write the components themselves, explicitly reasoning the task must complete — behavior Dan compares to a real lead engineer picking up the slack, and proof you need multiple models and teams so one failure does not sink the run.",
+      "time_hint": "12:40"
+    },
+    {
+      "title": "Owning the harness means owning the file structure",
+      "detail": "Inside the .pi directory Dan built a custom multi-team layout instead of the stock agents/commands/skills layout: a multi-team config YAML, an agents directory, and per-agent expertise files. Because he owns the harness he can define any file structure, config format, and team topology he wants — the core argument of the video.",
+      "time_hint": "15:00"
+    },
+    {
+      "title": "Expertise files: agents maintain their own mental models",
+      "detail": "Each agent has an expertise file (~7K tokens in the demo) where it tracks what it learns about its domain. Dan never edits these files; he only gave agents a ~75-line skill describing how to manage a mental model. When agents boot, they load their expertise — so every run compounds knowledge instead of starting from zero.",
+      "time_hint": "16:30"
+    },
+    {
+      "title": "Front-matter specialization: skills, tools, and domain locks",
+      "detail": "Agent definitions carry front matter with a hot-loaded expertise file, skills injected into the system prompt for stronger adherence, a tools list, and a domain block restricting where the agent can operate. Dan highlights domain specialization for mid-to-large codebases: agents scoped to just the frontend, backend, migrations, devops, or billing with focused context — one agent, one prompt, one purpose.",
+      "time_hint": "17:55"
+    },
+    {
+      "title": "Reusable prompts and the delegate keyword",
+      "detail": "A generate command takes parameters (brand, product, tree, count, prompt) in a variables-instructions-workflow format, and the orchestrator runs the workflow top to bottom. Delegate is literally a tool, and information-dense keywords like delegate to X team move maximum information through the chat — the pattern for building prompts against a team rather than a single agent.",
+      "time_hint": "21:15"
+    },
+    {
+      "title": "Claude Code as meta-builder: the 80/20 split",
+      "detail": "Dan still does ~80% of his work in Claude Code, but uses it to build the system that builds the system — treating Claude Code as a meta agent rather than the builder of the final product. Once the specialized Pi-based team exists, it outperforms any number of single Claude Code, Codex, or Gemini CLI instances for that domain.",
+      "time_hint": "8:10"
+    },
+    {
+      "title": "Agentic security is the business opportunity",
+      "detail": "The demo product is an agent security command center where always-on agents watch logs for anomalies and threats in real time. Dan argues agentic security will be one of the biggest fields for years: anyone can already prompt an exploit, so companies will need agent-driven defense — a serious opportunity for engineers who can build agent teams.",
+      "time_hint": "23:35"
+    },
+    {
+      "title": "Trust and scale is the 2026 theme",
+      "detail": "The closing frame: the theme of 2026 is increasing trust in your agents to do larger scales of work over time. Harness engineering gives control of the core four, multi-agent orchestration gives scale, and the two together let teams of agents operate your product end to end — the channel's north star of agents that work while you sleep.",
+      "time_hint": "31:40"
+    }
+  ],
+  "key_points": [
+    "The Claude Code leak tells us the agent harness is the product.",
+    "Without the agent harness there are no agents, no agentic coding, no agentic engineering.",
+    "Your input to the system must not scale with the number of agents — always talk to one orchestrator.",
+    "Orchestrators and leads don't work; they think, plan, and delegate — workers build.",
+    "When the open-source model teams went silent, the leads broke the no-writing rule to finish the job — build redundancy into your teams.",
+    "Agent expertise files compound: every session your agents load and grow their mental models.",
+    "Delegate is a tool and a keyword — information-dense commands drive multi-agent workflows.",
+    "Use Claude Code as the meta-builder: 80% building the system that builds the system."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Claude Code Leak Signal\"] --> B[\"Agent Harness is the Product\"]\n  B --> C[\"Pi Coding Agent Harness\"]\n  C --> D[\"Single Orchestrator Entry Point\"]\n  D --> E[\"Team Leads - Setup and UI Teams A B C\"]\n  E --> F[\"Specialized Workers - Scaffold View Animation\"]\n  E --> G[\"Validators - Soft and Hard\"]\n  F --> H[\"Infinite UI Variants per Brand\"]\n  G --> H\n  H --> I[\"Aegis Agent Security Command Center\"]\n  J[\"Multi-Team Config File\"] --> D\n  K[\"Expertise Files - Agent Mental Models\"] --> D\n  K --> E\n  K --> F\n  L[\"Reusable Prompts with Delegate Tool\"] --> D\n  M[\"Model Mixing - Sonnet MiniMax Step\"] --> E\n  N[\"Live Failure - Open Models Stall\"] --> O[\"Leads Break Rule and Finish Work\"]\n  O --> P[\"Redundancy Across Models and Teams\"]",
+  "generated": "2026-10-21"
+}

@@ -1,0 +1,88 @@
+{
+  "video_id": "mSnDUMybZXk",
+  "title": "TypeScript, Node, esbuild, Commander... Let's build a CLI!",
+  "summary": "Matt Pocock live-streams building a Node.js CLI from an empty folder, streaming his screen and answering chat questions as he goes. He sets up a repo with npm init, git, and pnpm (explaining its global hard-link store), installs TypeScript, and pulls a recommended tsconfig from the tsconfig/bases repo for Node LTS with strict plus noUncheckedIndexedAccess. He wires up the package.json bin field, adds a #!/usr/bin/env node shebang, solves the permission-denied pitfall with chmod +x, and links the CLI globally with pnpm link --global so edits recompile through tsc --watch into a git-ignored dist folder. He installs @types/node after console and fs fail to resolve (lib excludes DOM), then builds the actual interface with Commander: program setup, description, actions, arguments, boolean options, and subcommands like 'add numbers' and 'get-max-number', checking out yargs before sticking with Commander. Along the way he covers the change-array-by-copy TC39 proposal (toReversed, toSorted, toSpliced) and ts-node vs tsx. He finishes by dissecting his production Total TypeScript CLI (ttcli): an esbuild bundle to a single dist file, a bin entry, and a changesets-driven release pipeline on GitHub Actions, and announces a beginner Total TypeScript book.",
+  "what_you_learn": "You get the full skeleton of a modern TypeScript CLI - the bin field, shebang, chmod, global linking, dist output, and argument parsing with Commander - explained as a live build with the bugs and fixes left in. For a developer coming from a JVM background, it maps cleanly onto what package.json/tsconfig/bin mean relative to Maven/Gradle conventions, and shows the pragmatic build-tool choices (tsc watch for dev, esbuild bundle for release, changesets for versioning).",
+  "skills": [
+    {"name": "Package & Build Tooling", "description": "Bootstrapping tsconfig.json from the community tsconfig/bases repo instead of hand-writing compiler options."}
+  ],
+  "learnings": [
+    {
+      "title": "A CLI is just a JavaScript file executed by node",
+      "detail": "Matt defines a CLI as a command line interface like git that you run from the terminal - and notes most CLIs in the JavaScript ecosystem (webpack, TypeScript itself) are written in JavaScript. A Rust or Go binary starts marginally faster, but node lets JavaScript access the file system and run like a native binary, which is fast enough for virtually all CLI use cases. He deliberately does not bundle node with the tool and assumes the user has it installed.",
+      "time_hint": "15:40"
+    },
+    {
+      "title": "Set up the repo: npm init, git, and a 0.0.1 version",
+      "detail": "The build starts from an empty folder: npm init -y creates package.json (Matt drops the version to 0.0.1 because starting at 1.0.0 feels premature), then git init and a first commit. He publishes the empty repo to GitHub immediately so viewers can follow along at mattpocock/practice-cli.",
+      "time_hint": "17:20"
+    },
+    {
+      "title": "pnpm installs via a global hard-link store",
+      "detail": "Of npm, yarn classic, yarn Berry, and pnpm, Matt recommends pnpm: instead of copying every package into each repo's node_modules (which clogs the file system across hundreds of repos), pnpm saves one copy of each version in a global store at the top of the file system and hard-links it down. Installing typescript took 1.4 seconds because it was already cached, and pnpm add -D adds dev dependencies.",
+      "time_hint": "19:40"
+    },
+    {
+      "title": "Bootstrap tsconfig from tsconfig/bases instead of tsc --init",
+      "detail": "Rather than tsc --init, Matt copies the recommended base for Node LTS (long-term support) from the community tsconfig/bases repository. The key options: strict true, esModuleInterop, skipLibCheck, and module NodeNext - plus his personal always-add, noUncheckedIndexedAccess, an extra rule that did not make it into strict mode. He scopes it with include src so it only applies to the source directory.",
+      "time_hint": "23:00"
+    },
+    {
+      "title": "The bin field puts your CLI's name on the PATH",
+      "detail": "Adding \"bin\": { \"practice\": \"dist/index.js\" } to package.json registers an executable named practice. When the package is installed globally or linked locally, running practice executes that file. This is the mechanism behind npx package-name - npm installs the package and the bin key tells it what command to expose.",
+      "time_hint": "26:40"
+    },
+    {
+      "title": "Shebang plus chmod plus linking makes it runnable",
+      "detail": "The dist file needs #!/usr/bin/env node as its first line so the OS knows to run it with node (TypeScript preserves the shebang comment even though it is not legal JavaScript syntax). After pnpm link --global, running practice still fails with permission denied until chmod +x dist/index.js makes the file executable - Matt folds chmod into a link-cli script together with unlink and re-link so one command refreshes everything.",
+      "time_hint": "29:00"
+    },
+    {
+      "title": "Emit compiled JS to a git-ignored dist folder",
+      "detail": "A dev script runs tsc --watch, which compiles TypeScript and strips the annotations - Matt shows message: string becoming plain message in the JS output. Emitting .js files next to the .ts files clutters the repo, so compilerOptions.outDir dist redirects output into dist/ that gets added to .gitignore, and the bin entry points at dist/index.js. The globally linked executable picks up every rebuild automatically.",
+      "time_hint": "31:30"
+    },
+    {
+      "title": "@types/node restores console and fs in a Node project",
+      "detail": "A surprise error - cannot find name console - appears because the Node LTS base config sets lib without the DOM, and console is not part of ES. There is no document in node, which is exactly why DOM should stay excluded. The fix is pnpm add -D @types/node: it injects node globals like console into the global scope and lets you import from fs and fs/promises.",
+      "time_hint": "36:20"
+    },
+    {
+      "title": "Commander pattern: declare program, add actions, parse argv",
+      "detail": "With Commander installed, the skeleton is: import { program } from 'commander', configure it (description), register actions (program.action), and finally program.parse(process.argv) to execute with the incoming arguments. practice --help then prints usage automatically. Matt compares Commander to fetch - not the best typings (it floods any into your code and action callback params need manual annotations) but dead simple and compatible with everything, which is why he has used it for years.",
+      "time_hint": "40:00"
+    },
+    {
+      "title": "Arguments, options, and subcommands in Commander",
+      "detail": "program.argument('<string>', 'string to log') makes the argument required and surfaces it in help; the action callback receives it, and Commander does not infer its type, so annotate manually. program.option('-c, --capitalize', ...) adds a boolean flag readable via options.capitalize. program.command('add numbers') creates real subcommands, so practice add numbers 1 2 3 and practice get-max-number appear as separate entries in practice --help. Matt looked at yargs (self-described pirate-themed successor to optimist) but found its API hard to grok and stayed with Commander.",
+      "time_hint": "42:00"
+    },
+    {
+      "title": "The || true bash trick makes setup scripts idempotent",
+      "detail": "The link-cli script first unlinks the old global registration, but on a fresh clone there is nothing to unlink and the script dies before linking. Appending || true to the unlink line tells bash to ignore the failure and continue, so the script works both the first time and every time after. He also switches from __dirname to process.cwd() so the CLI resolves paths relative to where it is invoked rather than where the file lives.",
+      "time_hint": "57:00"
+    },
+    {
+      "title": "Production setup: esbuild bundle, bin entry, changesets releases",
+      "detail": "Matt dissects ttcli, the real CLI running exercises in the Total TypeScript beginners course. Instead of tsc emit it runs esbuild to bundle everything into a single dist/bin.js, with \"bin\": { \"ttcli\": \"dist/bin.js\" }. Program logic lives in separate modules, node APIs come from fs/promises and path (fs.stat + stat.isDirectory to test for directories), and shell commands run via execSync. Releases use changesets - a versioning and changelog manager focused on monorepos - wired into a GitHub Action that publishes to npm automatically.",
+      "time_hint": "1:02:00"
+    },
+    {
+      "title": "ts-node runs tsc under the hood; tsx runs esbuild",
+      "detail": "Asked about the difference: tsc is TypeScript's own compiler, ts-node runs your files through it (so type checking included), while tsx is powered by esbuild - much faster, but no type checking. tsx is like nodemon for TypeScript files. This same trade-off (speed of esbuild vs type checking of tsc) drives the dev-script vs release-bundle split in the CLI setups.",
+      "time_hint": "50:30"
+    }
+  ],
+  "key_points": [
+    "A JavaScript CLI is a plain JS file with a shebang that node executes - no native binary needed.",
+    "The package.json bin field is what turns an installed npm package into a command on your PATH.",
+    "Permission denied on a linked CLI almost always means you forgot chmod plus x.",
+    "Link locally with pnpm link --global and every tsc --watch rebuild is live in your terminal.",
+    "console is not part of ES - in a Node project it comes from @types/node, not lib dom.",
+    "Commander pattern: declare the program, add actions and commands, then parse process dot argv.",
+    "Append || true to setup script steps that may legitimately fail, like unlinking a not-yet-linked package.",
+    "Ship production CLIs as a single esbuild bundle with a bin entry and changesets-driven releases."
+  ],
+  "mermaid": "flowchart TD\n  empty[\"Empty folder\"] --> init[\"npm init and git init\"]\n  init --> pnpm[\"pnpm add -D typescript\"]\n  pnpm --> tsconfig[\"tsconfig from tsconfig bases - strict\"]\n  tsconfig --> src[\"src index dot ts\"]\n  src --> tscwatch[\"dev script - tsc --watch\"]\n  tscwatch --> dist[\"dist folder - git ignored\"]\n  dist --> bin[\"bin field - practice to dist index dot js\"]\n  bin --> shebang[\"shebang and chmod plus x\"]\n  shebang --> link[\"pnpm link --global\"]\n  link --> run[\"practice command runs locally\"]\n  commander[\"Commander - program action parse argv\"] --> sub[\"subcommands arguments options\"]\n  sub --> prod[\"production - esbuild bundle single file\"]\n  prod --> changesets[\"changesets plus GitHub Actions publish\"]",
+  "generated": "2026-10-22"
+}

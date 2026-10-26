@@ -1,0 +1,90 @@
+{
+  "video_id": "cFYdiynrxpQ",
+  "title": "GLM-5.2 vs MiniMax-M3: Opus Has REAL COMPETITION (Model Stacking)",
+  "summary": "Dan breaks down the first genuinely competitive open-weights models - GLM 5.2 and MiniMax M3 - against Opus 4.8 on the Artificial Analysis Intelligence Index, concluding GLM is the better model while Minimax is the better deal. He walks through tokens-per-second versus wall-clock response time (GLM burns most of its output tokens on reasoning), the 5x cost cliff you drop down each capability tier, and why workhorse models call tools like Opus but do not ship like Opus on long-horizon tasks. He then frames engineering agents versus product agents (where tokenomics decide the business), analyzes what it actually costs to own GLM 5.2 locally ($2-4k home labs are unrunnable at 6-11 tok/s, 6x RTX Pro Blackwell at $50-100k is viable, mid-2027 is his local timeline), and ends by presenting his full model stack tier list: Fable 5 at S+, Opus S, GLM 5.2 A, Minimax M3 B, and lightweight Qwen 3.6 / Gemma 4 you can fully own.",
+  "what_you_learn": "You learn a practical framework for choosing LLMs for agent systems: tier models (state-of-the-art, workhorse, lightweight), pick two of performance-speed-cost, and route each agent task to the cheapest model that clears the bar. It also teaches why model substitutability and open-weights providers are a resilience strategy after the Fable ban, not just a cost play.",
+  "skills": [
+    {"name": "Model Selection & Routing", "description": "Placing every model into a state-of-the-art, workhorse, or lightweight tier so each agent task gets the right capability-to-price level."},
+    {"name": "Token Economics", "description": "Exploiting the roughly 5x price drop per capability tier when the tier gap itself keeps shrinking each month."},
+    {"name": "AI Vendor Management", "description": "Using open-weights models with many interchangeable providers so no lab or government can switch off your agents."}
+  ],
+  "learnings": [
+    {
+      "title": "Open-weights models just became real competition for Opus",
+      "detail": "GLM 5.2 became the leading open-weights model on the Artificial Analysis Intelligence Index with MiniMax M3 right behind it, at roughly one fifth the price of Opus 4.8. Dan de-hypes the hot take: GLM cannot replace Opus - Opus stays in a decent lead - but they are competitive on performance and cost, and both are top-five on raw intelligence, the highest open-weights models have ever ranked.",
+      "time_hint": "00:50"
+    },
+    {
+      "title": "Frame every model comparison with max and min control models",
+      "detail": "Comparing a model in isolation is useless. Dan places candidates inside his three-tier framework (state-of-the-art, workhorse, lightweight) and brackets them with a max control (Opus 4.8, the capability ceiling) and a min control (Qwen 3.6 running locally on your own hardware). This turns a vague benchmark scan into a clear picture of where GLM 5.2 (A tier) and Minimax M3 (B tier) actually sit.",
+      "time_hint": "02:10"
+    },
+    {
+      "title": "The headline: GLM is the better model, Minimax the better deal",
+      "detail": "The entire decision collapses to one question: do you need maximum capability, or can you optimize for price? That flips the tier list - on a price-optimized list Opus drops to the bottom, GLM lands at B, Minimax at A, and local Qwen 3.6 becomes S tier because running it on your own hardware is effectively free. If the model cannot do the job, price and speed do not matter.",
+      "time_hint": "03:40"
+    },
+    {
+      "title": "Raw tokens-per-second is the wrong speed metric for agents",
+      "detail": "GLM 5.2 is fast in tokens per second, but on Artificial Analysis output-token stats nearly all its tokens are reasoning - more than Opus in max mode and far more than Minimax. Fast thinking still leaves you waiting, so the metric that matters is total wall-clock response time, especially when your product agent is calling tools that users are waiting on. Speculative decoding and multi-token prediction can speed up sub-100B models further, and MLX is the first stop on Mac hardware.",
+      "time_hint": "05:05"
+    },
+    {
+      "title": "The cost curve is a 5x cliff per tier",
+      "detail": "Every time you drop one tier of capability you drop price roughly 5x - from Opus to GLM, GLM to Minimax, Minimax to Qwen 3.6 - and the capability gap you give up keeps shrinking every month. Below Minimax you lose too much capability for most real work, but a B-tier model with great prompt, context, and harness engineering can effectively be pushed into A-tier behavior.",
+      "time_hint": "07:15"
+    },
+    {
+      "title": "Workhorse models call tools like Opus but do not ship like Opus",
+      "detail": "Across the Artificial Analysis benchmarks, GLM 5.2 max loses to Opus on almost everything and sometimes to Minimax. The important nuance: five index points is a massive capability difference, and things fall off hardest on long-horizon tasks, where Anthropic's training gives Opus (and Fable) a real edge. GLM is a decent competitor, not a replacement - expect 80-90% of Opus capability at a fifth of the price.",
+      "time_hint": "08:20"
+    },
+    {
+      "title": "The trade-off triangle: pick two of performance, speed, cost",
+      "detail": "Dan's constant visualization for model evaluation. Opus gives performance, Minimax gives cost (with decent performance), local Qwen gives speed and cost, and GLM is the closest to all three at once. Every model lands somewhere on this triangle, and being honest about placement is what separates engineering from vibing.",
+      "time_hint": "10:00"
+    },
+    {
+      "title": "Engineering agents and product agents have different token rules",
+      "detail": "Engineering agents (Claude Code-style dev tools) are less than 1% of future agents; the rest are product agents embedded in real products, where token arbitrage is the business. For engineering agents, spend on the best compute you can afford since ROI is hard to measure and you are still experimenting. For product agents at tens or hundreds of thousands of users, routing every request to the cheapest model that satisfies the user is what makes or breaks the business.",
+      "time_hint": "11:00"
+    },
+    {
+      "title": "Substitutability is the whole strategy: own your models",
+      "detail": "Three of the four compared models cannot be switched off - they are open weights with 10-20 hosting providers. After Fable was banned and Anthropic reportedly finished training its successor, Dan's conclusion is that depending fully on closed-source frontier models for production agents is unacceptable. Lightweight sub-50B mixture-of-experts models are ownable today; GLM-class workhorses on a home lab are the goal, with a rough mid-2027 timeline.",
+      "time_hint": "14:55"
+    },
+    {
+      "title": "What it actually costs to run GLM 5.2 locally",
+      "detail": "An M5 Max MacBook cannot run GLM 5.2 at all. At a $2-4k budget you get a heavily quantized model at 6-11 tokens per second, which Dan calls unrunnable. Mac Studio M3 Ultras or stacked DGX Sparks (~$10k, bandwidth-constrained) are viable. Real comfort needs six RTX Pro Blackwell GPUs (~500GB VRAM, $50-100k) for a 4-bit quant. Minimax M3 (400B params) is further from local reach, but lighter open models are close enough to matter now.",
+      "time_hint": "16:40"
+    },
+    {
+      "title": "Four realistic paths to open-weights compute",
+      "detail": "Until local hardware catches up: (1) build a home lab, (2) rent GPUs by the hour if you run a business at scale, (3) use hosted open-weights APIs from many providers - Dan calls this the current default, since you want at least two or three providers for any model running your business - and (4) serverless pay-per-second, which suits bursty workloads.",
+      "time_hint": "18:30"
+    },
+    {
+      "title": "Dan's model stack tier list",
+      "detail": "S+: Fable 5, alone at the top. S: Opus, then GPT 5.5. A-tier workhorses: GLM 5.2, Gemini Flash, Gemini 3.1 Pro, DeepSeek V4 Pro, Qwen Max. B-tier: Minimax M3, DeepSeek Flash, Kimi K2.6. Lightweight (fully ownable, runs on-device): Gemma 4 and Qwen 3.6 35B. The A-to-B gap is only 5-10 index points, and stack thinking means models naturally migrate down tiers over time while you deleverage off closed labs.",
+      "time_hint": "20:10"
+    },
+    {
+      "title": "Specialized workhorses beat general ones for repeat tasks",
+      "detail": "Dan's underrated capability: dial in a system prompt for a cheap workhorse (Minimax, Flash-class, Kimi) so it executes one known repeat task in exact straight lines. If you know the task exactly and guide the model, you can drop another tier in price. This is where agentic engineering (prompt + context + harness) converts a B-tier model into A-tier results, and where GLM's reasoning-token appetite means Minimax often wins cost-per-action.",
+      "time_hint": "24:20"
+    }
+  ],
+  "key_points": [
+    "GLM 5.2 is the better model, Minimax M3 is the better deal.",
+    "GLM cannot replace Opus 4.8 - but it does 80-90% of the job at a fifth of the price.",
+    "Fast tokens-per-second means nothing if they are all reasoning tokens - wall-clock response time is the metric.",
+    "Dropping one capability tier drops your price 5x, and the tier gap shrinks every month.",
+    "Workhorse models call tools like Opus, but they do not ship like Opus.",
+    "Don't pick a model, pick a model stack.",
+    "For product agents, routing to the cheapest model that clears the bar is the business.",
+    "Three of the four models compared cannot be switched off - that is the whole point of open weights."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Agent Task\"] --> B{\"Can a cheap model do the job\"}\n  B -->|\"no and it is hard work\"| C[\"S tier - Fable 5 or Opus\"]\n  B -->|\"yes need performance\"| D[\"A tier - GLM 5.2\"]\n  B -->|\"yes high volume\"| E[\"B tier - Minimax M3\"]\n  B -->|\"yes private or local\"| F[\"Lightweight - Qwen 3.6 or Gemma 4\"]\n  C --> G[\"Cloud API - single provider risk\"]\n  D --> H[\"10 to 20 hosted open weights providers\"]\n  E --> H\n  D --> I[\"Home lab 50k to 100k dollars\"]\n  I --> J[\"Local GLM class viable around 2027\"]\n  F --> K[\"Fully owned on device\"]\n  H --> L[\"Resilient model stack\"]\n  K --> L\n  G --> M[\"Ban or outage takes you down\"]",
+  "generated": "2026-10-21"
+}

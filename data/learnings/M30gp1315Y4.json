@@ -1,0 +1,119 @@
+{
+  "video_id": "M30gp1315Y4",
+  "title": "One Agent Is NOT ENOUGH: Agentic Coding BEYOND Claude Code",
+  "summary": "Dan demonstrates multi-team agentic coding on a customized Pi coding agent harness, showing a chat-room interface where the human only ever talks to an orchestrator that delegates to team leads and then to specialized workers. The demo runs on a prompt-routing codebase: a scikit-learn prompt complexity classifier that predicts whether a prompt needs a high, medium, or low intelligence model so you don't pay Opus prices for Haiku-class questions. He has the agent team brainstorm additional classifiers (getting a unanimous Linear SVC / CalibratedClassifierCV consensus across planning, engineering, and validation teams), then plan, engineer, and validate new classifier implementations plus just commands for testing, and finally run a head-to-head eval on holdout data. He then tears down the harness: the dot pi customization layer, a YAML multi-team config defining teams and member system-prompt paths, orchestrator and lead system prompts with runtime-injected variables, shared skills (zero micromanagement, conversational response, active listener, mental model), a delegate tool, domain locking that lets frontend and backend agents read each other's code but only write their own, and expertise files where agents maintain their own mental models. He shows expertise can also be a read-only list for critical domains like billing, explains the classifier should be biased toward the high tier as a safe default, and closes on trust and scale: specialize agent experts, spend tokens generously, and build systems that build systems.",
+  "what_you_learn": "You learn a concrete, config-file-driven architecture for multi-agent coding: a YAML team config, delegation-only orchestrators and leads, a shared skills library, domain-based file permissions, and per-agent expertise files that give agents durable memory. It also covers the economics of LLM apps through a real prompt complexity classifier, including the key design rule that misrouting toward the cheap model is far worse than overpaying for the smart one.",
+  "skills": [
+    {"name": "Multi-Agent Orchestration", "description": "A three-tier orchestrator-leads-workers architecture where the human only talks to the orchestrator and all work flows through delegation."},
+    {"name": "Agent Harness Engineering", "description": "Customizing the Pi coding agent harness down to folders, config files, and per-agent system prompts instead of accepting out-of-the-box agent behavior."},
+    {"name": "Strategic Thinking", "description": "Per-agent memory files (like the 5,000-token backend dev mental model) that agents update themselves under a small guiding skill."},
+    {"name": "Domain Modeling", "description": "File-system permissions per agent so frontend and backend agents can read everything but only write their own directories."},
+    {"name": "Model Selection & Routing", "description": "Classifying incoming prompts into intelligence tiers so cheap models handle easy prompts and expensive models only handle hard ones."},
+    {"name": "Agent Skill Design", "description": "Composable skills like zero micromanagement, active listener, conversational response, and mental model shared selectively across agents."},
+    {"name": "Workflow Design", "description": "Templated plan-engineer-validate workflows exposed as slash commands that the orchestrator executes top to bottom."}
+  ],
+  "learnings": [
+    {
+      "title": "One agent is a ceiling — multi-team agentic coding moves you off the normal distribution",
+      "detail": "Dan opens by arguing a single agent, or even parallel agents with blank memories, caps your results. Specialized teams of agent experts — each with skills, expertise, and domain knowledge — outperform any single agent and, in his framing, eventually outperform your coworkers. This is aimed at mid-to-large production codebases, not cost minimizers.",
+      "time_hint": "0:45"
+    },
+    {
+      "title": "Chat-room interface with one orchestrator and visible costs",
+      "detail": "The re-engineered Pi experience is a chat room: you always talk to the orchestrator, the orchestrator at-mentions team leads, and leads at-mention workers. The footer shows orchestrator, leads, contacts, and total cost summed — the orchestrator cost is the cost of the entire multi-team system, so token spend stays observable.",
+      "time_hint": "1:45"
+    },
+    {
+      "title": "Domain enforcement in action: the lead steps out and delegates",
+      "detail": "Asked to present the file tree, the engineering lead tries to access files it lacks permission for, realizes it stepped out of its domain, and delegates to the backend and frontend developers who hold the right tools. Dan notes the extra token spend is not waste — it is the domain-locking mechanism working.",
+      "time_hint": "2:50"
+    },
+    {
+      "title": "The prompt routing problem: don't pay for intelligence you don't need",
+      "detail": "The demo codebase solves a classic LLM-economics problem: thousands of users hitting your LLM means simple prompts must not run on Opus 4.6 with high reasoning. The system predicts a tier — high, medium (Claude Sonnet 4.6), or low (Haiku-class, or cheaper open models) — per prompt so spend tracks actual complexity.",
+      "time_hint": "4:22"
+    },
+    {
+      "title": "Prompt complexity classifier with scikit-learn and justfile commands",
+      "detail": "The classifier is a small scikit-learn model run through just recipes (just is aliased to j). Running j predict \"summarize this code base\" returns label medium with confidences out of 100 — and this label routes to the configured medium-tier model. Dan notes he used to hand-build such classifiers as a lead data scientist; now agent teams do it.",
+      "time_hint": "5:09"
+    },
+    {
+      "title": "Multi-perspective answers: teams reach consensus",
+      "detail": "Asking all teams for two additional scikit-learn classifiers yields a composed answer: Linear SVC and CalibratedClassifierCV are unanimous picks across planning, engineering, and validation, with one split (SGD classifier) flagged explicitly. The orchestrator writes the identical prompt to every team so perspectives stay comparable.",
+      "time_hint": "6:17"
+    },
+    {
+      "title": "The plan, engineer, validate workflow executed by the team",
+      "detail": "Dan fires one reusable prompt — plan, engineer, then validate, plus just commands to test both new models — and the whole team runs the workflow top to bottom. The planning lead first gathers all context, spending tokens freely, leveraging the 1M context window so agents have every relevant file before they act.",
+      "time_hint": "8:29"
+    },
+    {
+      "title": "Spend to win: give agents all the context",
+      "detail": "The planning lead always reads everything before planning, and Dan frames this as not being afraid to spend to win. With million-token context windows on Opus and Sonnet, loading full relevant context into every agent is a massive, buildable advantage — the opposite of cost-min-maxing the system before it works.",
+      "time_hint": "8:50"
+    },
+    {
+      "title": "Three converging trends: big context, agent experts, customizable harness",
+      "detail": "Dan stacks the tailwinds his system rides: 1M-token context windows at cheaper prices, agents that learn through expertise files, and the Pi coding agent harness that lets you customize the entire experience — not just agents, but the whole harness. Together they push results far beyond the normal distribution.",
+      "time_hint": "9:30"
+    },
+    {
+      "title": "The dot pi file and YAML multi-team config",
+      "detail": "Everything starts with the .pi file: unlike .claude's fixed agents/prompts/skills layout, Pi lets you customize folders and files completely. A multi-team config YAML lists the orchestrator's system-prompt path and each team with its lead, color, and members — copying the config and editing teams is how you specialize or prune teams, even mid-session.",
+      "time_hint": "11:11"
+    },
+    {
+      "title": "Orchestrator system prompt with runtime-injected variables",
+      "detail": "The orchestrator's system prompt injects variables before load — session directory, conversation log, and the teams block pulled dynamically from the YAML — plus explicit file paths. Expertise and skills are taken out of the front matter and placed inside the system prompt so the agent adheres to them more strongly.",
+      "time_hint": "18:30"
+    },
+    {
+      "title": "Shared skills: zero micromanagement, conversational response, active listener",
+      "detail": "Skills are composed per agent. Zero micromanagement (delegate, never execute) is shared by orchestrator and leads; conversational response keeps leads and orchestrator concise; active listener makes every one of the 10 agents read the conversation log before each response; the mental model skill teaches self-updating expertise files. Backend devs skip conversational response so they stay verbose and detail-oriented.",
+      "time_hint": "13:20"
+    },
+    {
+      "title": "Domain locking lets agents read widely but write narrowly",
+      "detail": "Front-end and back-end agents sit side by side with mirrored rules: each can read any file but the frontend agent can only write the frontend directory and the backend agent only the backend directory. For large codebases you can scope agents to migrations, devops, or billing — enforceable through Pi hooks (or Claude Code hooks, with more limits).",
+      "time_hint": "21:10"
+    },
+    {
+      "title": "Mental models: 5,000 tokens of self-maintained expertise",
+      "detail": "The backend dev's expertise file holds ~5,000 tokens of high-level notes — specs, missing infrastructure, key risks, backend patterns, security, testing — that the agent writes and updates itself. Dan's only contribution is a 77-line mental model skill telling agents how to structure it; he never touches the file, because you can't have your fingers on everything.",
+      "time_hint": "22:10"
+    },
+    {
+      "title": "Read-only expertise for critical domains",
+      "detail": "The expertise front-matter field is a list, so you can pin extra read-only expertise files next to the updatable mental model — for example an unchangeable billing workflow file only the billing agent loads. Critical, opinionated knowledge stays safe while the agent's self-maintained memory keeps growing.",
+      "time_hint": "28:20"
+    },
+    {
+      "title": "Bias the classifier toward the expensive tier as a safe default",
+      "detail": "On the classifier design itself: misrouting a genuinely hard prompt to a mid or low model is a far worse user experience than overpaying, so the system is fine-tuned to lean toward the high tier as the safe default, then adjusted toward mid based on business financials — never toward low.",
+      "time_hint": "24:47"
+    },
+    {
+      "title": "Teams are prunable and extendable by editing one config file",
+      "detail": "Dan kills the validation team by editing the config, restarts, and the app now runs with just planning and engineering — demonstrating that team topology is data, not code. He also previews the next step: a meta agent or meta team that fine-tunes and improves the teams themselves, plus team-scoped slash commands like plan, build, validate.",
+      "time_hint": "26:50"
+    },
+    {
+      "title": "Trust then scale: spend tokens and build agent experts",
+      "detail": "The closing argument for 2026 is trust and scale: first raise trust in your agents until you know they ship when you hit enter, then scale the team. Dan pushes back on the $8-per-run complaint — models improve, costs drop, and you are not spending enough tokens — and frames agent experts with compounding mental models as the key to autonomous teams.",
+      "time_hint": "33:50"
+    }
+  ],
+  "key_points": [
+    "One agent is not enough — teams of agent experts outperform a lone genius.",
+    "You only ever talk to the orchestrator; your input must not scale with the number of agents.",
+    "Don't pay for intelligence you don't need — route prompts to high, medium, or low model tiers.",
+    "Misclassifying a hard prompt as cheap is far worse than overpaying for a smart model.",
+    "Leads and orchestrators delegate and never execute — domain locks make that enforceable.",
+    "Expertise files compound: every session your agents load and grow their own mental models.",
+    "Give agents all the context — with 1M token windows, spending tokens is the advantage.",
+    "The name of the game in 2026 is trust and scale: specialize experts, then scale the team."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Human in Chat Room\"] --> B[\"Orchestrator - Best Model\"]\n  B --> C[\"Planning Lead\"]\n  B --> D[\"Engineering Lead\"]\n  B --> E[\"Validation Lead\"]\n  C --> F[\"Workers - Planner Tools\"]\n  D --> G[\"Front-End Dev\"]\n  D --> H[\"Back-End Dev\"]\n  E --> I[\"Security Reviewer\"]\n  E --> J[\"QA Engineer\"]\n  K[\"Multi-Team YAML Config\"] --> B\n  L[\"Shared Skills - Delegate and Mental Model\"] --> B\n  L --> C\n  L --> D\n  M[\"Domain Locks - Read Wide Write Narrow\"] --> G\n  M --> H\n  N[\"Expertise Files - Self-Maintained Memory\"] --> C\n  N --> D\n  N --> E\n  O[\"Prompt Complexity Classifier\"] --> P[\"Route to High Mid or Low Model Tier\"]\n  B --> Q[\"Unified Response and Cost Footer\"]",
+  "generated": "2026-10-21"
+}

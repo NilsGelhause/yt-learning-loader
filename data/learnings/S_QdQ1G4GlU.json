@@ -1,0 +1,77 @@
+{
+  "video_id": "S_QdQ1G4GlU",
+  "title": "FIXING Opus 5: PROOF that Prompt Engineering IS NOT DEAD",
+  "summary": "Indie Dev Dan tackles Claude Opus 5's infamous verbosity: overused phrases like 'load-bearing' and 'here's the honest truth', self-congratulatory co-authored git commits, and huge output-token burn. He sets up a side-by-side comparison harness (his 'J compare' command in Herder) that runs default 'smartass' Opus 5 against a version fed a hand-written system prompt file appended via an append/append-system-prompt flag. Iterating live on a summarization task of Zuckerberg's long blog post, he layers a purpose statement, positive and negative communication patterns, reference points, hard operational boundaries, command aliases, and concrete examples into the system prompt until the model answers concisely in roughly half the time (22s vs 41s) and torching far fewer output tokens. The finished prompt is open-sourced as the 'cracked senior engineer' system prompt.",
+  "what_you_learn": "You learn how to control an agent's behavior globally and cheaply via the system prompt instead of repeating yourself in every user prompt. The concrete techniques (positive/negative patterns, reference points, aliases, examples, in-context distillation) apply to any coding agent and directly cut token cost and response latency.",
+  "skills": [
+    {"name": "System Prompt Design", "description": "Writing a global 'law for every task' system prompt that steers every input and output of an agent, as opposed to one-off user prompts."},
+    {"name": "Strategic Thinking", "description": "Assigning short codes like D1 for decisions and R6 for risks so agents can refer to prior output instead of repeating it, saving tokens."},
+    {"name": "Prompt Engineering", "description": "Defining inline command aliases (e.g. SCR for simplify-compress-repeat, ELI for explain-like-I'm-18, FOC for focus) that the agent expands when typed."},
+    {"name": "Model Selection & Routing", "description": "Copying real responses from models you like (and editing them tighter) into the system prompt as concrete examples of desired output."},
+    {"name": "Token Economics", "description": "Using prompt engineering to cut verbose model output so fewer output tokens are burned, since output tokens dominate usage."}
+  ],
+  "learnings": [
+    {
+      "title": "The system prompt is the law for every task",
+      "detail": "Dan distinguishes two ways to prompt agents: the user prompt for the single task at hand, and the system prompt which governs every task. Most engineers fixate on skills and user prompts, but the system prompt multiplies every word you write over every prompt and response, making it the highest-leverage place to engineer. In Claude Code the system prompt file is passed in with an append-system-prompt style flag, layering on top of the default prompt.",
+      "time_hint": "01:58"
+    },
+    {
+      "title": "Measure verbosity before fixing it",
+      "detail": "He clones Zuck's long blog post and asks both a default Opus 5 ('smartass' mode) and a modified Opus 5 to summarize it, running them side by side in two panes via his 'J compare' command. The default model spins for 53 and 35 seconds, torching huge amounts of output tokens on text nobody reads, which establishes the baseline for every subsequent improvement.",
+      "time_hint": "03:40"
+    },
+    {
+      "title": "Talk to the agent like another engineer, not a role",
+      "detail": "The system prompt starts with a purpose section written by hand, in plain second person: 'You and I maintain a no-BS, clear, concise, actionable relationship.' Dan deliberately does not give the model a persona or role; he sets standards as if talking to a colleague. He also explains why each instruction exists (e.g. 'why? so we can deliver the best possible results for our team'), which helps the model follow intent.",
+      "time_hint": "05:12"
+    },
+    {
+      "title": "Positive patterns tell the agent what to keep doing",
+      "detail": "Under a 'positive patterns' heading he writes directives like: 'I always see the last thing you write first — place the most important information there', 'use plain, specific language', 'state each fact once', 'match the level of detail to the level of task', 'challenge incorrect assumptions directly and explain why', and 'use the simplest domain terminology that compresses information'. This counters sycophancy and verbosity by describing the desired behavior explicitly.",
+      "time_hint": "08:15"
+    },
+    {
+      "title": "Negative patterns ban the exact phrases you hate",
+      "detail": "Under 'negative patterns' he lists words and phrases to avoid, led by Opus 5's signature tics: 'load-bearing', 'worth stating plainly', 'here's the honest truth', 'the real tension', 'carry the argument'. He also bans decorative headings and emoji, flattery without reason, analogies, em-dash chaining, semicolons and non-standard punctuation. After one rerun the banned phrases and most dashes disappear from the output.",
+      "time_hint": "10:10"
+    },
+    {
+      "title": "Reference points create a compressed shared language",
+      "detail": "The prompt instructs the agent to use numbered lists and markdown headings when presenting three or more findings, and to assign short codes: D1, D2... for decisions, R for risks, F for findings, Q for questions. Codes must be preserved throughout the conversation and not invented for simple answers. In the demo the agent emits R6 and the user can just say 'Talk more about R6' and the agent knows exactly which risk to expand — no repetition, no wasted tokens.",
+      "time_hint": "13:30"
+    },
+    {
+      "title": "Hard operational boundaries stop scope creep",
+      "detail": "State-of-the-art models trained with RL tend to do unrequested work: find problems you never asked about, refactor adjacent code, add co-authors to your git commits. The prompt fixes this with boundaries like: 'deliver only what was requested at the intended scope', 'do not widen work into cleanup, refactoring, documentation, or adjacent features', 'do not speculate on abstractions for future requirements', 'do not claim completion without evidence', and 'never add a co-author to a commit message'.",
+      "time_hint": "16:50"
+    },
+    {
+      "title": "Aliases are micro-skills injected via the system prompt",
+      "detail": "Aliases are reminders of communication patterns: 'when you see these exact aliases, expand them and act as if their expansions were given to you directly'. Examples: SCR = simplify, compress, and repeat your response; ELI = explain this like I'm 18; FOC = focus on what matters most, boil down to the true signal; REF = rewrite your response with reference points. They behave like tiny slash commands that work because the system prompt is ever present between every user turn.",
+      "time_hint": "18:50"
+    },
+    {
+      "title": "Examples are in-context distillation",
+      "detail": "A final section gives concrete 'do / do not' example exchanges (e.g. 'is legacy JSON still referenced?' answered with a two-line direct answer vs a padded 'great question, I will research...'). You can harvest these examples from models you like: run a cheaper or better-behaved model (e.g. Fable), copy its best responses, tighten them by hand (even regex-removing dashes), and paste them into the prompt — that is literally in-context distillation.",
+      "time_hint": "26:45"
+    },
+    {
+      "title": "Iterating by hand beats vibe prompting for high-leverage prompts",
+      "detail": "Dan stresses typing the system prompt by hand rather than dictating it, because the prompt multiplies over thousands of runs: the more multiplicative the artifact, the more you should slow down and engineer it deliberately. Each section (purpose, instructions, boundaries, aliases, examples) is layered and re-measured with the comparison harness until output time drops from ~41s to 22s and responses stay concise, referenceable, and free of banned phrases.",
+      "time_hint": "21:50"
+    }
+  ],
+  "key_points": [
+    "Prompt engineering is not dead — it is the most important skill for scaling your impact with agents.",
+    "The system prompt is the law for every task; the user prompt is for the single task at hand.",
+    "You always see the last thing the agent writes first — make the last thing the most important.",
+    "Ban specific phrases ('load-bearing', 'here's the honest truth') instead of vaguely asking for less fluff.",
+    "Reference points (R6, D1, F3) let you and your agent talk in a compressed shared language.",
+    "Aliases like SCR and ELI are inline micro-skills defined once in the system prompt.",
+    "Good output from another model can be copied, tightened, and reused as in-context distillation.",
+    "Engineering the system prompt cut the demo task from 41s to 22s and saved a pile of output tokens."
+  ],
+  "mermaid": "flowchart TD\n  A[\"User Prompt - single task\"] --> C[\"Agent - Claude Opus 5\"]\n  B[\"System Prompt - law for every task\"] --> C\n  B --> P[\"Purpose - no-BS relationship\"]\n  B --> I[\"Instructions - positive and negative patterns\"]\n  B --> R[\"Reference Points - D1 R6 F3 codes\"]\n  B --> H[\"Hard Operational Boundaries - stay in scope\"]\n  B --> L[\"Aliases - SCR ELI FOC REF\"]\n  B --> E[\"Examples - in-context distillation\"]\n  C --> O[\"Concise output - fewer tokens\"]\n  D[\"J compare harness in Herder\"] --> C\n  O --> D\n  D --> B",
+  "generated": "2026-10-21"
+}

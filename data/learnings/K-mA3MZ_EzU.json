@@ -1,0 +1,99 @@
+{
+  "video_id": "K-mA3MZ_EzU",
+  "title": "LIVE: Watch me build a brand-new project from scratch",
+  "summary": "Matt Pocock hosts a rare livestream to pick a new greenfield playground project, lets the chat vote, and lands on a coding agent observability platform that the chat names Slopwatch. Working entirely inside Claude Code with his own skills (grill me, domain model, zoom out) and dictating prompts via Whisper Flow, he first grills the idea - who is the user, what consent model, how sessions get ingested - then dispatches four parallel sub-agents to research the observability surfaces of Claude Code, Codex, Pi, OpenCode, and Copilot CLI, concluding that hooks alone are insufficient and a per-agent adapter over each agent's JSONL transcript is unavoidable. He persists each phase as a committed research markdown file, cutting dead context with resume, then runs a second grilling session on architecture: a hook-spawned listener sidecar per session, v1 auth via admin-minted one-time tokens with OIDC deferred, a single-binary self-hosted server pointing at an external Postgres, and 5-second polling for live spectate. He ends by domain-modeling the ubiquitous language (a session holds a DAG of turns, sub-agents are child sessions) into a context.md glossary and committing - writing zero code on purpose.",
+  "what_you_learn": "You watch a senior developer use an AI agent as a thinking partner before any code exists: interrogate the idea with a grilling skill, parallelize research across sub-agents, persist decisions as committed docs instead of fragile chat context, and lock a shared vocabulary before building. The concrete findings on hooks vs JSONL transcripts across the five major coding agents are directly reusable if you ever instrument or observe agent systems, and the context-management moves (compact a session into a research file, resume to cut a dead end) are transferable to any agent workflow.",
+  "skills": [
+    {"name": "Agent Observability", "description": "Tracking tokens, context usage, session quality, and model choice across the coding agents in an organization."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "A skill that interrogates your idea with hard questions instead of answering for you, surfacing user, consent, and ingestion forks."},
+    {"name": "Multi-Agent Orchestration", "description": "Kicking off parallel sub-agents, each researching one external system's capabilities, then merging the findings."},
+    {"name": "Token Economics", "description": "Treating token spend per session as the core economic metric of coding-agent productivity."},
+    {"name": "Domain Modeling", "description": "Hammering out a ubiquitous language in a context.md glossary so you and the AI mean the same thing by every term."},
+    {"name": "Personal Automation", "description": "A per-session listener process spawned by an agent hook that tails transcripts and ships events to a server."},
+    {"name": "Agent Harness Engineering", "description": "Owning your own skills and agent configuration (grill me, domain model, zoom out) as the layer that makes agents effective."}
+  ],
+  "learnings": [
+    {
+      "title": "Pick the project with the audience, then commit",
+      "detail": "Matt opens the stream asking chat for project ideas under constraints (useful in his daily work, front end and back end, decent complexity, useful to viewers, AI-coding related). A poll votes 78% for a coding agent observability platform. He validates the gut instinct before investing hours: it is the missing link in how he teaches, because he does not observe his own agent sessions today.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "Grill Me interrogates instead of answering",
+      "detail": "Matt pastes the raw idea into Claude Code with his grill me skill and instructs it to harden the idea. The skill fires questions like: who is the primary user (individual developer, team lead, or platform DevEx), what decision does the tool help them make, and what is the consent model for watching sessions. He notes the key behavior: it is not answering the question, it is prompting him to think of things he then says out loud.",
+      "time_hint": "10:45"
+    },
+    {
+      "title": "The user fork dictates the UX and the consent model",
+      "detail": "Three user types demand three products: a personal timeline with a deep dive per session, cohort dashboards that create surveillance anxiety, or aggregate metrics that ignore individuals. Matt chooses the personal timeline plus a team-review layer: sessions are tacitly public within the organization, a DRRI (directly responsible individual) for AI quality can dive into anyone's session, and per-session opt-in is rejected because it kills data quality. On-prem storage is required so data never leaves the org.",
+      "time_hint": "11:30"
+    },
+    {
+      "title": "Parallel sub-agents research the five major coding agents",
+      "detail": "Matt explicitly calls out sub-agents and has Claude launch four in parallel - a built-in claude code guide agent plus agents for OpenAI Codex CLI, OpenCode, and GitHub Copilot CLI observability - to investigate hooks, OpenTelemetry support, and transcript formats. The prompt defines the top coding agents as Claude Code, Codex, Pi, OpenCode, and Copilot CLI, and asks each agent to report what surface it supports and whether a proxy is needed.",
+      "time_hint": "19:15"
+    },
+    {
+      "title": "Hooks alone are insufficient - a per-agent adapter is unavoidable",
+      "detail": "The research finding: every agent has a hook surface and an append-only JSONL transcript on disk, but schemas all differ and all evolve (Pi changed its emitted shapes in a patch version). Claude Code hook payloads do not include message content, Copilot payloads are thin, and Codex hooks are flag-gated with Windows excluded. Conclusion: each agent needs an adapter using its best surface for live events, with JSONL tailing as the backstop, normalized into one internal event schema.",
+      "time_hint": "25:10"
+    },
+    {
+      "title": "Compact valuable context into a committed research document",
+      "detail": "After 45K tokens of research Matt refuses to lose the context: he has Claude create a repo, summarize the findings into research markdown, and commit it. He openly says he will never read the research document again - its value is that the conclusions live in the repo where future sessions can load them, not that a human re-reads them.",
+      "time_hint": "29:30"
+    },
+    {
+      "title": "Cut dead context with resume",
+      "detail": "When a long naming tangent burns context, Matt clips it off by resuming the conversation from just before the diversion - it is like going back in time so the wasted turns never have to stay in context. He applies the same move whenever a session wanders, keeping the working context window focused on live decisions.",
+      "time_hint": "35:15"
+    },
+    {
+      "title": "Greenfield is a research task until you get to code",
+      "detail": "Matt states his rule for greenfield projects: until you start writing PRDs and seeing ideas reified into code, you are doing research, not building. He deliberately ends the stream with zero code written: one research doc on agent ingestion, one on V1 architectural decisions, and a context.md glossary - that is the correct output of the phase.",
+      "time_hint": "38:54"
+    },
+    {
+      "title": "A hook-spawned sidecar beats an always-on daemon",
+      "detail": "The capture component question - long-running daemon vs per-session process - resolves to a hybrid: a session-start hook fires the slopwatch capture sidecar, which lives only for that session. From the user's perspective it is daemonless (hook configuration is the install), it dissolves the people-forget-to-run-it problem, concurrent Claude Code sessions each get a cheap independent subprocess, and it works for Codex and Copilot too.",
+      "time_hint": "50:00"
+    },
+    {
+      "title": "Validate the idea before the auth protocol: admin-minted tokens in v1, OIDC in v2",
+      "detail": "When the grilling drifts into OIDC and IDPs (terms Matt flags with his zoom out skill until he understands them), he pushes back: this seems heavy, what is the crappier v1 that validates the idea early? The accepted design: the admin of the self-hosted backend creates a user, gets a one-time token, hands it to the dev over Slack; the dev runs npx slopwatch login, the sidecar stores it and sends it as a bearer token. Deprovisioning is revoking the token, upgrade path to OIDC stays clean.",
+      "time_hint": "1:00:00"
+    },
+    {
+      "title": "Single binary server, but Postgres that outlives the app",
+      "detail": "Deployment shape for the org admin: a single binary with everything embedded (a bun build, or a genuine Rust binary as a learning exercise - Matt has never written Rust and likes that contributors will face repos in languages they do not know), but pointing at an external Postgres. His rule: the database must outlive changes to the application and live in a different deployable unit than the binary. No Kubernetes.",
+      "time_hint": "1:02:50"
+    },
+    {
+      "title": "Live spectate works fine with five-second polling",
+      "detail": "Asked how a sidecar event reaches a manager's browser tab in 100 milliseconds, Matt rejects the web-socket complexity: it does not need to be that live. Polling every five seconds, or whenever the user refocuses the tab, is probably good enough - an early lesson in not over-engineering a v1.",
+      "time_hint": "1:06:50"
+    },
+    {
+      "title": "Ubiquitous language before code: session, turn, model request, child session",
+      "detail": "Using his domain model skill (grill me about terminology), Matt road-tests terms against branching scenarios: Alice forks mid-session, Bob rewinds two turns, sub-agents write their own JSONL files. The locked model: a session is one logical run of one coding agent (resumes become new sessions with a parent ID), a session contains a DAG of turns, a turn is one user message plus the full assistant response, a model request is one HTTP call to the model provider, and sub-agent runs are child sessions. He catches the AI conflating turns with API calls and corrects it - because if session is fuzzy, the whole data model is fuzzy.",
+      "time_hint": "1:13:30"
+    },
+    {
+      "title": "Keeping AI output clean: align first, architecture awareness, automated review",
+      "detail": "Answering how he avoids 500-line junior-code files, Matt gives his stack: first align yourself with the AI on what you are building; second, build in architectural awareness from day one - make the agent enumerate the modules it will build and keep control over them; third, add automated review; fourth, periodically review the codebase with an AI beside you using an improve-codebase skill that surfaces architectural friction and proposes module-deepening refactors as GitHub issues.",
+      "time_hint": "1:25:30"
+    }
+  ],
+  "key_points": [
+    "A greenfield project is a research task until you start writing code.",
+    "Grill Me does not answer your question - it asks questions that make you think.",
+    "Hooks alone are insufficient; every coding agent needs its own adapter over its JSONL transcripts.",
+    "In an org, coding sessions should be tacitly public to all stakeholders - opt-in kills your data quality.",
+    "A hook-spawned sidecar per session beats an always-on daemon.",
+    "Ship crappy admin-minted tokens in v1 and push OIDC to v2 - validate the idea first.",
+    "If session is fuzzy, the whole data model is fuzzy - nail the language before the schema.",
+    "A session holds a DAG of turns; sub-agents are child sessions with a parent session ID."
+  ],
+  "mermaid": "flowchart TD\n  idea[\"Project idea from chat poll\"] --> grill[\"Grill Me skill interrogates the idea\"]\n  grill --> research[\"Parallel sub agents research five coding agents\"]\n  research --> finding[\"Hooks insufficient - per agent adapter plus JSONL tail\"]\n  finding --> arch[\"Second grilling session on architecture\"]\n  arch --> sidecar[\"Listener sidecar spawned by session hook\"]\n  arch --> auth[\"V1 admin minted tokens - OIDC deferred\"]\n  arch --> deploy[\"Single binary server plus external Postgres\"]\n  sidecar --> server[\"Slopwatch server receives events\"]\n  server --> pg[\"Postgres storage\"]\n  pg --> dash[\"Dashboard and live spectate by polling\"]\n  arch --> model[\"context md glossary - session holds DAG of turns - sub agents are child sessions\"]\n  model --> dash",
+  "generated": "2026-10-22"
+}

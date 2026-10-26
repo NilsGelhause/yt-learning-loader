@@ -1,0 +1,104 @@
+{
+  "video_id": "ZL3z1oBZntk",
+  "title": "TypeScript Performance with Aleksandra Sikora",
+  "summary": "Matt Pocock interviews Aleksandra Sikora (The Guild, ex-Blitz.js, ex-Hasura) about TypeScript performance - meaning developer experience (editor responsiveness and type-check speed), not runtime JavaScript speed. Working on the open-source Total TypeScript monorepo, they use the extendedDiagnostics compiler flag to read parse/check/program times, demonstrate the incremental tsBuildInfoFile cache, and show that skipLibCheck false costs 5 extra seconds when duplicate dependency versions exist. Aleksandra walks through TSC's internal pipeline (program creation, scanner, parser, binder, checker) using the TS Playground scanner/AST plugins, then generates a trace with tsc --generateTrace and explores trace.json in Chrome's Perfetto tracing UI to find hotspots, mapping type IDs from types.json back to source positions. They diagnose real hotspots in Matt's Advanced React course 'as prop' exercises (an immediately-indexed mapped type over JSX.IntrinsicElements taking 700ms per file), compare three solutions, and cover prevention: interfaces vs intersection type aliases, extracting complex conditional types for caching, narrowing huge unions, and explicit generic arguments. They close with @typescript/analyze-trace for automatic hotspot detection and what a 'healthy, boring' trace looks like.",
+  "what_you_learn": "You learn a complete, tool-driven workflow for diagnosing and fixing slow TypeScript projects: which compiler flags and traces to reach for, how to read TSC's pipeline stages, and which type-level patterns (intersections, giant unions, uncached conditionals) are the usual suspects. For a backend developer new to the TS ecosystem, it also demystifies how the compiler actually works under the hood, which transfers to reading any compiler or language-server codebase.",
+  "skills": [
+    {"name": "TypeScript Compiler Performance", "description": "Using tsc --extendedDiagnostics to get parse, program, and check times plus project size metrics as the first diagnostic step."},
+    {"name": "TypeScript Type System", "description": "Replacing unions over all 174 JSX intrinsic elements with only the two or three members you actually use."}
+  ],
+  "learnings": [
+    {
+      "title": "TypeScript performance means developer experience, not app speed",
+      "detail": "Alexandra defines the topic as how fast TypeScript responds to the developer: editor support lagging after you change a line, and build times creeping up. It is distinct from JavaScript performance (how fast your code runs for end users). Tools like esbuild make transpilation fast, but TypeScript itself still does all the type checking, so that is where the cost lives.",
+      "time_hint": "03:10"
+    },
+    {
+      "title": "Recognize the symptoms before you optimize",
+      "detail": "The entry signals are subjective but recognizable: you wait too long after changing one line for the editor to show types, builds get much slower over time, or the tsserver crashes and loses track of everything in VS Code. Editor slowness is usually what pushes teams to investigate, because it directly blocks how fast you can write and ship code.",
+      "time_hint": "06:00"
+    },
+    {
+      "title": "Start every investigation with the extendedDiagnostics flag",
+      "detail": "Run tsc --extendedDiagnostics (or plain --diagnostics) to get project metrics: lines of code, file and identifier counts, and the split between parse time, program time, and check time. If your project is huge yet diagnostics show a massive file count, your include/exclude config is probably picking up node_modules or .next directories you never meant to type check. Once config is sane, parse and program time are fixed costs you cannot optimize - check time is where the interesting work is.",
+      "time_hint": "09:45"
+    },
+    {
+      "title": "incremental true and the tsBuildInfoFile cache cheap wins",
+      "detail": "Setting incremental to true makes TypeScript cache build information in a tsBuildInfoFile, so recompiles only pick up files that actually changed instead of starting from scratch. Matt's first diagnostics run showed zero instantiations purely because the cache was warm; deleting it (or running with incremental false) revealed the real ~10-second baseline. For benchmarking you disable it so caching never pollutes your measurements.",
+      "time_hint": "11:30"
+    },
+    {
+      "title": "skipLibCheck false costs real time when dependencies duplicate",
+      "detail": "skipLibCheck true means .d.ts files are not re-checked by TypeScript. Setting it to false on the Total TypeScript repo added about five seconds to check time, because duplicate versions of the same packages each bring their own declaration files to verify. You also almost always want node_modules excluded; declaration files in node modules still get type checked when imported even if never transpiled.",
+      "time_hint": "17:20"
+    },
+    {
+      "title": "The binder is one expensive pass that builds lookup tables",
+      "detail": "After the scanner produces a token stream and the parser adds structure, the binder runs a single traversal of the AST. It creates a symbol table with metadata per node and sets parent pointers on every node, so the checker can walk up the tree quickly to find an inferred or explicitly declared type when inference fails.",
+      "time_hint": "22:30"
+    },
+    {
+      "title": "The checker does two jobs: assignability and inference",
+      "detail": "Check time is dominated by the type checker, which has two responsibilities: comparing types to see if they are assignable to each other, and inferring types to fill gaps wherever you did not write explicit annotations (which is also how declaration files get generated). Everything you do to reduce comparisons or inference work shrinks check time.",
+      "time_hint": "24:00"
+    },
+    {
+      "title": "generateTrace produces a flame chart you can explore in the browser",
+      "detail": "Running tsc --generateTrace trace (with incremental false for fresh results) writes trace.json and types.json. Drag trace.json into chrome://tracing or Perfetto UI to see createProgram, bindSourceFile, and checkSourceFile regions with durations, plus an args section with metadata like config file paths and which source file each check belongs to. Events use b for begin, e for end, and x for single instants.",
+      "time_hint": "25:00"
+    },
+    {
+      "title": "Map a slow check back to exact code with pos and type IDs",
+      "detail": "A checkSourceFile event with pos/posEnd tells you where in the file the slow node is - paste the file into the TypeScript AST Viewer to see the position. structuredTypeRelatedTo events carry sourceId and targetId: copy an ID, open types.json in VS Code, use go to line (Ctrl+G / Cmd+G), and you see the exact types being compared - for example SVGProps from React compared against an XState action function.",
+      "time_hint": "35:00"
+    },
+    {
+      "title": "Deep recursive type comparisons hitting the depth limit are a red flag",
+      "detail": "In the trace, boxes nested extremely deep - recursiveTypeRelatedTo events that hit the depth limit, plus intersectionType frames with sourceId and targetId stacks - indicate recursive type comparisons that do enormous work. The further down the flame chart you go, the more likely you are looking at a recursive type problem rather than ordinary checking.",
+      "time_hint": "41:30"
+    },
+    {
+      "title": "Prefer interface extends over type alias intersections when composing",
+      "detail": "Whether you use type or interface barely matters for performance on its own - it matters when composing. Interface extends produces one flat object TypeScript caches relationship information for, while type alias intersections must recursively merge properties and get compared part by part (A and B and C and D all complex makes it much slower). Multiple interface extends is allowed; multiple class extends is not.",
+      "time_hint": "42:40"
+    },
+    {
+      "title": "Explicit return types are a rare targeted fix, not a habit",
+      "detail": "Both speakers prefer letting TypeScript infer rather than annotating everything, and explicit return types usually do not save meaningful work. The exceptions: hot spots where you see excessive instantiations, and generic functions where supplying the generic arguments explicitly lets TypeScript fall back to the default for the remaining parameters - a trick that helped on a complex Babel function. Import types in generated .d.ts files also cost extra work to compute, so avoidable import paths there are worth fixing.",
+      "time_hint": "45:00"
+    },
+    {
+      "title": "@typescript/analyze-trace flags hotspots automatically",
+      "detail": "Instead of manually exploring the trace, run @typescript/analyze-trace on the trace folder and it points at problematic files directly - for example as-prop-solution-1.tsx taking 700ms to check a single file versus 500ms for the generic-based solution 2. Matt then simplified the props lookup to JSX.IntrinsicElements[T] and re-ran the trace to compare: 500ms down to 460ms, showing traces let you A/B type-level designs.",
+      "time_hint": "50:00"
+    },
+    {
+      "title": "Extract complex conditional types so TypeScript can cache them",
+      "detail": "A common pattern behind slow hotspots is a complex conditional type inline in a larger type. Extracting the complex part into its own named type alias (or interface) lets TypeScript cache it instead of recalculating on every use. Matt demonstrates splitting a componentProps helper that mixed JSX element constructor handling and intrinsic element handling into separate types for exactly this reason.",
+      "time_hint": "1:02:00"
+    },
+    {
+      "title": "Narrow giant unions to the members you actually need",
+      "detail": "The as prop demo built a mapped type keyed by all 174 members of keyof JSX.IntrinsicElements and intersected it - a massive union to check against. Alexandra's fix: a Button only ever needs to be a button or an anchor, so type the union as those two instead of all 174 elements. Whenever possible, ask whether the polymorphic type needs to be everything.",
+      "time_hint": "1:00:00"
+    },
+    {
+      "title": "A healthy trace looks boring",
+      "detail": "To judge a project healthy, run analyze-trace first (it has a configurable threshold for reporting more detail), then open the trace: healthy means roughly uniform box durations with nothing enormous standing out. Alexandra showed a trace of Sentry's open-source codebase where the check region is long but flat - boring, in a good way; exciting spikes are what you hunt.",
+      "time_hint": "58:40"
+    }
+  ],
+  "key_points": [
+    "TypeScript performance is about developer experience: editor lag and type-check time, not runtime speed.",
+    "Run tsc --extendedDiagnostics first; parse and program time are fixed costs, check time is the battlefield.",
+    "incremental true plus the tsBuildInfoFile cache is a nearly free win - disable it only when measuring.",
+    "skipLibCheck false added five seconds because duplicate dependency versions re-check their .d.ts files.",
+    "Interfaces extend flat and cache; type alias intersections merge recursively and compare part by part.",
+    "Copy a type ID from the trace into types.json with go-to-line to see exactly which types are being compared.",
+    "Giant unions like all 174 JSX intrinsic elements should be narrowed to the two or three you actually use.",
+    "A healthy TypeScript trace looks boring: uniform durations, no towering boxes."
+  ],
+  "mermaid": "flowchart TD\n  src[\"Your TS source files\"] --> scanner[\"Scanner - characters to tokens\"]\n  scanner --> parser[\"Parser - tokens to AST\"]\n  parser --> binder[\"Binder - symbols and parent pointers\"]\n  binder --> checker[\"Checker - assignability plus inference\"]\n  diag[\"tsc --extendedDiagnostics\"] --> metrics[\"Parse program and check times\"]\n  src --> trace[\"tsc --generateTrace\"]\n  trace --> tracejson[\"trace dot json\"]\n  trace --> typesjson[\"types dot json\"]\n  tracejson --> perfetto[\"Perfetto UI flame chart\"]\n  perfetto --> hotspot[\"Hotspot - check source file\"]\n  hotspot --> analyze[\"typescript analyze-trace\"]\n  analyze --> fix[\"Extract types narrow unions use interfaces\"]\n  typesjson -->|\"go to line for type IDs\"| hotspot\n  checker --> metrics",
+  "generated": "2026-10-22"
+}

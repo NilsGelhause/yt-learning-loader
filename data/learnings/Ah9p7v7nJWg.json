@@ -1,0 +1,74 @@
+{
+  "video_id": "Ah9p7v7nJWg",
+  "title": "The 7 phases of AI-driven development",
+  "summary": "Matt Pocock lays out seven phases he says are common across nearly every AI-driven development approach, whether rough loops, GSD, or Spec Kit: idea, research, prototype, PRD, implementation planning, execution, and QA. The idea (an app, feature, bug fix, or refactor) becomes a set of tickets that agents complete. Research caches hard-to-explore external knowledge (like a Stripe integration) into a research asset inside the repo; prototyping on throwaway routes imposes taste before anything is spec'd; the PRD, hammered out by having the agent grill him down the decision tree, describes the end state; implementation planning turns the PRD into a Kanban board of issues with blocking relationships; execution is usually a sequential Ralph loop that can run fully AFK; and QA means an agent-written QA plan walked by a human, which feeds new tickets back into the board. The last three phases loop until the product is right.",
+  "what_you_learn": "You get a compact mental model of where you are in any agent-driven build and what artifact each phase should produce, which prevents the classic beginner failure of jumping from idea straight to execution. It also teaches the supporting tricks that make autonomous loops work: caching external research so fresh-context agents stop re-exploring, prototyping to impose taste while it is still cheap, and letting QA generate the next batch of tickets.",
+  "skills": [
+    {"name": "Planning & Prioritization", "description": "A framework of idea, research, prototype, PRD, implementation planning, execution, and QA for shipping work with AI agents."},
+    {"name": "Context Engineering", "description": "Capturing research about external APIs and hard explore targets into a markdown asset the repo so agents reuse it."},
+    {"name": "Iterative Prototyping", "description": "Building throwaway prototypes with the agent to impose taste and get concrete feedback before writing any spec."},
+    {"name": "Spec-Driven Development", "description": "Documenting the end state of a feature, hammered out by an agent grilling you down your decision tree."},
+    {"name": "Issue & Backlog Management", "description": "Turning a PRD into a board of tickets with blocking relationships so work can be parallelized or looped."},
+    {"name": "Autonomous Agent Operations", "description": "Running a Ralph loop over the ticket board, usually sequentially, often fully away-from-keyboard."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Keeping a human walking the QA plan and feeding findings back as new tickets while agents execute."}
+  ],
+  "learnings": [
+    {
+      "title": "The seven phases and why they generalize",
+      "detail": "The phases are: idea, research, prototype, PRD, implementation planning, execution, QA. Matt claims they are common across many approaches, from his own rough loops to GSD to Spec Kit; the implementations differ but the phases recur. The idea phase covers anything from a whole app to a bug fix or a refactor, and the endgame is always the same shape: the idea becomes a set of tickets that one or many agents complete.",
+      "time_hint": "0:57"
+    },
+    {
+      "title": "Research phase: cache hard explorations into the repo",
+      "detail": "If the idea involves external dependencies or difficult explore phases (a Stripe integration, an uncommon API), run a research phase now and create an asset that caches the research inside the repo, typically a research.md. Every time an agent does work it may need to explore in a fresh context window; if that exploration is slow or hard to reach, caching it once saves every future session the cost.",
+      "time_hint": "1:53"
+    },
+    {
+      "title": "Research rots, so it lives only for the lifetime of the idea",
+      "detail": "Research is deliberately scoped to the lifetime of the sprint or idea, not committed forever. Research goes out of date, rots, and can actively mislead an agent into taking a wrong turn where fresh exploration would have succeeded. Treat cached research as a per-feature asset with an expiry, not as permanent documentation.",
+      "time_hint": "6:14"
+    },
+    {
+      "title": "Prototype to impose taste while it is still cheap",
+      "detail": "Prototyping matters whenever you need to impose taste on the outcome: UI that must look or behave a certain way, an architecture choice, or testing an external service. Matt's technique is to have the LLM chuck a bunch of different versions onto a throwaway route, iterate in a couple of sessions, pick the best, then commit the prototype so the implementing agent can see it. He calls this essential because by the PRD stage things are too abstract; you need concrete feedback first.",
+      "time_hint": "2:40"
+    },
+    {
+      "title": "The PRD describes the destination, hammered out by grilling",
+      "detail": "Phase four is the PRD: after research and prototyping you can confidently describe the end state, what the user will see and how it will behave, though not all implementation decisions. To hammer out the design you prompt the agent to grill you, walking down every part of the decision tree (his write-a-PRD skill is built for this). It does not have to be called a PRD: any document describing the end state counts.",
+      "time_hint": "3:25"
+    },
+    {
+      "title": "Implementation planning: a Kanban board with blocking tickets",
+      "detail": "Phase five converts the PRD into a Kanban board, a list of tickets with blocking relationships between them, via his PRD-to-issues skill. Matt uses GitHub issues for both PRD and board for convenience, but notes GitHub lacks built-in blocking relationships, so a tool like Linear may serve better. The payoff: find all unblocked tickets and spin up an agent for each, parallelizing effectively.",
+      "time_hint": "4:25"
+    },
+    {
+      "title": "Execution: usually a sequential Ralph loop, safe to run AFK",
+      "detail": "Phase six runs a coding agent over the board in some loop. Most of the time you do not need parallelism: a sequential agent working each ticket is enough, and for Matt that is a Ralph loop. With research, prototype, PRD, and board in place, the execution loop can be run fully AFK and still produce really good results; alternatively you can execute human-in-the-loop, ticket by ticket.",
+      "time_hint": "5:06"
+    },
+    {
+      "title": "QA generates tickets, and the last three phases loop",
+      "detail": "Phase seven: the agent creates a QA plan, a human walks it against the completed work, and the result is usually more tickets on the board, which go back through execution. Expect to loop planning, execution, and QA several times, iterating towards the product. QA can also include a human reading the produced code, though that may be less necessary with a gray-box architecture.",
+      "time_hint": "5:26"
+    },
+    {
+      "title": "What is missing: code review",
+      "detail": "Matt flags a gap in his own framework: there is no explicit code review phase. It could fold into execution or count as part of QA, but it is definitely an essential step to producing good code, and the seven phases will probably grow to eight or nine as his thinking develops.",
+      "time_hint": "8:04"
+    }
+  ],
+  "key_points": [
+    "Idea, research, prototype, PRD, plan, execute, QA: the phases recur across GSD, Spec Kit, and rough loops.",
+    "Cache hard research in the repo so fresh-context agents stop re-exploring.",
+    "Research rots: scope it to the lifetime of the idea, not the lifetime of the repo.",
+    "Prototype on throwaway routes to impose taste before the PRD makes everything abstract.",
+    "A PRD is the destination; the Kanban board is the journey.",
+    "A sequential Ralph loop over unblocked tickets is usually enough; save parallelism for when you need it.",
+    "QA output is new tickets: planning, execution, and QA loop until the product is right.",
+    "Code review has no explicit phase yet; that is a known gap."
+  ],
+  "mermaid": "flowchart TD\n  P1[\"Phase 1 Idea\"] --> P2{\"Research needed\"}\n  P2 -->|\"external APIs or hard explores\"| R[\"Research asset cached in repo\"]\n  P2 --> P3[\"Phase 3 Prototype to impose taste\"]\n  R --> P3\n  P3 --> P4[\"Phase 4 PRD via grill me - the destination\"]\n  P4 --> P5[\"Phase 5 Kanban board with blocking tickets\"]\n  P5 --> P6[\"Phase 6 Execution - Ralph loop AFK\"]\n  P6 --> P7[\"Phase 7 Agent QA plan plus human QA\"]\n  P7 -->|\"new tickets found\"| P5\n  P7 --> SHIP[\"Iterated product\"]",
+  "generated": "2026-10-22"
+}

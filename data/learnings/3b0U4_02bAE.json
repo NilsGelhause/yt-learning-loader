@@ -1,0 +1,77 @@
+{
+  "video_id": "3b0U4_02bAE",
+  "title": "Self-Compact Pi Agent: ZERO HYPE Agentic Coding Devlog",
+  "summary": "Indie Dev Dan builds a self-compacting Pi coding agent harness from scratch to solve the context-window problem of long-running autonomous agents. He first hand-writes a detailed draft plan (problem, solution, definition of done, a how-you-are-graded rubric, workflow, and CLI flags), then uses a just file to launch three agentic coding tools in parallel against it: Claude Code with GPT-6 Astra, Codex with Fable 5.1, and the Pi Coding Agent with GLM 5.2. GLM 5.2 burns 98% of its context thinking and fails, Fable 5.1 finishes in 50 minutes using ~500K tokens, and Astra finishes in 21 minutes using 136K tokens. He then live-tests the resulting harness: a context bar with notice, warning, and force-compaction markers, a dedicated self-compact tool the agent calls to compact its own memory while leaving a note to self, custom compaction user prompts that override the Pi default, and threshold tuning (including a 225K/250K/270K setup chosen because GPT pricing doubles past 270K tokens).",
+  "what_you_learn": "You learn how to take full control of context-window management in a custom agent harness instead of accepting fixed-percentage auto compaction defaults: designing notice, warning, and force thresholds, overriding the compaction prompt itself, and giving the agent its own tool to compact on its own schedule. It also shows a repeatable workflow for comparing agentic coding tools and models in parallel against one precise plan, and why context management is the foundation for out-loop (unattended) agents and swarms.",
+  "skills": [
+    {"name": "Context Window Management", "description": "Setting notice, warning, and force-compaction levels (token counts or percentages) so the agent gets room to finish work before a hard cutoff."},
+    {"name": "Context Engineering", "description": "Replacing the baked-in compaction user prompt of an agentic coding tool with your own engineered prompt for each threshold."},
+    {"name": "Prompt Engineering", "description": "Hand-writing a detailed plan markdown file (problem, solution, definition of done, workflow, flags) that encodes your expertise before any agent runs."},
+    {"name": "Multi-Agent Orchestration", "description": "Running the same plan through multiple agentic coding tools and models side by side in a terminal multiplexer to compare speed, tokens, and output quality."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Distinguishing attended interactive agentic coding from unattended long-running agents that must manage themselves."}
+  ],
+  "learnings": [
+    {
+      "title": "Question the fixed-percentage auto-compaction default",
+      "detail": "Claude Code and Codex let you set the context level where auto compaction fires, but a fixed percentage is a default for engineers who do not own their harness. Agents are smart enough to know when their own context window is full, so a custom harness can let the agent choose a better moment to compact - especially for out-loop swarms of 10 to hundreds of agents running for hours.",
+      "time_hint": "01:24"
+    },
+    {
+      "title": "Start with a hand-written draft plan, not a prompt",
+      "detail": "Dan begins every build by crystallizing his thoughts into draft-plan.md: title, problem, solution, the five key features, workflow, and CLI syntax. The level of detail you encode into the plan is the level of detail you get out of your agents - anyone can write code, but translating your expertise into something agents can use is the edge.",
+      "time_hint": "02:16"
+    },
+    {
+      "title": "Define done and grade the agent with a rubric",
+      "detail": "Two sections he now puts in every prompt: definition of done (how the agent knows when to stop) and how you are graded. The grading section exploits that models are always graded during training, so they adhere to rubrics - here with instant failures like writing deliverables outside the working directory, reading other agents' spec files, or touching a sibling app directory.",
+      "time_hint": "07:16"
+    },
+    {
+      "title": "The self-compact tool with a note to self",
+      "detail": "The central feature is a dedicated tool that lets the agent do two things: autonomously compact its own context, and leave a note to itself. Compaction normally fires a user prompt that summarizes the session; the note to self is an additional user prompt injected during summarization, so the agent hands itself goal, determination of done, and next action on top of the standard summary.",
+      "time_hint": "08:33"
+    },
+    {
+      "title": "Three thresholds - notice, warning, force",
+      "detail": "The harness has three levels: a soft notice user prompt, a stern warning prompt ('compact soon'), and a hard cutoff where the harness will not let the agent call any other tool. The design intent is a large gap between notice and warning so the agent picks its own moment, then a short gap between warning and force so it cannot rot context indefinitely.",
+      "time_hint": "11:45"
+    },
+    {
+      "title": "Override the tool's default compaction prompt",
+      "detail": "Most engineers do not realize every agentic coding tool ships a baked-in compaction message you can take full control of. He overrides the Pi Coding Agent's default compaction prompt with his own; he believes Codex's can be overridden too, while Claude Code's cannot - a point in favor of owning your harness.",
+      "time_hint": "10:27"
+    },
+    {
+      "title": "Tune thresholds to the pricing cliff",
+      "detail": "A concrete tokenomics example: GPT-model pricing roughly doubles at the 270K token mark, so he sets notice at 225K, warning at 250K, and force at 270K. This gives the agent room to wrap up work before the hard compact fires and costs start doubling - thresholds are a cost-control tool, not just a UI nicety.",
+      "time_hint": "11:12"
+    },
+    {
+      "title": "Run one plan against three harnesses and compare honestly",
+      "detail": "A just file launches Claude Code (GPT-6 Astra), Codex (Fable 5.1), and Pi (GLM 5.2) side by side in a Herder terminal with three panes. Results: GLM 5.2 hits a context explosion at 98% because it spends most of its budget thinking, Fable 5.1 takes 50 minutes and ~500K of its 1M context, Astra takes 21 minutes at 136K tokens - half the time means a fraction of the tokens, and token counts only matter if the result is correct.",
+      "time_hint": "15:55"
+    },
+    {
+      "title": "Test thresholds by spreading them out",
+      "detail": "To prove the system works he has the agents spread the thresholds to 10% notice, 20% warning, 30% force, then runs DeepSeek V4 Flash via OpenRouter on a task that chews context (finding the largest file and reading it in 40KB chunks). The agent receives the notice, takes in the warning, decides to compact, writes its note to self, and the harness forces the compaction - the full cycle visibly working.",
+      "time_hint": "20:38"
+    },
+    {
+      "title": "Master the core four to master the agent",
+      "detail": "His closing framework: if you master the core four - context, model, prompt, tool - you master the agent, and if you master the agent you master knowledge work. Self-compaction is one concrete application; the bigger direction is moving from in-loop agentic coding to out-loop systems - agents and swarms that operate without you - which is impossible without agents that manage their own context.",
+      "time_hint": "26:41"
+    }
+  ],
+  "key_points": [
+    "Defaults are for engineers who do not own their harness - fixed-percentage auto compaction is just the beginning.",
+    "Compaction is a user prompt under the hood, which means you can write your own and override the tool's default.",
+    "Give the agent a note to self: a message injected during summarization so the next context starts with goal, done-state, and next action.",
+    "GLM 5.2 died at 98% context from over-thinking, Fable 5.1 took 50 min and 500K tokens, Astra took 21 min and 136K tokens on the same plan.",
+    "Set thresholds against pricing cliffs: notice 225K, warning 250K, force 270K before GPT pricing doubles.",
+    "Definition of done tells the agent when to stop; a grading rubric with instant-failure rules makes it behave.",
+    "The only benchmark that matters is whether the agent delivered the result - token and speed stats are secondary.",
+    "Master context, model, prompt, and tool - the core four - and you master the agent; self-compaction is how agents survive unattended."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Hand written draft plan\"] --> B[\"Just file launches three harnesses\"]\n  B --> C[\"Claude Code with Astra\"]\n  B --> D[\"Codex with Fable 5.1\"]\n  B --> E[\"Pi agent with GLM 5.2\"]\n  C --> F[\"Working self-compact harness\"]\n  D --> F\n  F --> G[\"Context bar with cached and uncached tokens\"]\n  G --> H[\"Notice threshold - soft prompt\"]\n  G --> I[\"Warning threshold - compact soon\"]\n  G --> J[\"Force threshold - hard cutoff\"]\n  H --> K[\"Agent decides when to compact\"]\n  I --> K\n  K --> L[\"Self-compact tool call\"]\n  L --> M[\"Note to self injected into summary\"]\n  M --> N[\"Custom compaction prompt overrides default\"]\n  N --> O[\"Agent continues with fresh context\"]",
+  "generated": "2026-10-21"
+}

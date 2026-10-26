@@ -1,0 +1,81 @@
+{
+  "video_id": "MzWIIlx0Gpc",
+  "title": "Burn through the backlog from hell with /triage",
+  "summary": "Matt Pocock introduces /triage, a skill for turning messy human-submitted backlog items (GitHub issues, Jira, any backlog) into actionable tasks that agents - or humans - can pick up. The core mechanism is a state machine encoded in labels: two category roles (bug, enhancement) plus state roles (needs triage, paused, needs info, ready for agent, ready for human, won't fix), where every triaged issue carries exactly one category and one state. He demos the skill live on his own Sandcastle repo: a fresh Claude session explores the repo, labels nine untriaged issues, uses the .out-of-scope directory (ADR-like records of rejected features) to close enhancement requests on sight, then deep-dives issue 477 - rejecting the agent's initial credulous recommendation, forcing it to reproduce the bug itself with the diagnose skill (regression test first, then fix in a feedback loop), and finally pushing the fix to main and closing the issue. He frames the whole activity as queue management: the human as translation layer between ticket authors and the AFK agents that only pick up tickets labeled ready for agent.",
+  "what_you_learn": "You get a concrete, copyable design for agent-ready backlogs: a label state machine as the contract between humans and AFK agents, an out-of-scope ADR directory so agents can reject work without asking, and an agent-brief template as the gate before a ticket may be marked ready for agent. The demo also teaches operational habits: do not trust bug reports (make the agent reproduce first), regression-test before fixing, watch your context budget, and run triage and fix sessions in parallel.",
+  "skills": [
+    {"name": "Issue & Backlog Management", "description": "A skill that fleshes out a backlog, turning messy human ideas into actionable tasks or rejecting them."},
+    {"name": "Spec-Driven Development", "description": "An ADR-like directory of rejected features the agent reads to close enhancement issues immediately."},
+    {"name": "Test-Driven Development", "description": "The diagnose skill creates the failing regression test and feedback loop before fixing the bug."},
+    {"name": "Token Economics", "description": "Tracking a session's context budget - a 100K budget spent 46.5K before committing to deep diagnosis work."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "The human vets agent recommendations and approvals between ticket authors and implementing agents."}
+  ],
+  "learnings": [
+    {
+      "title": "Why triage: skill setups break down in teams",
+      "detail": "Skill-based setups are great for solo developers, but in teams - or building ideas for other people - you must triage other people's ideas: is it good, is it worth building, is it a bug, does it need reproduction. /triage works on GitHub issues, Jira, or any backlog, and Matt runs it on every open-source repo he maintains.",
+      "time_hint": "0:30"
+    },
+    {
+      "title": "The state machine encoded in labels",
+      "detail": "The skill is driven by a state machine encoded in GitHub labels. Two category roles: bug and enhancement. State roles: needs triage (a maintainer must look), paused, needs info (waiting on the reporter), ready for agent (fully specified, ready for an AFK agent), ready for human (needs a human implementer now), and won't fix. Every triaged issue must carry exactly one category and one state - it cannot be ready for human and needs triage at the same time.",
+      "time_hint": "1:00"
+    },
+    {
+      "title": "Ways to run triage, and the agent brief gate",
+      "detail": "You can triage one specific issue, the entire backlog, ask 'show me anything that needs my attention now', or move a single ticket to ready for agent. That last move has a gate: to mark something ready for agent you must write a brief for the agent that picks it up, using the agent brief template built into the skill.",
+      "time_hint": "2:30"
+    },
+    {
+      "title": "Demo setup: a fresh Claude session triages the Sandcastle repo",
+      "detail": "He opens a new Claude session in the repo, says 'triage', and asks for all open issues not yet triaged. The agent explores the repo, detects GitHub issues, finds nine untriaged open issues, and walks through each one adding the basic labels (bug or enhancement, plus needs triage) so the human makes fewer decisions up front.",
+      "time_hint": "3:15"
+    },
+    {
+      "title": "The .out-of-scope directory closes enhancement issues on sight",
+      "detail": "The repo has a .out-of-scope directory at the top level: ADR-like records of features that will not be implemented, written during earlier triage. Example: Sandcastle will not provide an abstraction layer for composing Dockerfiles or managing base images. When the agent reads these, it can immediately close a matching enhancement as won't fix without escalating to a human.",
+      "time_hint": "3:45"
+    },
+    {
+      "title": "Do not be credulous: make the agent reproduce the bug itself",
+      "detail": "On issue 477 the agent recommended ready for agent with substantial triage notes - pinpointed root cause, reproduction steps, stack trace. Matt pushed back: it was being too credulous about the reporter's claims. He had it use the diagnose skill to reproduce the bug and attempt the fix itself before the ticket could be considered ready. The confirmed root cause: variables containing a literal task ID whose syntax errors when not passed by the user; the fix replaces them with a placeholder pattern that does not error.",
+      "time_hint": "5:10"
+    },
+    {
+      "title": "Watch your context budget before deep work",
+      "detail": "While working, Matt keeps an eye on context usage in the bottom-left of the session. His budget is 100K tokens and he was at 46.5K - comfortably enough to diagnose and fix. Context budgeting is a constant background consideration in every LLM session, and triage helps because labels already applied in earlier sessions reduce re-explanation.",
+      "time_hint": "5:35"
+    },
+    {
+      "title": "Managing AFK agents is queue management",
+      "detail": "A lot of AI work - and of managing AFK agents specifically - is essentially queue management: pruning a queue and acting as a translation layer between the humans creating tickets and the AI implementing them. His Sandcastle plan prompt only touches issues explicitly labeled ready for agent, so the labels are the contract that keeps agents off tasks that are not ready.",
+      "time_hint": "6:05"
+    },
+    {
+      "title": "Diagnose skill: regression test first, then fix in the feedback loop",
+      "detail": "The diagnose skill uses a setup similar to his TDD skill: create the regression test and feedback loop first, then fix the bug inside that loop. For issue 477 it scaffolded a unit test asserting the generated prompt.md contains no unresolved task ID, so the fix is verified continuously. Triage is also a place to just fix things: once the issue is understood and diagnosed, you can fix it right there in the same session.",
+      "time_hint": "7:15"
+    },
+    {
+      "title": "Run two parallel sessions: triage on the right, fix on the left",
+      "detail": "A habit Matt shows: run two Claude sessions at once - one triaging an issue while the other works on main to fix a different issue. He approves the command request, bumps the fix session into auto mode, watches it add a changeset and the fix, then has it push to main and close the original issue. He notes he usually prefers a PR that references the issue so merging closes it automatically.",
+      "time_hint": "7:50"
+    },
+    {
+      "title": "The ready-for-agent signal fills the backlog with work agents can actually do",
+      "detail": "The point of the whole system: an AFK agent needs a backlog of tasks it can pick up over time, and specific labels mean the agent will not stumble around on tasks that are not ready yet. The ready for agent mark composes with his other skills - a PRD (for example on worktree locking to prevent concurrent agent access) can be marked ready for agent, and child tickets referencing the PRD can be marked ready for agent too, and the AI picks them up.",
+      "time_hint": "8:40"
+    }
+  ],
+  "key_points": [
+    "A backlog is a state machine - encode it in labels, exactly one category and one state per issue.",
+    "AFK agents only touch tickets explicitly marked ready for agent.",
+    "An out-of-scope directory of ADRs lets an agent close enhancement requests on sight.",
+    "Never trust a bug report - make the agent reproduce it before marking it ready for agent.",
+    "Regression test first, then fix: the diagnose skill is TDD pointed at bugs.",
+    "Managing AFK agents is queue management - you are the translation layer between humans and AI.",
+    "Check your context budget before committing to deep diagnosis work."
+  ],
+  "mermaid": "flowchart TD\n  issue[\"Messy idea from a human - GitHub issue or Jira ticket\"] --> cat[\"Exactly one category label - bug or enhancement\"]\n  cat --> st[\"Exactly one state label\"]\n  st --> nt[\"Needs triage - maintainer must look\"]\n  st --> info[\"Needs info - waiting on reporter\"]\n  st --> paused[\"Paused\"]\n  st --> human[\"Ready for human - needs a human implementer\"]\n  st --> wf[\"Wont fix\"]\n  st --> agent[\"Ready for agent - requires an agent brief\"]\n  oos[\".out-of-scope directory of rejected feature ADRs\"] -->|matches enhancement| wf\n  agent --> repro[\"Diagnose - reproduce the bug yourself\"]\n  repro --> tdd[\"Regression test first then fix in feedback loop\"]\n  tdd --> push[\"Push to main or open a PR that closes the issue\"]\n  agent --> factory[\"AFK software factory - picks up only ready for agent\"]",
+  "generated": "2026-10-22"
+}

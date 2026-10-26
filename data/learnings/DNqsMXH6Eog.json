@@ -1,0 +1,88 @@
+{
+  "video_id": "DNqsMXH6Eog",
+  "title": "New Skills! /handoff, /prototype, /review and /writing-* | Skills Changelog",
+  "summary": "Matt Pocock walks through the latest changes to his open-source skills repo (which has just crested 70k stars). He introduces two brand-new skills and reads their source to explain them. First, /handoff compacts the current conversation into a temporary handoff document so a fresh agent can pick up the work in a new context window - he covers the fire-and-forget and DIY sub-agent usage patterns. Second, /prototype builds throwaway prototypes as research: interactive UI variations you toggle between and combine, plus tiny terminal apps that push stateful business logic through its hard cases. He then covers bug fixes (wrapping supporting info in XML tags to fix 'prompt loudness' in Grill with Docs, and a label change from needs triage to ready for agent triage in the to-prd/to-issues skills), in-progress writing skills built on fragments, beats, and a review shape, and finally the design of an upcoming /review skill that kicks off two parallel sub-agents to check a diff against repo standards and against the original spec.",
+  "what_you_learn": "You learn practical patterns for chaining AI agents across context windows: how to write a handoff document that transfers not just facts but the vibe and intent of a session, and why throwing a prototype into a fresh context window beats squeezing more work out of a nearly-full one. You also get two reusable prompt-engineering tricks - using XML tags to turn down the 'loudness' of supporting text, and reviewing diffs along two parallel axes (standards and spec) so neither is missed.",
+  "skills": [
+    {"name": "Agent Handoffs & Communication", "description": "Compacting a long agent conversation into a document a fresh agent reads to continue the work in a new context window."},
+    {"name": "Context Engineering", "description": "Moving work out of a nearly-full context window into a fresh one before quality degrades."},
+    {"name": "Multi-Agent Orchestration", "description": "Handing work to a second agent you stay in control of, with its own full context window and its own sub-agents."},
+    {"name": "Iterative Prototyping", "description": "Tiny interactive terminal apps that push stateful business logic through cases that are hard to reason about on paper."},
+    {"name": "Prompt Engineering", "description": "Parts of a prompt compete like volume; XML tags quieten supporting info so instructions dominate."},
+    {"name": "Code Review", "description": "Reviewing diffs with two parallel sub-agents, one against repo coding standards and one against the original issue or PRD."}
+  ],
+  "learnings": [
+    {
+      "title": "/handoff compacts the conversation into a document for the next agent",
+      "detail": "The skill's description is: compact the current conversation into a handoff document that a fresh agent can pick up, saved to a path in the temp directory. It must read the file before writing because Claude Code errors when writing a file it has not read - an awkward bit of Claude-specific handholding baked into the skill.",
+      "time_hint": "0:30"
+    },
+    {
+      "title": "A handoff must transfer vibe and intent, not just content",
+      "detail": "The document hands off the content of the context window, but also its vibe and its intent. That is why the skill tells the agent to suggest which skills the next session should use: if you hand off mid-grilling-session, the new agent should keep grilling. It also says not to duplicate content already captured in other artifacts - reference them by path or URL instead - and to treat any user-passed arguments as a description of what the next session should focus on.",
+      "time_hint": "1:15"
+    },
+    {
+      "title": "The motivation: escape a 60k-token session into a fresh context window",
+      "detail": "Matt was doing this manually. In a grilling session at 60k tokens he had only ~40k left to prototype, give feedback, and iterate before worrying about the context window. What he actually wanted was a new context window containing all the grilling context, dedicated to the prototype. Handoff automates exactly that, and you can hand back afterwards: 'here is what we learned from prototyping, now go back to grilling.'",
+      "time_hint": "2:05"
+    },
+    {
+      "title": "Two usage patterns: fire-and-forget and DIY sub-agent",
+      "detail": "Fire-and-forget: you notice a bug during implementation or need side work mid-session, hand it off, and the new agent fixes it while you continue. DIY sub-agent: you are in a grilling or planning session, realize code needs to change, spin up another agent's context window for it, then hand back to the original session. Unlike a real sub-agent, you stay in control, and the second agent keeps its own full context window and can spawn sub-agents of its own.",
+      "time_hint": "3:05"
+    },
+    {
+      "title": "/prototype treats prototypes as research and spikes",
+      "detail": "Prototyping is critical in AI engineering because prototypes act as research: a way to flush out design decisions before committing to them. These are throwaway prototypes. You say 'I have a vague concept, build me a prototype,' give feedback, the prototype updates, and then you hand off to an agent that builds the real thing based on what you learned. Use it for unknown-unknowns you can only resolve by looking at code.",
+      "time_hint": "3:55"
+    },
+    {
+      "title": "Logic prototypes: push state machines through their hard cases in a terminal app",
+      "detail": "Prototyping is not just for UI. For stateful business logic - like a database entity that changes based on user actions - the skill builds a tiny interactive terminal app that pushes the state machine through cases that are hard to reason about on paper. That gives you a concrete feel for the design before an AFK agent implements it.",
+      "time_hint": "4:35"
+    },
+    {
+      "title": "UI prototypes generate radically different variations you toggle and combine",
+      "detail": "For UI, the skill generates several radically different variations directly in your app, with a floating button at the bottom of the page to click left and right between them. You pick a variation, walk down the design tree, take a bit of A and a bit of B, combine them into a new variation, and discard the rest - a fast way to decide what a UI should look like before an AFK agent builds it.",
+      "time_hint": "5:35"
+    },
+    {
+      "title": "Prototyping is the answer to making AFK agents good at frontend",
+      "detail": "Asked how to make AFK agents really good at front-end, Matt's answer is prototyping: a human must sit in the loop applying taste, because UI depends on style and taste in the specific application, and the AI often cannot see what it is building. The prototype loop is where the human's taste gets injected before the AFK agent (for example one powered by Sandcastle) implements the final version.",
+      "time_hint": "6:15"
+    },
+    {
+      "title": "XML tags fix prompt loudness in the Grill with Docs skill",
+      "detail": "Grill with Docs had become too eager to implement because its long supporting-info section was being treated by the LLM as more important than the actual instructions - parts of prompts compete like volume. Matt wrapped the sections in XML tags marking what you are actually doing versus supporting info, which de-prioritizes the supporting text. It works well with Anthropic models; he admits he is running on vibes rather than evals, but users stopped reporting the problem.",
+      "time_hint": "6:50"
+    },
+    {
+      "title": "Small label fix: ready for agent triage, and never implement PRDs directly",
+      "detail": "The to-prd and to-issues skills now apply a ready for agent triage label instead of needs triage, since issues generated from a PRD are meant to be picked up by agents. When asked whether to-prd output should also be marked ready for agents, his answer is to instruct your agent: no, do not implement PRDs, only implement actual issues.",
+      "time_hint": "8:20"
+    },
+    {
+      "title": "In-progress writing skills: fragments, beats, then shape",
+      "detail": "The in-progress /writing-* skills mimic how authors keep long journals whose fragments end up in stories almost verbatim - AI prompts you to produce better fragments, and Matt dictates ideas into it. From fragments you write beats: the skill offers three options for where the story could go next. Finally a review shape pass checks the piece is not too AI-sounding and is well structured.",
+      "time_hint": "9:10"
+    },
+    {
+      "title": "/review design: two parallel sub-agents along standards and spec axes",
+      "detail": "A generic code review skill is hard, so the design kicks off two parallel sub-agents comparing the diff along two axes: standards (does the diff follow the repo's coding standards?) and spec (does the diff faithfully implement the original issue or PRD?). Focusing on only one axis always misses problems from the other. Standards is the trickier axis since every repo differs, so a separate skill will first extract coding standards from your repo.",
+      "time_hint": "11:15"
+    }
+  ],
+  "key_points": [
+    "A handoff document transfers not just content but the vibe and intent of a context window.",
+    "A fresh context window with full context beats squeezing the last 40k tokens out of a 60k session.",
+    "A DIY sub-agent is a sub-agent you control, with its own full context window.",
+    "Prototypes are research - spikes that flush out design decisions before you commit.",
+    "The best way to make AFK agents good at frontend is a human applying taste to prototypes.",
+    "Parts of prompts compete like volume - XML tags turn down the loudness of supporting info.",
+    "Review every diff along two axes at once: repo standards and the original spec.",
+    "Instruct your agent: implement issues, never PRDs."
+  ],
+  "mermaid": "flowchart TD\n  session[\"Long session - grilling or planning at 60k tokens\"] --> handoff[\"/handoff compacts the conversation\"]\n  handoff --> doc[\"Temp handoff doc - content plus vibe plus intent plus suggested skills\"]\n  doc --> fresh[\"Fresh agent in a new context window reads the doc\"]\n  fresh --> proto[\"/prototype builds a throwaway spike\"]\n  proto --> taste{\"Human applies taste\"}\n  taste -->|iterate| proto\n  taste -->|approved| build[\"Agent builds the real thing\"]\n  build --> back[\"Hand back - what we learned\"]\n  back --> session\n  review[\"/review kicks off two parallel sub agents\"] --> std[\"Standards axis - follows repo coding standards\"]\n  review --> spec[\"Spec axis - faithfully implements the issue or PRD\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,53 @@
+{
+  "video_id": "djSbndoByr8",
+  "title": "Mutation testing is AWESOME",
+  "summary": "Matt Pocock explains mutation testing as the tool for answering 'how do I know my test suite is as good as it could be?', with a special eye on test suites written by AI agents. Mutation testing works by looking at your source code and automatically introducing small mutations - in the demo, a JavaScript string is mutated to just be an empty string - then rerunning your test suite to see whether the tests fail. Every mutation that survives the test suite is a 'surviving mutant' and represents a real bug your tests would not catch, so it 'needs to be killed' by writing or strengthening a test. Running this gives the agent rich feedback about how good its tests are, and the result is much more rigorous test suites where every test provably catches a potential bug. He used Stryker.js for TypeScript and notes equivalent mutation-testing options exist for every language.",
+  "what_you_learn": "You learn how mutation testing measures test-suite quality (not code coverage) by injecting controlled bugs and checking if tests catch them, and why this is the ideal feedback loop for agent-written tests. For a developer trusting AI-generated test suites, surviving mutants are a concrete, actionable list of exactly which tests to strengthen.",
+  "skills": [
+    {"name": "Testing Strategy", "description": "Introducing controlled bugs into source code to measure whether the test suite catches them."},
+    {"name": "Code Quality Metrics", "description": "Judging tests by what they actually catch, not by coverage numbers."},
+    {"name": "AI Output Verification", "description": "Feeding mutation-testing results back to the agent so it writes more rigorous tests."}
+  ],
+  "learnings": [
+    {
+      "title": "High-quality tests are essential when agents write code",
+      "detail": "The setup: a high-quality test suite is essential for agents, because an agent generates code fast and you cannot manually review every line. But how do you know the suite is as good as it could be? Mutation testing is the answer he proposes for measuring true suite quality rather than assuming it.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Mutation testing mutates source code automatically",
+      "detail": "The mechanism: mutation testing looks at your source code and makes mutations to it - small, controlled changes that simulate real bugs. In the on-screen demo, the tool modified a JavaScript string so it just becomes an empty string. Each mutation is a hypothetical bug injected into the code.",
+      "time_hint": "00:10"
+    },
+    {
+      "title": "Rerun the tests: any mutation that survives is a bug you would ship",
+      "detail": "After each mutation, the tool reruns your test suite and checks whether the tests fail. Every mutation that survives the tests is a 'surviving mutant' - a mutation that needs to be killed. A surviving mutant means your suite would pass even though the code contains that bug, so it is a concrete hole in your tests.",
+      "time_hint": "00:22"
+    },
+    {
+      "title": "Surviving mutants give the agent rich feedback",
+      "detail": "The output is exactly what an agent (or a developer) needs to improve the suite: a list of specific surviving mutants, each pointing at a test gap. Feeding this back produces much more rigorous tests, because the agent can see precisely which behaviors are unasserted instead of guessing where to add coverage.",
+      "time_hint": "00:31"
+    },
+    {
+      "title": "Every passing test provably catches a potential bug",
+      "detail": "The end state: once the surviving mutants are killed, you know that every one of the remaining tests is actually catching a potential bug in your system. That is a much stronger guarantee than line or branch coverage, which only says code ran - not that anyone checked the outcome was right.",
+      "time_hint": "00:38"
+    },
+    {
+      "title": "Stryker.js for TypeScript, equivalents for other languages",
+      "detail": "The concrete tool in the demo is Stryker.js (stryker-mutator.io) for TypeScript, but Pocock notes there are plenty of mutation-testing options depending on your language - so the technique is portable across a Java or Python codebase, not a TypeScript-only trick.",
+      "time_hint": "00:50"
+    }
+  ],
+  "key_points": [
+    "Coverage says the code ran; mutation testing says the tests actually check it.",
+    "A surviving mutant is a real bug your suite would let through.",
+    "Mutation testing turns vague test anxiety into a concrete list of test gaps.",
+    "Feed surviving mutants back to the agent and its tests get rigorous fast.",
+    "Kill the mutants, and every remaining test provably catches a potential bug.",
+    "Stryker.js for TypeScript - but every language has a mutation testing option."
+  ],
+  "mermaid": "flowchart TD\n  src[\"Source code\"] --> mutator[\"Mutation testing tool - Stryker.js\"]\n  mutator --> bug[\"Injected mutation - e.g. string becomes empty\"]\n  bug --> tests[\"Rerun test suite\"]\n  tests -->|tests fail| killed[\"Mutant killed - test catches the bug\"]\n  tests -->|tests pass| survived[\"Surviving mutant - a real bug would ship\"]\n  survived --> feedback[\"Rich feedback - list of test gaps\"]\n  feedback --> agent[\"Agent strengthens tests\"]\n  agent --> rerun[\"Rerun mutation testing\"]\n  rerun --> mutator\n  killed --> rigorous[\"Rigorous suite where every test catches a real bug\"]",
+  "generated": "2026-10-22"
+}

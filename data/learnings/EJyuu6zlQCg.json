@@ -1,0 +1,87 @@
+{
+  "video_id": "EJyuu6zlQCg",
+  "title": "5 Claude Code skills I use every single day",
+  "summary": "Matt Pocock walks through the five Claude Code skills he uses daily to steer agents and raise code quality: /grill-me (a three-sentence skill that makes Claude interview him relentlessly, walking the design tree until a shared understanding is reached, exploring the codebase instead of asking when it can), /write-a-prd (interview, sketch major modules, then write the PRD from a template and submit it as a GitHub issue), /prd-to-issues (break the PRD into vertical slices that flush out unknown unknowns first, with blocking relationships so slices can be worked independently), /tdd (confirm interface changes first, then red-green-refactor one test at a time), and /improve-codebase-architecture (find where the AI gets confused, present deepening candidates, then spawn three parallel subagents each designing a radically different interface before writing a refactor RFC as a GitHub issue). The through-line: agents have no memory, so process must be encoded as skills, and treating agents like engineers with weird constraints is what makes their output good.",
+  "what_you_learn": "You learn a concrete, copyable toolchain of five skills that together form a full development process for AI agents, from fleshing out an idea to refactoring the codebase so agents produce better code. Each skill is shown with its actual prompt text and a real conversation output, so you can see exactly how much leverage a few well-chosen sentences give you over an LLM that has no memory of past sessions.",
+  "skills": [
+    {"name": "Workflow Design", "description": "Encoding engineering process as short, versioned skills that give agents a strict path to walk every session."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "A three-sentence skill that forces the LLM to interview you about every aspect of a plan until shared understanding."},
+    {"name": "Planning & Prioritization", "description": "Walking every branch of a design and resolving dependencies between decisions one by one before committing to code."},
+    {"name": "Spec-Driven Development", "description": "Turning a grilled conversation into a destination document with user stories, implementation and testing decisions."},
+    {"name": "Task Management", "description": "Breaking a PRD into thin slices that cut through all integration layers, ordered to flush out unknown unknowns first."},
+    {"name": "Iterative Prototyping", "description": "Doing risky integration work first as a thin end-to-end slice to get fast feedback on whether the approach is valid."},
+    {"name": "Test-Driven Development", "description": "A TDD skill that makes agents write one failing test at a time, then the code to pass it, then look for refactor candidates."},
+    {"name": "API & Module Design", "description": "Restructuring many tiny undifferentiated modules into fewer larger ones with thin interfaces so agents can navigate and test at boundaries."},
+    {"name": "Multi-Agent Orchestration", "description": "Spawning three or more parallel subagents that each design a radically different interface for comparison."}
+  ],
+  "learnings": [
+    {
+      "title": "Agents have no memory, so process must live in skills",
+      "detail": "Matt frames the whole video around a core constraint: at your fingertips you have a fleet of middling-to-good engineers that you can deploy at any time, but they remember nothing from before. The only way to get consistent output is extremely strict, well-defined processes, which he encodes as skills in a repo he has designed one by one. Since adopting them, the code quality his agents produce has shot up.",
+      "time_hint": "0:30"
+    },
+    {
+      "title": "A three-sentence skill can drive a 50-question interview",
+      "detail": "The grill-me skill is literally three sentences: interview me relentlessly until we reach shared understanding, walk down each branch of the design tree resolving dependencies between decisions, and if a question can be answered by exploring the codebase, explore instead. In one example session Claude asked 16 numbered questions; Matt has had sessions of 30 to 50 questions lasting 45 minutes on complex features. Skills do not have to be long to be impactful.",
+      "time_hint": "1:18"
+    },
+    {
+      "title": "The design tree comes from Fred Brooks",
+      "detail": "The design tree idea (seen in Frederick P. Brooks' The Design of Design) means that designing means walking all branches of a decision tree: choosing advanced search over a text box forces you to decide filters, sorting methods, and so on, all the way down, before committing to code. Grill-me operationalizes this by making the LLM resolve dependencies between decisions one by one instead of jumping to a plan.",
+      "time_hint": "2:00"
+    },
+    {
+      "title": "Write a PRD turns the interview into a destination document",
+      "detail": "The write-a-PRD skill steps: ask for a long detailed description, explore the repo to verify assertions, interview relentlessly (a copy of grill-me), sketch the major modules to build or modify, then write the PRD from a template and submit it as a GitHub issue. The example PRD has a problem statement, solution, many user stories (from Agile methodology), implementation decisions, and testing decisions. Decisions are deliberately not over-prescriptive so the PRD stays durable if code drifts.",
+      "time_hint": "3:55"
+    },
+    {
+      "title": "A PRD is the destination, issues are the journey",
+      "detail": "Matt's dev flow: PRDs live in GitHub, get turned into child issues that reference the parent PRD, and a Ralph loop works each issue until done. The PRD describes where you are going but not how to get there; PRD-to-issues exists because the journey needs its own artifact. Issues link back to the user stories they address, which keeps the implementation anchored to desired behavior.",
+      "time_hint": "5:20"
+    },
+    {
+      "title": "Slice vertically and flush unknown unknowns first",
+      "detail": "The best way to break a PRD down is into tasks that flush out the unknown unknowns quickly: if you are integrating with a new service or two things never integrated before, do that work first because it gives feedback on whether the approach is even valid. Each issue is a thin vertical slice that cuts through all integration layers (the tracer bullet analogy), not a horizontal slice of one layer. In the example, the first slice was a pure document-editing engine with 28 tests, because everything else depended on it working.",
+      "time_hint": "6:00"
+    },
+    {
+      "title": "Blocking relationships between issues enable parallel agents",
+      "detail": "PRD-to-issues establishes blocking relationships: issue two was blocked by nothing so it could be picked up independently, three was blocked by the engine, four by two. This matters if you run parallel agents in background tasks, and it means future QA issues can be slotted into the same graph. The Ralph loop then implemented the engine, commented on the issue (28 tests covering all acceptance criteria), closed it, and the next issue unblocked automatically.",
+      "time_hint": "7:40"
+    },
+    {
+      "title": "The TDD skill makes interface changes a first-class decision",
+      "detail": "The /tdd skill (unusually long for his skills, including material on refactoring, mocking, and deep modules) starts by confirming with the user what interface changes are needed. The reasoning: when an AI meets a codebase of many tiny undifferentiated modules, it must burn effort working out what is responsible for what; restructured into fewer larger modules with thin exported interfaces, the agent can navigate and test at the boundaries. The loop then writes one test at a time, test first, then code to pass it, then refactor candidates.",
+      "time_hint": "8:29"
+    },
+    {
+      "title": "LLMs are reluctant to refactor their own code in context",
+      "detail": "Matt finds the refactor phase of red-green-refactor underwhelming: LLMs are oddly precious about code sitting in their own context window. If you clear the context, the agent loses its attachment to the code it just wrote and refactors more freely. He prompts his Ralph loops with the TDD skill so autonomous runs keep red-green-refactor discipline, and notes TDD is nearly impossible in a badly structured codebase because test boundaries are unclear.",
+      "time_hint": "11:45"
+    },
+    {
+      "title": "Improve codebase architecture: find AI confusions, then design three interfaces in parallel",
+      "detail": "The architecture skill explores the codebase as an agent naturally would and surfaces confusions a senior engineer would ask about: where understanding one concept requires bouncing between many small files, where pure functions extracted just for testability hide the real bugs in their call sites, where tightly coupled modules create integration risk at the seams. It presents numbered deepening opportunities; the user picks one; then three parallel subagents each produce a radically different interface for the deepened module, Matt compares and recommends (or proposes a hybrid), and the result becomes a refactor RFC as a GitHub issue via gh issue create, ready for PRD-to-issues. Do one at a time: these decisions require taste.",
+      "time_hint": "12:04"
+    },
+    {
+      "title": "Garbage codebase, garbage output",
+      "detail": "The closing argument: if you took all these skills and printed them as a mini markdown book of processes for humans, it would not look out of place. The most successful way to raise agent code quality is to treat agents like humans with weird constraints: no memory, cloned fresh out of the birthing pod. And the old adage applies directly: a garbage codebase produces garbage AI output, which is why the architecture skill pays off across every future session.",
+      "time_hint": "15:10"
+    }
+  ],
+  "key_points": [
+    "Your agents are a fleet of engineers with no memory: process must be written down as skills.",
+    "Skills don't have to be long: three sentences can power a 50-question design interview.",
+    "If a question can be answered by exploring the codebase, the skill must explore instead of asking.",
+    "A PRD is the destination; issues are the journey; the Ralph loop walks the journey.",
+    "Slice vertically and flush unknown unknowns first, tracer-bullet style.",
+    "Blocking relationships between issues are what make parallel agents possible.",
+    "Confirm interface changes with the agent before any TDD loop starts.",
+    "An LLM will not refactor code it can still see in its own context window.",
+    "Garbage codebase in, garbage AI output out."
+  ],
+  "mermaid": "flowchart TD\n  G[\"Grill Me - three sentences, design tree interview\"] --> P[\"Write PRD - destination as GitHub issue\"]\n  P --> I[\"PRD to Issues - vertical slices with blocking\"]\n  I --> R[\"Ralph loop executes slices AFK\"]\n  R --> T[\"TDD skill - red green refactor at interfaces\"]\n  A[\"Improve Codebase Architecture\"] --> C[\"Find where AI gets confused\"]\n  C --> D[\"Three parallel subagents design interfaces\"]\n  D --> RFC[\"Refactor RFC as GitHub issue\"]\n  RFC --> I\n  T --> Q[\"Higher code quality from agents\"]\n  RFC --> Q",
+  "generated": "2026-10-22"
+}

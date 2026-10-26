@@ -1,0 +1,58 @@
+{
+  "video_id": "H-JHumbpORI",
+  "title": "My agent hallucinated - what do I do?",
+  "summary": "Matt Pocock gives a diagnostic framework for coding-agent hallucinations, which he argues are inherent to LLMs and here to stay. The first diagnostic question is always: was the needed information available in the model's context window? If not, you have a factuality hallucination - the model cannot recall things it was never shown, so the fix is to load the information into context. If the information was provided but the agent still went wrong, you have a faithfulness hallucination, often caused by attention degradation as the context window grows and attention relationships get strained - a state he calls 'the dumb zone'. The cures are to reduce the tokens in context: clear the context, run compact, or hand off to a separate session.",
+  "what_you_learn": "You get a two-branch decision tree for every agent failure: check whether the fact was in context before blaming the model. This turns vague 'the agent hallucinated' complaints into actionable fixes - supply the missing information, or shrink the context to escape attention degradation - which is the core debugging skill for anyone running LLM agents on real codebases.",
+  "skills": [
+    {"name": "Hallucination Management", "description": "A two-branch diagnostic: ask whether the needed information was in the model's context window before fixing anything."},
+    {"name": "Context Window Management", "description": "As the context window grows, attention relationships between elements strain and the model stops using what it was given."},
+    {"name": "Context Engineering", "description": "Escaping the dumb zone by clearing context, running compact, or handing off to a fresh session."}
+  ],
+  "learnings": [
+    {
+      "title": "Start every hallucination diagnosis with one question: was the info in context?",
+      "detail": "When your coding agent produces something wrong, the first thing to establish is whether the information it needed was available inside its context window. This single question splits every hallucination into one of two actionable categories, instead of treating all agent errors as one vague mystery.",
+      "time_hint": "00:09"
+    },
+    {
+      "title": "An LLM is a fuzzy JPEG of human knowledge, not a database",
+      "detail": "People wrongly imagine LLMs as databases that store and retrieve information. Matt's model: an LLM holds a lossy, fuzzy JPEG of the entirety of human knowledge - it knows the basic shapes of things but cannot give you specifics. Because it cannot look anything up on its own, it will confidently fill in the gaps when asked about something it was never shown.",
+      "time_hint": "00:16"
+    },
+    {
+      "title": "A factuality hallucination is the model failing to recall what it never had",
+      "detail": "If the needed information was not in context and the model invents it, that is a factuality hallucination: it attempted to read something you never passed it and simply failed. The model cannot recall - recall requires the data to have been in the prompt. This is why you should never trust an unsourced LLM answer.",
+      "time_hint": "00:33"
+    },
+    {
+      "title": "The fix for factuality hallucination is obvious: load the info into context",
+      "detail": "Once you classify the failure as factuality, the remedy is mechanical - find the real source (the file, doc, or API response) and load it into the agent's context window so the model no longer has to guess. Giving the agent retrieval tools or pasting the relevant source removes the conditions that produced the hallucination.",
+      "time_hint": "00:44"
+    },
+    {
+      "title": "A faithfulness hallucination happens even when you pass the right context",
+      "detail": "Sometimes you give the agent the correct information and it still goes wrong - that is a faithfulness hallucination, where the model was not faithful to the information you provided. Because the input was correct, the fix is not 'add more info'; you have to change the conditions the model is operating under.",
+      "time_hint": "00:50"
+    },
+    {
+      "title": "Attention degradation: long contexts strain the model's attention",
+      "detail": "The usual root cause of unfaithfulness is attention degradation. As the context window grows longer and longer - accumulated files, tool outputs, conversation history - the attention relationships between all the elements get strained, and the model stops properly using information that is technically still in context.",
+      "time_hint": "00:59"
+    },
+    {
+      "title": "The dumb zone is deep in the context window - escape it by shrinking context",
+      "detail": "Matt calls the degraded state deep in a long context window the dumb zone. The cure for faithfulness hallucination is to get out of it by reducing the number of tokens in the context window, which reduces the number of strained attention relationships so the model can focus again. Concretely: clear the context, run compact to summarize and truncate history, or hand off to a separate fresh session.",
+      "time_hint": "01:16"
+    }
+  ],
+  "key_points": [
+    "Hallucinations are probably inherent to LLMs - learn to diagnose them, not hope they disappear.",
+    "An LLM is a fuzzy JPEG of human knowledge, not a database - it knows shapes, not specifics.",
+    "Never trust an unsourced LLM; it cannot recall what was never in context.",
+    "Factuality hallucination - fix by loading the missing information into context.",
+    "Faithfulness hallucination - fix by shrinking the context window.",
+    "Deep in a long context window lies the dumb zone - clear, compact, or hand off to escape it."
+  ],
+  "mermaid": "flowchart TD\n  err[\"Agent produces wrong output\"] --> q{\"Was the info in the context window\"}\n  q -->|no| fact[\"Factuality hallucination - model cannot recall\"]\n  q -->|yes| faith[\"Faithfulness hallucination - model ignored the info\"]\n  fact --> fix1[\"Fix - load the information into context\"]\n  faith --> att[\"Attention degradation in long contexts\"]\n  att --> dumb[\"The dumb zone\"]\n  dumb --> fix2[\"Fix - clear context run compact or hand off to a new session\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,92 @@
+{
+  "video_id": "kZ-zzHVUrO4",
+  "title": "How I use Claude Code for real engineering",
+  "summary": "Matt Pocock records a real working session adding a get-diffs CLI command to his internal AI Hero tooling, using it to demonstrate his full Claude Code workflow for large features. Starting from a rough voice-dictated prompt and plan mode, he lets Claude explore the codebase (via an explore sub-agent and file searches), answers its clarifying questions like a multi-step form, and uses his memory rules to force extremely concise plans that end with unresolved questions. When the plan feels too big for one context window he has Claude re-plan it as multi-phase, then executes phase by phase in accept-edits mode, checking token usage with /context between phases and committing (or at least staging) after each one. Mid-flight he exits Claude with Ctrl+C twice, reviews diffs in VS Code, and resumes with claude --continue; he also shows how to recover when an auto-formatter changes files behind the agent's back by telling it to pull the files back into context. Finally he saves the plan to a GitHub issue with gh issue create, wipes the context window entirely, and resumes work from the issue alone - demonstrating how a cloud-stored multi-phase plan lets work span unlimited context windows. He closes with his three top tips: a concision rule in memory, unresolved questions at the end of every plan, and GitHub issues as shared context across windows.",
+  "what_you_learn": "You get a concrete, battle-tested workflow for doing large multi-session work with a coding agent: plan mode with clarifying questions, a concision-forcing memory rule, multi-phase plans that survive context resets, per-phase commits, and GitHub issues as the durable plan store. For a developer new to agentic coding this is the difference between one-shot prompting and actually steering an agent through a feature bigger than a single context window.",
+  "skills": [
+    {"name": "Planning & Prioritization", "description": "Forcing exploration and clarifying questions before any code is written, so implementation starts from a reviewed plan."},
+    {"name": "Prompt Engineering", "description": "A top-line memory rule - be extremely concise, sacrifice grammar - that makes agent plans and messages cheap to read."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Requiring every plan to end with a concise list of unresolved questions the human must answer before execution."},
+    {"name": "Context Window Management", "description": "Customizing the status line (and checking /context between phases) to keep token usage visible during long sessions."},
+    {"name": "Git Workflows", "description": "Committing or staging between phases so each increment is reviewable in isolation and context-cheap to inspect."},
+    {"name": "Issue & Backlog Management", "description": "Persisting the living plan in a GitHub issue via gh CLI so work survives context resets and is shareable."}
+  ],
+  "learnings": [
+    {
+      "title": "Start with a rough dictated prompt, never a polished spec",
+      "detail": "Matt's initial prompt for the get-diffs CLI command was spoken into a microphone through a dictation tool, with little thought put in. The what matters far less than the how: he immediately activates plan mode (shift-tabbing to it in the bottom-left of Claude Code) so the agent explores the codebase and surfaces what is unclear before writing any code. Rough input plus structured planning beats a half-hour of prompt engineering.",
+      "time_hint": "00:35"
+    },
+    {
+      "title": "Plan mode forces exploration before planning",
+      "detail": "In plan mode Claude kicked off an explore sub-agent to map the current CLI structure, searched files and patterns, and read relevant code - all before proposing anything. Only after that exploration did it come back with clarifying questions. Letting the agent ground itself in the codebase first is what makes its questions specific (positional argument or required option, match exercise numbers strictly or flexibly, what does 01 represent) instead of generic.",
+      "time_hint": "01:00"
+    },
+    {
+      "title": "Clarifying questions are a multi-step form",
+      "detail": "The clarifying-questions interaction behaves like a multi-step form: each question is answered in turn (he pressed return to pick the CLI-option answer, chose required option, flexible matching) and only at the end, on submit, does the agent fold the answers into a plan. Answering mid-flight keeps the human in control of decisions the agent cannot make from the code alone.",
+      "time_hint": "01:31"
+    },
+    {
+      "title": "A one-line concision rule transforms agent output",
+      "detail": "Matt's user memory file is only about 43 lines, and the top rule is: in all interactions and commit messages, be extremely concise and sacrifice grammar for the sake of concision. This single rule is why the plan Claude produced is short and readable instead of walls of text - he calls it his favorite addition to rules and says he is never taking it out. A concise agent spends fewer of your tokens and is faster to review.",
+      "time_hint": "02:27"
+    },
+    {
+      "title": "Every plan must end with unresolved questions",
+      "detail": "A second memory rule: at the end of each plan, give a list of unresolved questions to answer, if any - again extremely concise. This surfaces ambiguities at exactly the moment the human can cheapest resolve them, before execution starts. Matt dictates his answers (via the same dictation tool) straight into the questions box and submits, and Claude regenerates an updated plan.",
+      "time_hint": "03:25"
+    },
+    {
+      "title": "When work feels too big, say make the plan multi-phase",
+      "detail": "After the second plan iteration, Matt's 'spidey senses' tingled: the feature was large enough to overrun the context window. Instead of accepting, he hit 'keep planning' and asked for a multi-phase plan, and Claude broke the work into phases. Splitting into phases means each phase can live in its own context window, and the LLM only needs the plan - not the whole history - to continue.",
+      "time_hint": "04:38"
+    },
+    {
+      "title": "Check context usage between phases like a fuel gauge",
+      "detail": "Matt checks /context before executing: 83.7% free, only about 33k tokens used, 'lovely'. Phase one itself consumed roughly 3k tokens. You do not have to put each phase in a separate window - do as many phases as the budget allows, checking as you go. He wishes Claude Code exposed token usage in the status line directly, like Cursor does, so the gauge is always visible.",
+      "time_hint": "05:00"
+    },
+    {
+      "title": "Review between phases with exit, code dot, claude --continue",
+      "detail": "Instead of reviewing inline, Matt exits Claude (Ctrl+C twice), runs code . to open VS Code, reviews the git diff with the familiar viewer - spotting a pre-existing TypeScript error Claude did not cause and a to-do left in the code marking where phase two will hook in - then types claude --continue to resume the exact conversation. It is a nice flow whenever you need to run CLI commands or inspect files outside the agent.",
+      "time_hint": "05:44"
+    },
+    {
+      "title": "Commit or stage between phases to mark increments",
+      "detail": "After reviewing each phase Matt commits or at least stages the changes, making it visually clear what each phase added and keeping the working tree honest. Since planning is done and the implementation is understood, he is comfortable being aggressive with accept-edits on for the remaining phases.",
+      "time_hint": "06:30"
+    },
+    {
+      "title": "When the world changes behind the agent's back, tell it directly",
+      "detail": "After phase three, Matt accidentally saved a file and an auto-formatter reformatted it - something Claude cannot observe. His fix: be very direct - 'pull the files into your context' - and Claude, following instructions exactly, re-read the file without changing anything. Giving the agent a corrective instruction beats letting it hallucinate about file state it has not seen.",
+      "time_hint": "07:20"
+    },
+    {
+      "title": "Store the plan in a GitHub issue to survive context resets",
+      "detail": "To demonstrate a full context reset, Matt has Claude create a GitHub issue containing the current plan - including all checked-off items - using gh issue create with the plan as the issue description. Once the plan lives in the cloud he is happy clearing the context entirely: /context shows virtually nothing left, just 16k tokens of memory files, tools, and system prompt. Cloud-stored plans are also shareable - people can comment and add items overnight, asynchronously.",
+      "time_hint": "08:38"
+    },
+    {
+      "title": "Resume work from the issue alone in a fresh context",
+      "detail": "In the emptied session he asks: get GitHub issue 24 and enact phase 4 of that plan. Claude views the issue, reads the correct file without much re-exploration, and implements. Because the issue is already in context, phase five continues without fetching again. The multi-phase plan is the only state that must survive between windows - everything else can be re-derived.",
+      "time_hint": "09:10"
+    },
+    {
+      "title": "Three top tips for real engineering with Claude Code",
+      "detail": "Matt's summary: keep a concision rule in your memory file; make every plan end with unresolved questions; and have the agent use the GitHub CLI to create issues, so context can be shared across multiple context windows. He describes this combination - lots of upfront thinking via planning plus letting the agent run in accept-edits mode - as how he currently does all his coding, for AI Hero and otherwise.",
+      "time_hint": "09:50"
+    }
+  ],
+  "key_points": [
+    "The initial prompt can be garbage if the process around it is good - dictate it and move on.",
+    "One memory rule - be extremely concise, sacrifice grammar - changes every plan the agent writes.",
+    "Every plan should end with unresolved questions; answer them like a form before any code.",
+    "When a plan feels too big, say 'make it multi-phase' and check the context gauge between phases.",
+    "Commit between phases; the diff viewer is your review surface.",
+    "A GitHub issue created with gh CLI is a plan that survives context resets and can be shared overnight.",
+    "After a full context clear, the agent resumed from issue 24 alone with no re-exploration needed."
+  ],
+  "mermaid": "flowchart TD\n  dictate[\"Rough dictated prompt\"] --> planmode[\"Claude Code plan mode\"]\n  planmode --> explore[\"Explore sub agent reads the codebase\"]\n  explore --> questions[\"Clarifying questions - answered like a form\"]\n  rules[\"Memory rules - be extremely concise plus unresolved questions\"] --> planmode\n  questions --> plan[\"Concise plan\"]\n  plan --> multiphase[\"Keep planning - make it multi phase\"]\n  multiphase --> exec[\"Execute phases with accept edits\"]\n  exec --> gauge[\"Check context between phases - commit per phase\"]\n  gauge --> issue[\"Save plan to GitHub issue via gh issue create\"]\n  issue --> clear[\"Clear the context window entirely\"]\n  clear --> resume[\"Fetch issue 24 and resume phase 4\"]\n  resume --> exec",
+  "generated": "2026-10-22"
+}

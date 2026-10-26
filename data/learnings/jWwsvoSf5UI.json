@@ -1,0 +1,70 @@
+{
+  "video_id": "jWwsvoSf5UI",
+  "title": "LIVE: I've joined the AI revolution",
+  "summary": "Matt Pocock streams live about how he has started integrating ChatGPT into his content-creation workflow. After updates (a new Keychron Q3 keyboard, building a 'shedquarters' studio in the garden, and an upcoming free 30-40 video React-with-TypeScript tutorial whose repo he previews), he demos his ScriptKit-based automation: dropping a video file onto a script converts it to MP3 with ffmpeg, sends it to OpenAI's Whisper API for transcription, then feeds the transcript to ChatGPT prompts that generate a YouTube description, title suggestions, and thumbnail ideas. He iterates on the prompts live (banning chessboards, requiring red arrows and magnifying glasses), uses ChatGPT itself to figure out the ffprobe command for reading video duration, and plans around Whisper's 25 MB limit by chunking audio into 15-minute segments. He closes by sketching his bigger vision - a pipeline that turns one live stream into AI-found clips, article drafts, and timestamps - and credits a conversation with ScriptKit creator John Lindquist: AI works best in tandem with a human, not handed giant one-shot tasks.",
+  "what_you_learn": "You watch a real, pragmatic LLM automation pipeline get built and debugged live - file drop as trigger, ffmpeg for audio extraction, Whisper for transcription, then prompt-templated ChatGPT calls for each output artifact, with a human editing step at the end. For a developer starting with AI-agent systems this is a grounded example of prompt engineering, tool-chaining, and API limits (Whisper's 25 MB cap) shaping system design, plus a useful mental model: put the AI in the middle of a workflow you already have, and treat its output as a draft you edit, not a finished product.",
+  "skills": [
+    {"name": "Personal Automation", "description": "ScriptKit gives a command palette for running TypeScript scripts on your machine, with APIs like await drop for file intake."},
+    {"name": "Prompt Engineering", "description": "Iterating on ChatGPT prompt text - banning recurring bad outputs like chessboards and mandating formats - until the output is usable."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "John Lindquist's principle: AI is no good for one big fire-and-forget task - it excels when you iterate back and forth with it."}
+  ],
+  "learnings": [
+    {
+      "title": "ChatGPT writes the video description from a Whisper transcript",
+      "detail": "Matt's prepare-youtube-video ScriptKit script drops a video file, runs ffmpeg to extract an MP3, posts it to api.openai.com/v1/transcriptions (Whisper), and sends the resulting transcript plus a divider and instructions to ChatGPT. For a one-line use-SWR description the generated result is good enough to paste straight into YouTube Studio - impressive speed and quality, and the transcript itself is a cached intermediate so re-runs are free.",
+      "time_hint": "13:10"
+    },
+    {
+      "title": "Prompts are crucial and must be iterated like code",
+      "detail": "Matt shows his title/thumbnail prompt: 'Above is a transcript for a YouTube video, provide at least 5 example titles, short and informal, 5-8 words long' - plus accumulated fixes like 'do not include examples containing a chessboard' (it suggested one every time) and 'include at least one example with a red arrow' and 'a magnifying glass'. Even then, thumbnail ideas came back literal and cheesy ('a game controller with SWR hook names on the buttons'), teaching him he over-prompted and still needs creative control over thumbnails himself.",
+      "time_hint": "16:30"
+    },
+    {
+      "title": "ChatGPT 3.5 is fine for drafts, GPT-4 feels noticeably smarter",
+      "detail": "Comparing outputs, the GPT-3.5-generated description was already usable and fast, while the GPT-4 version 'just feels better written' - worth the slower, paid calls for the final artifact. He also notes the feedback loop matters: prompting works well when you keep iterating on an idea, but too much prompting in one shot makes the model mush everything together.",
+      "time_hint": "19:40"
+    },
+    {
+      "title": "Use ChatGPT to build the pipeline itself",
+      "detail": "When Matt needs the video duration to plan chunking, he asks ChatGPT 'how do I use ffprobe to get the duration of an MP4' - it answers with the exact ffprobe invocation, which he pastes into the script, parses with parseFloat, and divides by 60 to confirm 23 minutes. His deadpan verdict: 'why even bother being a developer anymore' - a concrete example of an LLM as a just-in-time documentation engine inside a coding session.",
+      "time_hint": "26:30"
+    },
+    {
+      "title": "Whisper's 25 MB limit forces an audio-chunking design",
+      "detail": "A 25-minute speedrun video exceeded the Whisper API's 25 MB per-request cap. The fix: check the audio file size with fs.statSync, and if too large, split the source into roughly 15-minute chunks (an MP3 of that length never exceeds 25 MB), transcribe each chunk separately, and concatenate the transcripts. He deliberately chunks only the Whisper inputs, not the ChatGPT prompts, since the transcript only needs to be good enough as model input - perfection is not worth paying for.",
+      "time_hint": "33:45"
+    },
+    {
+      "title": "The Whisper API beats local whisper on speed and cost",
+      "detail": "Asked about whisper.cpp and local transcription, Matt reports that local whisper is much, much slower; the API is fast, cheap, and scales to the two-to-three-hour live streams he wants to process. For Total TypeScript's published course transcripts they instead use Casting Words, a human transcription service, because there quality is worth paying for - a useful rule: machine transcription for internal AI inputs, human transcription for published artifacts.",
+      "time_hint": "36:50"
+    },
+    {
+      "title": "The real goal: one live stream fans out into many artifacts",
+      "detail": "On tldraw Matt sketches the economics of his old workflow: a 2-hour live stream plus 40 minutes per hand-edited clip made the stream itself 'null and void'. With an AI step in the middle - transcript with timestamps in, find interesting sections, generate an article frame, emit edit timestamps - the article drops from 40 minutes to about 15 of his editing, clips get located automatically, and sections of the workflow reduce to near-zero time, letting him produce more content for the same effort.",
+      "time_hint": "24:20"
+    },
+    {
+      "title": "AI is best operated in tandem, not given one-shot mega-tasks",
+      "detail": "Matt relays ScriptKit creator John Lindquist's advice from a call on Monday: AI is no good if you hand it a big task it cannot reply about - it works best in tandem, where you send something, it sends something back, and you give feedback. That is exactly why the chat interface is so effective, and why Matt keeps the human edit step at the end of every pipeline rather than letting the AI publish unreviewed.",
+      "time_hint": "21:30"
+    },
+    {
+      "title": "The AllOrNothing type helper previews the paid course material",
+      "detail": "Showing the upcoming free React tutorial repo, Matt demos an exercise on mutually-dependent props: a controlled input must receive value and onChange together or neither. The elegant solution is an AllOrNothing type helper - Props extends Record<string, unknown>, and the result is either the full props or a mapped type mapping every key to undefined - contrasting with the common but clunkier 'mark the other props as never' approach, and demonstrating that even the free tier of the course carries advanced TypeScript patterns.",
+      "time_hint": "8:30"
+    }
+  ],
+  "key_points": [
+    "Drop a video on a ScriptKit script and get a transcript, description, titles, and thumbnail ideas back.",
+    "Prompts are code: iterate them, ban recurring bad outputs, and mandate the formats you want.",
+    "The Whisper API is fast and cheap; local whisper is much slower - pay for the API for bulk work.",
+    "Whisper caps at 25 MB per request, so chunk audio into 15-minute pieces and concatenate transcripts.",
+    "Use ChatGPT to build the pipeline: it wrote the ffprobe command Matt wired straight into the script.",
+    "AI works best in tandem - send, receive, give feedback - not as a fire-and-forget mega-task.",
+    "Put the AI in the middle of a workflow you already have, and keep a human edit step at the end.",
+    "Machine transcription for AI inputs, human transcription (Casting Words) for published artifacts."
+  ],
+  "mermaid": "flowchart TD\n  drop[\"Drop video file - ScriptKit await drop\"] --> mp3[\"ffmpeg extracts MP3 audio\"]\n  mp3 --> size{\"Audio over 25 MB\"}\n  size -->|yes| chunk[\"Split into 15 minute chunks\"]\n  chunk --> whisp[\"Whisper API per chunk\"]\n  size -->|no| whisp\n  whisp --> concat[\"Concatenate transcripts\"]\n  concat --> cache[\"Cache transcript to disk\"]\n  cache --> gpt[\"ChatGPT prompts\"]\n  gpt --> desc[\"YouTube description\"]\n  gpt --> titles[\"Title suggestions\"]\n  gpt --> thumbs[\"Thumbnail ideas - draft\"]\n  desc --> edit[\"Human edits and publishes\"]\n  titles --> edit\n  thumbs --> edit\n  vision[\"Future vision\"] --> clips[\"AI finds stream clips\"]\n  vision --> article[\"Article drafts from transcript\"]\n  article --> edit",
+  "generated": "2026-10-22"
+}

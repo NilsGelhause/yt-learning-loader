@@ -1,0 +1,55 @@
+{
+  "video_id": "GAUWSmFmT3w",
+  "title": "WHY ARE YOU TYPING",
+  "summary": "Matt Pocock makes the case that manually typing prompts into AI agents is a self-imposed bottleneck, and that voice dictation is the simplest workflow upgrade an agentic engineer can make. He argues that agents are already extremely good at taking raw, unedited dictated transcripts and extracting meaning from them, so there is no reason to clean up your input before sending it. His own workflow is: dictate a messy brain dump, hand it to the agent, and have the agent restate it back, grill him on it, or figure the problem out. He mentions Whisper Flow as the dictation tool he personally uses (explicitly not sponsored, and he calls it okay rather than amazing), and closes by saying there are loads of good options - just pick one and start talking instead of typing.",
+  "what_you_learn": "You learn that prompt input speed, not model capability, is often the limiting factor in an agent workflow, and that agents tolerate (and even prefer) messy dictated brain dumps over carefully typed prose. This gives a concrete, zero-cost technique - voice dictation plus agent-led clarification - that compounds across every interaction you have with an agent.",
+  "skills": [
+    {"name": "Personal Automation", "description": "Using a dictation tool like Whisper Flow to speak prompts to agents instead of typing them."},
+    {"name": "Prompt Engineering", "description": "Dumping raw uncleaned thoughts on an agent and letting it structure the intent for you."},
+    {"name": "Continuous Improvement", "description": "Relying on the agent to find meaning in messy transcripts instead of pre-editing your input."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Having the agent restate your idea back to you or interrogate it to sharpen your thinking."},
+    {"name": "Iterative Prototyping", "description": "Maximizing how fast thoughts become working agent interactions, which compounds into total output."}
+  ],
+  "learnings": [
+    {
+      "title": "Typing into agents is a self-imposed bottleneck",
+      "detail": "Pocock's opening provocation: if you are manually typing prompts into agents, you are slowing yourself down for no reason. Speaking is faster than typing, and every second saved on input is more throughput on the actual work. The constraint on agent productivity is often how fast you can get your intent in, not what the model can do.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Agents extract meaning from messy transcripts - do not clean up first",
+      "detail": "Modern agents are 'unbelievably good' at taking information and taking your crappy, totally uncleaned-up transcripts, and finding meaning in them. This removes the old habit of carefully composing and editing prompts: you can send raw dictated text with filler, false starts, and no punctuation, and the agent still understands you.",
+      "time_hint": "00:11"
+    },
+    {
+      "title": "Dictation turns thoughts into a brain dump faster than typing",
+      "detail": "When you dictate, you convert your thoughts directly into words at speaking speed, which is faster than typing. The brain dump becomes the raw material: you get your brain into words fast, then let the agent do the structuring and restating work afterwards.",
+      "time_hint": "00:19"
+    },
+    {
+      "title": "Use the agent to restate, grill, or figure out your brain dump",
+      "detail": "After dictating, the follow-up moves are explicit: ask the agent to restate the idea back to you (so you can check it understood), to grill you on it (interrogate weak points), or to figure something out from it. Dictation and agent-led clarification form one loop: fast capture, then machine interrogation.",
+      "time_hint": "00:25"
+    },
+    {
+      "title": "Whisper Flow is his dictation tool - good enough, not magic",
+      "detail": "Pocock names Whisper Flow as what he uses for dictation, with a deliberately honest review: it is not a sponsored ad, he just uses it, it is okay, not amazing, but it is the one he uses. The point is that tool choice matters far less than adoption - any decent dictation tool unlocks the workflow.",
+      "time_hint": "00:34"
+    },
+    {
+      "title": "Pick one dictation tool and start talking instead of typing",
+      "detail": "His closing advice: there are loads of great dictation options out there, so do not over-optimize the choice. Pick one, integrate it into your agent workflow, and your speed 'massively picks up' in what you are able to accomplish with the agent.",
+      "time_hint": "00:41"
+    }
+  ],
+  "key_points": [
+    "Your bottleneck is often your fingers, not the model.",
+    "Agents can find meaning in your crappy, uncleaned transcripts - stop editing prompts.",
+    "Dictate the brain dump, then have the agent restate it or grill you on it.",
+    "Speaking gets your brain into words faster than typing ever will.",
+    "Whisper Flow: okay, not amazing, and that is good enough.",
+    "Pick one dictation tool and start talking instead of typing."
+  ],
+  "mermaid": "flowchart TD\n  brain[\"Your thoughts\"] -->|speak faster than type| dump[\"Raw dictated brain dump - messy transcript\"]\n  dump --> whisper[\"Whisper Flow or any dictation tool\"]\n  whisper --> agent[\"AI agent\"]\n  agent --> restate[\"Restate the idea back to you\"]\n  agent --> grill[\"Grill you on the idea\"]\n  agent --> solve[\"Figure something out\"]\n  restate --> verify[\"You verify understanding\"]\n  grill --> sharpen[\"Sharpened thinking\"]\n  verify --> work[\"Faster agent accomplish rate\"]\n  sharpen --> work",
+  "generated": "2026-10-22"
+}

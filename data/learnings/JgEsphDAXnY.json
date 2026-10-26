@@ -1,0 +1,54 @@
+{
+  "video_id": "JgEsphDAXnY",
+  "title": "Your effort level is STILL TOO HIGH",
+  "summary": "Matt Pocock argues that developers systematically set their AI coding agent's reasoning effort level too high - usually max - because they believe their project deserves maximum effort. Using an analogy to art or Minecraft sculpture, where more effort genuinely yields more detail, he shows that effort is wasted on tasks that don't need detail: small code changes and repository exploration. High effort just burns tokens, encourages overthinking, and can push the model toward outputs the user doesn't want. His prescription: lower the effort level - he himself runs Opus 5.5 on medium and is considering low.",
+  "what_you_learn": "You learn to treat an agent's effort/reasoning level as a per-task budget rather than a loyalty setting: exploration and trivial edits need almost no reasoning depth, and saving tokens there keeps the model sharper and preserves context window for the work that actually matters.",
+  "skills": [
+    {"name": "Token Economics", "description": "Matching the model's reasoning effort to the actual difficulty of each task instead of leaving it on max."},
+    {"name": "Model Selection & Routing", "description": "Excess reasoning effort makes models overthink simple activities and drift toward unwanted output."},
+    {"name": "Context Window Management", "description": "Fewer tokens spent per task means more context capacity left for useful work."},
+    {"name": "Iterative Prototyping", "description": "Repo exploration is a simple open-some-files activity that does not need high effort."}
+  ],
+  "learnings": [
+    {
+      "title": "Max effort is a cargo cult: importance of project doesn't demand max reasoning",
+      "detail": "Pocock's starting observation: people set effort to max because they want the model to try its hardest - their project is the most important to them. But effort is not a respect knob; it controls how much reasoning depth the model applies per task, and most coding tasks don't need depth. This is the second time he has made this point, hence the 'still too high' framing.",
+      "time_hint": "00:01"
+    },
+    {
+      "title": "Effort buys detail - only worth it when the task needs detail",
+      "detail": "The analogy: drawing a piece of art or building a Minecraft sculpture - the more effort you put in, the more detail comes out of the asset. That trade is real, but a small code change or a repo exploration is not an asset that rewards detail. Spending high effort there buys nothing except token cost and delay.",
+      "time_hint": "00:15"
+    },
+    {
+      "title": "High effort on simple tasks causes overthinking and worse output",
+      "detail": "When the effort level is higher than the task warrants, the model spends more tokens on a relatively simple, easy activity - and it probably overthinks things. Pocock goes further: high or max effort can actually distract the model and push it toward outputs that are not what the user wants. More reasoning is not monotonically better.",
+      "time_hint": "00:32"
+    },
+    {
+      "title": "Exploration is cheap: open files, done",
+      "detail": "Repo exploration gets special mention because it is the worst place to burn effort: all the agent has to do is open some files and report what's there. Running exploration at max effort burns a ton of tokens the task doesn't require. Tune exploration tasks to the lowest effort that still gets the files read accurately.",
+      "time_hint": "00:41"
+    },
+    {
+      "title": "Fewer tokens per task keeps the model smarter for longer",
+      "detail": "The efficiency argument: the fewer tokens you use, the smarter the model remains across a session, and the more juice you have in your context window for actually doing useful tasks. Every wasted reasoning token is both money and context capacity destroyed - a direct tokenomics lesson for anyone running agents all day.",
+      "time_hint": "00:58"
+    },
+    {
+      "title": "Concrete setting: Opus 5.5 on medium, maybe low",
+      "detail": "Pocock's own configuration as the calibration point: he uses Opus 5.5 (a top-tier model) on medium effort, and is debating moving even to low. The takeaway for daily agent use: pick the lowest effort level where the task still succeeds, and reserve max for the rare problems that genuinely need deep reasoning.",
+      "time_hint": "01:08"
+    }
+  ],
+  "key_points": [
+    "Your project being important doesn't mean every task needs max reasoning effort.",
+    "Effort buys detail - art and Minecraft sculptures need detail, small code changes don't.",
+    "High effort makes models overthink simple tasks and can push them off what you actually want.",
+    "Repo exploration is just opening files - don't burn max effort on it.",
+    "Fewer tokens per task means a smarter model and more context window for real work.",
+    "Matt runs Opus 5.5 on medium - and is considering low."
+  ],
+  "mermaid": "flowchart TD\n  habit[\"Default max effort setting\"] --> why[\"Belief that important project needs max effort\"]\n  analogy[\"Effort buys detail like art or sculpture\"] --> match[\"Only spend effort when task needs detail\"]\n  simple[\"Small changes and repo exploration\"] --> overthink[\"High effort causes overthinking\"]\n  overthink --> wrong[\"Output drifts from what user wants\"]\n  simple --> waste[\"Tokens burned for nothing\"]\n  low[\"Lower effort level\"] --> save[\"Fewer tokens spent\"]\n  save --> smart[\"Model stays smarter\"]\n  save --> juice[\"More context window for useful tasks\"]\n  smart --> results[\"Better results overall\"]\n  juice --> results\n  match --> low",
+  "generated": "2026-10-22"
+}

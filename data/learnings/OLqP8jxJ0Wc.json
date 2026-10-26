@@ -1,0 +1,79 @@
+{
+  "video_id": "OLqP8jxJ0Wc",
+  "title": "My Jev Pi Durable Agent CURATES News: HYPE, FACT, or SIGNAL",
+  "summary": "Indie Dev Dan demonstrates a durable news-curation agent he built on top of Pi Durable (the durable-agent framework from the Pi coding agent's creators). A cron job fires every minute against an API that hosts the agent on his M4 Mac mini; the agent gathers news from configured sources, uses the Jev zero-shot classifier to label each item as hype, fact, or signal, dedupes, ranks, and renders the top ~7 cards in both a browser UI and a terminal client, which stay perfectly in sync because they are only thin detached clients of the same durable agent. The user can upvote/downvote items and send natural-language commands like increase the weight of Gemini, which the agent persists into taste files (weighted keywords and news-source links) that steer all future sweeps. The whole run runs on cheap models (GPT-6 Luna, with Jev gating the LLM calls) for barely any cost over a full day of non-stop operation.",
+  "what_you_learn": "You learn the concrete architecture of a proactive agent - durable agent plus trigger plus sandbox - and how to wire cron, an API, SQLite persistence, a cheap classifier (Jev), and multiple detached clients into one self-running curation system. It also teaches the product-level pattern of a feedback loop (upvotes and keyword weights) that lets a human steer an autonomous agent without being in the loop.",
+  "skills": [
+    {"name": "Autonomous Agent Operations", "description": "Agents that work for you first and then wait, triggered by cron instead of human prompts."},
+    {"name": "Agent Harness Engineering", "description": "Pi Durable creates durable agents with persistent state that survive failures and client changes."},
+    {"name": "Agent Guardrails", "description": "Using the cheap Jev zero-shot classifier to label, dedupe, and rank content before expensive LLM calls."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "The skill ladder of agentic engineering, from prompting agents to supervising them to full autonomy."},
+    {"name": "Personal Automation", "description": "A gather-gate-dedupe-rank pipeline that filters raw news into a small set of ranked candidates."},
+    {"name": "Multi-Agent Orchestration", "description": "Browser, TUI, CLI, and cron all talking to one durable agent through a thin API layer."},
+    {"name": "Token Economics", "description": "Tracking and minimizing token cost per unit of value using cheap models and classifier gating."}
+  ],
+  "learnings": [
+    {
+      "title": "A proactive agent is a durable agent plus a trigger inside a sandbox",
+      "detail": "Dan defines the core formula explicitly: proactive agent = durable agent + trigger + sandbox. The durable agent keeps state in SQLite (or any database), the trigger here is a cron interval firing every minute, and the sandbox is a device (M4 Mac mini or an exe.dev cloud sandbox) the agent owns end to end. The agent works, then waits for the next execution tick - it never waits for a human prompt.",
+      "time_hint": "03:02"
+    },
+    {
+      "title": "Clients are thin interfaces to a durable agent living elsewhere",
+      "detail": "The browser and terminal UI both run the same synced view of the agent because they are just detached clients talking to an API; the real agent (running GPT-6 Luna in the demo) executes on the Mac mini. This client-server split means you can refresh, reconnect, or attach from anywhere while the agent keeps running untouched.",
+      "time_hint": "01:55"
+    },
+    {
+      "title": "Classify information into hype, fact, and signal",
+      "detail": "Dan's taste framework for the AI-noise era: hype is attention driven by unfounded excitement; facts are objectively true but often not actionable (OpenAI's math proof dump); signal is information you can act on right now (Gemini 4 Argon released via API). The product goal is to surface signal, present facts in context, and down-rank hype.",
+      "time_hint": "05:19"
+    },
+    {
+      "title": "The system architecture is cron triggering an API that hosts the Pi Durable agent",
+      "detail": "The full system: cron fires the API, the API is the news-desk Pi Durable agent, and everything is isolated and deployable anywhere (local Mac mini or exe.dev sandbox). The two-way prompt system means the human can prompt the agent and the agent can prompt the human with questions mid-run.",
+      "time_hint": "07:03"
+    },
+    {
+      "title": "Build in layers - SQLite, Pi Durable, custom agent, API, SDK, clients",
+      "detail": "The stack is layered so it can be redeployed for many use cases: SQLite databases at the bottom, then Pi Durable, then a custom durable agent implementation, exposed via an API, with Jev doing classification, filtering, and ranking at dirt-cheap prices, and an SDK consumed by the browser, TUI, cron, and CLI. Dan's point: how something is built matters more than what is built, because code is now infinitely copyable.",
+      "time_hint": "08:30"
+    },
+    {
+      "title": "Each news sweep runs a gather-gate-dedupe-rank pipeline",
+      "detail": "Every cron tick runs one news sweep: gather items from configured links, gate them through Jev relevance checks, dedupe near-identical stories, then rank the n candidates; the durable agent decides what to render based on the rankings. Jev is used at every step - relevance, duplicate detection, fact cross-checking across sources, and presentation scoring.",
+      "time_hint": "10:07"
+    },
+    {
+      "title": "Use a classifier as a fallback when hashing cannot dedupe",
+      "detail": "For dedupe you try a content hash first, but when items cannot be hashed (rewritten headlines, same story from different outlets), a zero-shot classifier asking is this the same story is a practical fallback. Jev answers these classification calls in sub-half-second times, making it viable inside a per-minute pipeline.",
+      "time_hint": "10:45"
+    },
+    {
+      "title": "Upvotes and natural-language commands drive a data flywheel",
+      "detail": "The user can thumbs up/down any news card, and can send commands like increase the weight of Gemini - if it doesn't exist as a keyword, add it. The agent reads its taste files (settings with weighted keywords and news-source links), edits the keyword weight (Gemini went from 1.2 to 1.3), and all subsequent sweeps reflect the user's personal taste.",
+      "time_hint": "12:30"
+    },
+    {
+      "title": "Give the agent a small harness-engineered tool set instead of generic file access",
+      "detail": "The news agent does not read files or change code; it has purpose-built tools: run news sweep, list candidates, read items, search web, scrape URL, research items, Jev classify, present news, present timeline, ask taste. Dan built these tools with an in-the-loop agent first, then let the system run out of the loop - building the system that builds the system.",
+      "time_hint": "15:50"
+    },
+    {
+      "title": "Cheap models plus Jev gating keep always-on agents affordable",
+      "detail": "After running non-stop for over a day, costs barely moved. The recipe: run the agent on a cheap model (GPT-6 Luna, also Haiku 5.5 or DeepSeek V4.1 Flash) and put Jev in front to gate and filter so expensive LLM calls only happen on worthwhile items. Monitoring tokenomics is a first-class concern for any always-on agent.",
+      "time_hint": "21:00"
+    }
+  ],
+  "key_points": [
+    "Proactive agents don't wait for you to work - they work for you, then wait.",
+    "Proactive agent = durable agent + trigger + sandbox.",
+    "Separate hype, facts, and signal - only signal is information you can act on.",
+    "How something is built matters more than what you build; code is infinitely copyable, taste is not.",
+    "In, near, out of the loop is a direct measure of your agentic engineering skill.",
+    "Jev classifies large amounts of text in many ways at sub-half-second speed for pennies.",
+    "Build a data flywheel: user votes and natural-language commands feed weights the agent uses forever.",
+    "Cheap models plus a classifier gate in front make always-on agents economically viable."
+  ],
+  "mermaid": "flowchart TD\n  cron[\"Cron every minute\"] --> api[\"Agent API on Mac mini or exe dev sandbox\"]\n  api --> pi[\"Pi Durable durable tasks\"]\n  pi --> db[\"SQLite state\"]\n  pi --> sweep[\"News sweep - gather gate dedupe rank\"]\n  sweep --> jev[\"Jev classifier - hype fact signal\"]\n  jev --> rank[\"Ranked candidates\"]\n  rank --> agent[\"Durable agent decides what to render\"]\n  agent --> sdk[\"SDK\"]\n  sdk --> browser[\"Browser client\"]\n  sdk --> tui[\"Terminal client\"]\n  browser --> votes[\"User upvotes and keyword commands\"]\n  tui --> votes\n  votes --> taste[\"Taste files with weighted keywords and links\"]\n  taste --> sweep",
+  "generated": "2026-10-21"
+}

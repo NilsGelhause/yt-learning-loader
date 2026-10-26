@@ -1,0 +1,75 @@
+{
+  "video_id": "6BB6exR8Zd8",
+  "title": "I stopped using /grill-me for coding. Here’s what I use instead:",
+  "summary": "Matt Pocock introduces /grill-with-docs, the successor to his wildly popular /grill-me skill. He first diagnoses grill-me's weakness on codebases: the agent is verbose because it lacks your terms of art (like 'standalone video'), good shared language discovered in a session is never documented, and you must re-explain non-obvious domain knowledge every time. His fix combines two ingredients from domain-driven design: a ubiquitous-language glossary (context.md per bounded context, maintained by the /ubiquitous-language skill) and architectural decision records (ADRs for hard-to-reverse, surprising-without-context decisions). He demos grill-with-docs live on a real feature - adding a 'pitch' entity to his course platform - showing the agent challenge cardinality, terminology collisions, status semantics, and deletion cascades against the glossary before writing any code, then updating context.md as it goes. He wraps up with the benefits (concise replies, aligned thinking traces, easier-to-navigate code) and the rule: code base -> grill-with-docs, no code base -> grill-me.",
+  "what_you_learn": "You learn how to give an AI coding agent a shared vocabulary before asking it to build anything: a per-bounded-context glossary file plus ADRs for irreversible decisions, combined with an interviewing skill that challenges fuzzy language against that glossary. This is domain-driven design applied to human-AI collaboration, and it directly produces better-named code, cheaper tokens, and fewer re-explanations across sessions.",
+  "skills": [
+    {"name": "Human-in-the-Loop Collaboration", "description": "An interviewing skill where the LLM relentlessly questions you until you reach shared understanding before building."},
+    {"name": "Domain Modeling", "description": "Pinning down exact domain terms and definitions so every session and every generated identifier speaks the same language."},
+    {"name": "Documentation", "description": "Short markdown files recording only hard-to-reverse, surprising-without-context decisions, written by the LLM in a fixed format."},
+    {"name": "Token Economics", "description": "Shared language makes both the agent's replies and its internal thinking traces shorter, saving tokens across every session."}
+  ],
+  "learnings": [
+    {
+      "title": "Grill-me interviews you until design ambiguities are resolved",
+      "detail": "The original /grill-me skill makes the LLM interview you relentlessly, walking down each branch of the design tree and resolving dependencies between decisions one by one, until you reach a shared understanding. Matt calls its four-sentence prompt the most influential four sentences he has written; users report that after an initial slowdown, it saves time because you one-shot the implementation once all context is gathered.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Grill-me fails on codebases because the agent lacks your terms of art",
+      "detail": "Demo prompt: adding a 'pitch' entity (Mr. Beast-style packaging for a video - title, description, framing) to an app that already deals in courses, lessons, and videos. The prompt is full of jargon like 'standalone video' that the agent does not know. Matt found himself constantly reminding the agent that a term already exists, or landing on great shared language that was then documented nowhere and had to be re-explained next session. Communication worked, but every session restarted from zero on domain knowledge.",
+      "time_hint": "00:56"
+    },
+    {
+      "title": "Ubiquitous language is the DDD fix: one glossary for code, devs, and domain experts",
+      "detail": "From Eric Evans' big blue book: the language used by the code base, the developers, and the domain experts should be the same, so when an expert says something is wrong with a section of the app, the developer and the code both understand. Matt packaged this as a /ubiquitous-language skill that creates a ubiquitous-language.md mid-grilling-session whenever the language needs sharpening - the thinnest documentation layer that still gives the AI a leg up.",
+      "time_hint": "02:47"
+    },
+    {
+      "title": "Bounded contexts scale the glossary to monorepos",
+      "detail": "A bounded context in DDD is a part of the app in which you speak one shared language. For a massive monorepo you maintain a context map with many context.md files, one per context; a single big repo with one language just gets one context.md at the repo root. Matt also adds a context pointer in the local CLAUDE.md so agents know where the domain docs live.",
+      "time_hint": "04:32"
+    },
+    {
+      "title": "Grill-with-docs = grill-me + glossary challenges + live glossary updates",
+      "detail": "The new skill has exactly the grill-me prompt, plus: look for an existing context.md and pull in its shared language; then during the session challenge language usage against the existing glossary, sharpen fuzzy language, discuss concrete scenarios, cross-reference with code, and update context.md as you go. Feedback Matt quotes: after four or five sessions, Claude started picking up context during grill sessions and aligning with what the user thought before the words came out - far fewer words needed to communicate.",
+      "time_hint": "04:32"
+    },
+    {
+      "title": "ADRs capture the decisions a glossary cannot",
+      "detail": "Some things cannot be captured as glossary terms, so grill-with-docs also maintains architectural decision records: simple markdown files in the repo documenting non-obvious decisions. Only write an ADR when the decision is hard to reverse - interchangeable library choices can just be swapped later. The trigger is 'surprising without context', especially decisions that are the result of a real trade-off with downstream consequences. The skill ships a fixed ADR format the LLM fills in.",
+      "time_hint": "07:27"
+    },
+    {
+      "title": "Live demo: the agent grills the language before any code",
+      "detail": "In the demo the agent first notices context.md already defines standalone video as a video with lessonId equals null, then immediately asks glossary-level questions: the cardinality between pitch and standalone video (Matt accepts one-to-many), a terminology collision (should standalone video stay any unpitched video, or be redefined to unpitched and unlessonened?), status semantics (idle, scheduled, shipped - Matt wants free-form transitions, automation later), whether a pitch can exist with zero videos (yes - packaging comes first), and deletion cascades (on delete restrict; he archives instead of deleting). It then saves all of it into context.md: pitch, pitch status, pitched standalone video, unattached standalone video.",
+      "time_hint": "08:25"
+    },
+    {
+      "title": "Naming in the glossary becomes naming in the code",
+      "detail": "Matt acknowledges the demo looks like bike-shedding, but the language decided here drives every variable name, every file name, and even UI navigation labels the user sees - so getting it right is crucial for feeling aligned with the AI. Equally, he caps the ceremony: at some point say it is good enough and ship, because you can always refactor to new language later.",
+      "time_hint": "11:50"
+    },
+    {
+      "title": "The payoff: concise replies, aligned thinking traces, navigable code",
+      "detail": "Three benefits of the ceremony. Concise replies: the AI spends fewer tokens because it does not verbosely re-describe things - 'standalone videos are changing' is enough. The concision also shows up in its thinking traces, since the AI uses language to think to itself. And because your speech, the docs, and the code share terms, the generated code is easier to navigate - you search for 'pitch' and find everything. These are the same benefits DDD promises for human teams, applied to AI.",
+      "time_hint": "12:24"
+    },
+    {
+      "title": "The rule: code base -> grill-with-docs, no code base -> grill-me",
+      "detail": "Grill-me is not dead; Matt moved it to the productivity bucket for non-codebase use cases - he shares the story of someone who used it to grill themselves about their late mother to surface stories for a eulogy. But for anything with a code base (even very early in a project, where shared language is being established), grill-with-docs wins. He ships skill changelogs and usage notes through his AI Skills for Real Engineers newsletter.",
+      "time_hint": "13:26"
+    }
+  ],
+  "key_points": [
+    "An agent without your glossary is verbose; an agent with it finishes your sentences.",
+    "Ubiquitous language: one glossary shared by code, developers, and domain experts - then grill against it.",
+    "ADRs only for hard-to-reverse, surprising-without-context decisions - not for swappable library choices.",
+    "The terms you lock in the glossary become your variable names, file names, and UI labels.",
+    "Shared language shows up in the AI's thinking traces too - it literally thinks in your vocabulary.",
+    "Don't bike-shed forever: lock good-enough language, ship, refactor the vocabulary later.",
+    "Code base -> grill-with-docs; no code base -> grill-me (it even writes eulogies)."
+  ],
+  "mermaid": "flowchart TD\n  gm[\"Grill Me - relentless LLM interview\"] -->|\"fails on codebases - jargon and undocumented terms\"| problem[\"Verbose agent - re explains domain every session\"]\n  ul[\"Ubiquitous Language skill - DDD from Eric Evans\"] --> ctx[\"context md - one glossary per bounded context\"]\n  adr[\"ADRs - only hard to reverse surprising decisions\"] --> ctx\n  ctx --> gwd[\"Grill with Docs\"]\n  gwd -->|\"challenge language against glossary\"| q[\"Cardinality terminology status deletion questions\"]\n  q -->|\"update as you go\"| ctx\n  ctx --> code[\"Aligned variable names file names UI labels\"]\n  ctx -->|\"fewer tokens\"| tok[\"Concise replies and thinking traces\"]\n  rule[\"Code base - grill with docs - no code base - grill me\"]",
+  "generated": "2026-10-22"
+}

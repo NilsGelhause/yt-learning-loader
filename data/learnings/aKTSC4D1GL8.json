@@ -1,0 +1,87 @@
+{
+  "video_id": "aKTSC4D1GL8",
+  "title": "The NPM Library Speedrun - 90 minutes to build, CI, and publish",
+  "summary": "Matt Pocock live-streams a speedrun: build a brand-new npm library from an empty folder to a published 1.0.0 in 90 minutes, with a countdown timer and a binding promise that missing the deadline means deleting the GitHub repo and the npm package. The library, evolving from 'zod-message-bus' to 'zod-message-protocol', is a type-safe message-passing wrapper around Zod for cross-environment messaging (iframes, Chrome extensions, Electron, WebSockets, VS Code extensions). He hits every milestone except the last: CI green in 8 minutes via a copied GitHub Actions workflow, 0.0.1 published via Changesets and an npm token secret, the API built with schema-first generics (z.infer discriminated unions, createSender/createHandler adapters), and tests passing with vitest - but the README is unfinished when the timer hits zero, and he solemnly deletes the repo and unpublishes the package on stream.",
+  "what_you_learn": "A complete, watch-it-happen recipe for the library-development toolchain most tutorials skip: pnpm plus tsup for dual CJS/ESM builds with .d.ts, tsc --noEmit as the lint step, GitHub Actions with frozen lockfiles, Changesets for one-button releases, and npm secrets and packaging pitfalls like the missing dist folder. The schema-first API design section (derive TypeScript types from Zod schemas, never the reverse) is directly reusable for anyone building validated message or config systems, and the failed-deadline autopsy is an honest lesson in what infrastructure work actually costs.",
+  "skills": [
+    {"name": "Package & Build Tooling", "description": "Bootstrapping a publishable package fast: personal CLI init, package.json entry fields, git repo, and build config in minutes."},
+    {"name": "API & Module Design", "description": "Design the API by writing usage code first, and derive TypeScript types from Zod schemas with z.infer - never the reverse."},
+    {"name": "TypeScript Type System", "description": "Zod .parse at the send boundary with a z.literal type discriminator, so wrong-shaped messages throw instead of propagating."},
+    {"name": "Testing Strategy", "description": "Using @ts-expect-error to assert compile-time failures and vitest.fn mocks to assert runtime calls in the same test."}
+  ],
+  "learnings": [
+    {
+      "title": "The speedrun contract: milestone splits with real stakes keep scope honest",
+      "detail": "Before writing code Matt defined six splits on a live timer - first CI run, 0.0.1 published, API built, tests passing, README written, 1.0.0 published - and a public promise: miss 90 minutes and the repo, the npm package, and everyone's PRs get deleted. This forced ruthless sequencing (infrastructure before features) and made the ending, where the README misses by minutes and he deletes everything on stream, both honest and memorable. The lesson transfers: deadline stakes change how you prioritize, and publishing a throwaway 0.0.1 early de-risks the pipeline before any real API exists.",
+      "time_hint": "04:30"
+    },
+    {
+      "title": "pnpm is the speedrun pick because its global cache plus hard links make installs nearly free",
+      "detail": "Matt chose pnpm explicitly for the time budget: instead of copying packages into node_modules, pnpm installs into a global content-addressed cache and hard-links into node_modules, so anything installed before downloads nothing. In CI the win is repeated too - pnpm install --frozen-lockfile in the GitHub Action is dramatically faster than npm, which he credits with being the difference between making and missing the 90 minutes.",
+      "time_hint": "26:15"
+    },
+    {
+      "title": "tsup builds CJS, ESM, and d.ts from one command; tsc --noEmit is the lint step",
+      "detail": "Build tooling was: pnpm add -D tsup, a build script running tsup (esbuild-powered, emitting .js for CJS, .mjs for ESM, and .d.ts type declarations from src/index.ts). Separately, tsconfig gets noEmit: true and a lint script that runs bare tsc, giving full type checking without emitting files - this is the check that runs in CI so random type errors never ship. Choosing boring, pre-integrated tools (no custom rollup config) is what makes the 8-minute first CI run possible.",
+      "time_hint": "18:35"
+    },
+    {
+      "title": "First green CI in 8 minutes by copying a proven workflow file",
+      "detail": "Rather than writing YAML from scratch, Matt copies main.yaml from his previous project (ts-reset): checkout the repo, set up pnpm and node, pnpm install --frozen-lockfile, then run a single ci script (lint + test + build). He clones the publish.yaml the same way for the Changesets release flow. His justification: 'I'm too lazy to figure out all this YAML stuff' - copying a working setup from your own last project is faster and more reliable than authoring one, and the whole loop from empty folder to passing CI took 8 minutes 20 seconds.",
+      "time_hint": "22:55"
+    },
+    {
+      "title": "npm publishing needs package.json entry fields, an npm token secret, and changesets",
+      "detail": "The publish path: point package.json main at dist/index.js, module at dist/index.mjs, and types at the emitted .d.ts; generate an npm access token and store it as the NPM_TOKEN repository secret in GitHub (Settings, Secrets and variables, Actions); add @changesets/cli as a devDependency and run pnpm changeset init. A changeset is a markdown intent-to-deploy file; the Changesets GitHub Action turns accumulated changesets into a 'Version Packages' PR, and merging that PR publishes to npm automatically. One failure mode shown live: the publish fails with a private-packages error until access is set to public in the changesets config.",
+      "time_hint": "29:00"
+    },
+    {
+      "title": "Packaging pitfalls: .npmignore excluded the dist folder and broke the published package",
+      "detail": "After 0.0.1 went live, a check of the npm page revealed the dist folder - the actual built code - was missing from the package. The cause: adding an .npmignore flipped npm's file-inclusion logic, and excluding source/config files also excluded the build output. The fix shipped as 0.0.3 was a changeset reading 'fixed issue where dist folder was not being sent'. Related hygiene: add a files field (or correct ignore rules) so only dist reaches npm, and set the license (MIT) via an accepted contributor PR.",
+      "time_hint": "41:40"
+    },
+    {
+      "title": "Design the API by writing usage code first, then make it type check",
+      "detail": "Before implementing anything, Matt wrote the desired call sites in a playground.ts: createMessageProtocol({ login: z.object({...}), logout: z.object({}) }), then protocol.createSender(window.postMessage) and window.addEventListener('message', protocol.createHandler(...)). He also answered a chat question with the core principle: you can go runtime-to-type (infer generics from a Zod schema - easy and safe) but never type-to-runtime, so the schema is always the source of truth. Naming went through visible iterations - bus to protocol - because the name is part of the API's promise.",
+      "time_hint": "45:00"
+    },
+    {
+      "title": "Derive the event union from the schema map with z.infer and indexed access",
+      "detail": "The type-level heart of the library: constrain the generic as T extends Record<string, ZodRawShape>, then build the event type as { type: K; data: z.infer<T[K]> } for K in keyof T, wrapped with z.infer and key-of-typeof on the passed object. This turns a record of Zod schemas into a discriminated union like { type: 'login', username: string, password: string } | { type: 'logout' }. He validated each intermediate type in the playground with a prettify helper rather than debugging the whole expression at once.",
+      "time_hint": "57:40"
+    },
+    {
+      "title": "Validate at the send boundary with a z.literal discriminator",
+      "detail": "Runtime safety closes the loop: createSender wraps the transport function and, before calling it, builds z.object({ ...eventSchema.shape, type: z.literal(eventType) }).parse(event) - so a message whose payload doesn't match the schema throws at the boundary instead of reaching the other environment. A test-driven bug catch here: events must extend { type: string } or the discriminator union breaks, and specifying type: z.string() in the user's schema must be rejected (forced to never) since the library owns that key.",
+      "time_hint": "85:50"
+    },
+    {
+      "title": "Tests assert both levels: @ts-expect-error for types, vitest.fn for runtime",
+      "detail": "With vitest as the runner (dev script for watch mode, test script with vitest run for CI), the test file creates a message protocol with login/logout schemas and a vitest.fn() mock transport. One test sends a valid login event and expects the mock to have been called with the exact parsed payload; a second test wraps an invalid send in @ts-expect-error - a directive meaning 'the next line must fail to compile' - and asserts the runtime call throws and the mock was never called. This double assertion catches regressions in both the type contract and the Zod validation.",
+      "time_hint": "78:30"
+    },
+    {
+      "title": "Simplify the API when two concepts collapse into one",
+      "detail": "Mid-stream Matt realized createSender and the planned createReceiver were the same shape - a function taking an event and doing something with it - so he deleted the receiver concept and kept a single createHandler used on both ends. Earlier he had rejected merging them into the constructor in favor of a builder pattern: one shared protocol object (the spec) with many adapters created from it, which fits cross-environment use cases like iframes where parent and child import the same protocol and post messages both ways. Killing a redundant concept mid-build is cheaper than documenting it.",
+      "time_hint": "91:10"
+    },
+    {
+      "title": "What the deadline autopsy teaches: infra is fast, design and docs are the real cost",
+      "detail": "The splits tell the story: CI in 8 minutes, 0.0.1 published around minute 22, but the API alone took 37 minutes of the remaining hour and the README never landed. Contributing factors he names: API design decisions made under chat pressure, merge conflicts from accepting contributor PRs mid-stream (he admits he shouldn't have reviewed PRs during the run), and fiddly fights with formatting configs. His takeaway quote: 'I was young and I needed to ship - commit messages are toilet paper' - under a real deadline, ceremony is what you cut, and the cut he regretted was scoping the API too ambitiously for the time left.",
+      "time_hint": "112:00"
+    }
+  ],
+  "key_points": [
+    "Copy your CI YAML from your last working project - authoring it from scratch is wasted speedrun time.",
+    "pnpm's global cache plus hard links made installs nearly free; npm might have missed the 90 minutes.",
+    "Ship a throwaway 0.0.1 first: it validates the whole publish pipeline and squats the package name.",
+    "Derive types from Zod schemas with z.infer - runtime-to-type is easy and safe, type-to-runtime is not.",
+    "Validate every outgoing message with z.literal type discriminators so bad payloads throw at the boundary.",
+    "An .npmignore slip excluded the dist folder - the published package contained no code until 0.0.3.",
+    "createSender and createReceiver were the same shape; deleting the duplicate concept simplified the whole API.",
+    "He hit every milestone except the README, and honored the promise: repo deleted, package unpublished.",
+    "Under deadline, infrastructure is fast - API design and documentation are where the time actually goes."
+  ],
+  "mermaid": "flowchart TD\n  init[\"matt init pnpm - package.json plus git\"] --> build[\"tsup build - CJS ESM d.ts from src\"]\n  build --> lint[\"tsc noEmit type check\"]\n  build --> test[\"vitest run\"]\n  lint --> ci[\"GitHub Actions - main.yaml - frozen lockfile\"]\n  test --> ci\n  ci --> cs[\"changesets - version packages PR\"]\n  cs --> pub[\"publish.yaml - NPM_TOKEN secret\"] --> npm[\"npm registry - 0.0.1 then 0.0.3 with dist\"]\n  zod[\"zod peer dependency\"] --> api[\"createMessageProtocol - record of schemas\"]\n  api --> infer[\"z.infer plus keyof - discriminated union\"]\n  infer --> sender[\"createHandler - validated send - z.literal parse\"]\n  sender --> envs[\"transports - iframe postMessage - websocket - electron - chrome extension\"]\n  timer[\"90 minute timer\"] --> verdict[\"readme unfinished - repo and package deleted\"]\n  ci --> timer\n  npm --> timer",
+  "generated": "2026-10-22"
+}

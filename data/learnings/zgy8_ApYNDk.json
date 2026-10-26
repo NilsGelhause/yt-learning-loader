@@ -1,0 +1,54 @@
+{
+  "video_id": "zgy8_ApYNDk",
+  "title": "STOP running your checks in harness hooks",
+  "summary": "A short arguing against the common advice of running automated checks inside agent-harness hooks on every file edit. Dan agrees checks are valuable - they let the agent understand what it got wrong with feedback at the right moment - but per-edit checking is noisy and slow: a big refactor session can touch 100 files, linting each one wastes time and floods the agent with tokens telling it things it already knows (it usually knows when a file is temporarily broken mid-refactor). His recommended setup: run fast checks in a pre-commit hook so feedback batches at commit time, keep those checks under roughly 3 seconds, and delegate slow heavyweight checks to CI before the PR merges.",
+  "what_you_learn": "You learn to design an agent's feedback loop around timing and token economy, not just correctness: batch feedback at natural commit points instead of interrupting every file edit, size hooks so they stay under seconds, and push long checks to CI. This directly shapes how you configure hooks in coding-agent harnesses and keeps both wall-clock time and context-window noise under control.",
+  "skills": [
+    {"name": "Agent Guardrails", "description": "Hook points in the agent harness where automated checks can fire, and choosing what belongs in them."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Delivering check results at commit time instead of per file edit so feedback arrives when it is actionable."},
+    {"name": "Context Engineering", "description": "Avoiding flooding the agent context with token-heavy lint output it already knows mid-task."},
+    {"name": "Package & Build Tooling", "description": "Running fast sub-three-second checks in a pre-commit hook so agents get batched feedback at commit."}
+  ],
+  "learnings": [
+    {
+      "title": "Automated checks are for the agent, so timing is everything",
+      "detail": "Dan agrees with the common advice that automated checks inside harness hooks are genuinely useful - but for the agent, not just the process. Their value is that they let the agent understand what it is getting wrong and give it feedback at just the right moment, which only pays off if the moment is chosen well.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Per-file-edit checks are slow and noisy",
+      "detail": "The popular setup - running checks on every single file edit - breaks down in big refactor sessions with up to 100 file edits. Linting every file as it arrives makes the session slower, and the agent receives a ton of tokens on every single file, bloating its context for little gain.",
+      "time_hint": "00:21"
+    },
+    {
+      "title": "Mid-edit feedback often tells the agent what it already knows",
+      "detail": "During a refactor the agent often knows it is putting a file into a broken state - that is a normal intermediate step. Per-edit checks therefore report failures the agent is already aware of, which is wasted tokens and wasted attention rather than new information.",
+      "time_hint": "00:44"
+    },
+    {
+      "title": "Pre-commit hooks batch feedback at the right moment",
+      "detail": "The recommended alternative: put the checks in a pre-commit hook and encourage the agent to commit. The moment it commits, the hook fires and sends back what is wrong. This batches all the check information to the moments when the agent is actually committing work to history - when the feedback is actionable.",
+      "time_hint": "00:52"
+    },
+    {
+      "title": "Keep pre-commit checks under about 3 seconds",
+      "detail": "Do not run every check in the pre-commit hook - if the pre-commit checks take two minutes, they wreck the agent's flow. Ideally they finish in under 3 seconds. The discipline is matching check cost to hook placement: only cheap, high-signal checks belong in the commit path.",
+      "time_hint": "01:12"
+    },
+    {
+      "title": "Delegate heavyweight checks to CI before the PR merge",
+      "detail": "Anything big that needs much more time - full test suites, heavy static analysis - goes to CI, which runs before the PR merges. The final architecture is a three-tier ladder: nothing per file edit, fast checks in pre-commit, slow checks in CI - matching feedback cost to how blocking the moment is.",
+      "time_hint": "01:22"
+    }
+  ],
+  "key_points": [
+    "Automated checks exist so the agent learns what it got wrong at the right moment.",
+    "A refactor session can mean 100 file edits - linting each one is slow and floods context.",
+    "Mid-edit lint output usually tells the agent something it already knows.",
+    "Pre-commit hooks batch feedback to the moment work is committed to history.",
+    "Keep pre-commit checks under 3 seconds or they ruin the agent's flow.",
+    "Slow heavyweight checks belong in CI, gating the PR merge."
+  ],
+  "mermaid": "flowchart TD\n  edit[\"Agent edits files during a session\"] -->|no checks here| batch[\"Feedback is batched\"]\n  batch --> commit[\"Agent commits work to history\"]\n  commit --> pre[\"Pre-commit hook with fast checks\"]\n  pre -->|under 3 seconds| fb[\"Batched feedback sent to agent\"]\n  fb -->|fix and repeat| edit\n  commit --> push[\"Push and open PR\"]\n  push --> ci[\"CI runs slow heavyweight checks\"]\n  ci -->|gate| merge[\"PR merges only when CI passes\"]\n  noisy[\"Per-edit checks - slow and token noisy\"] -.->|avoid| edit",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,90 @@
+{
+  "video_id": "F3lL98Pj90o",
+  "title": "/wayfinder: Nothing is too big to plan anymore",
+  "summary": "Matt Pocock introduces Wayfinder, a skill that plans arbitrarily large chunks of work by orchestrating the planning itself across multiple agent sessions. The metaphor is a map from a foggy start to a known destination: an initial grilling session establishes the premise, then Wayfinder maintains a map of decision tickets in your issue tracker (GitHub issues and sub-issues, but tracker-agnostic via setup config) with a frontier of tickets that are decidable now and a backlog of fog that is not. Tickets have four types - research, prototype, grilling, and task - plus blocking relationships between decisions. You work the map by invoking Wayfinder on individual tickets in fresh sessions (optionally via a handoff skill that spawns sub-agents), and when the fog clears you run /to-spec on the map to produce a dense, link-back spec, then /to-tickets, implement, and code review as usual. Wayfinder applies to non-coding work too (Matt planned a garden office with it), and the specs it produces are non-persistent - closed once the code exists.",
+  "what_you_learn": "You learn a practical system for planning work that does not fit in one context window: treat planning as a decision graph persisted in your issue tracker, measure progress as clearing fog of war, use prototypes to keep heavy planning from becoming waterfall, and treat specs as disposable destination documents rather than living artifacts.",
+  "skills": [
+    {"name": "Issue & Backlog Management", "description": "Persisting a planning map as issues and sub-issues so it survives across sessions and tools."},
+    {"name": "Continuous Improvement", "description": "Explicitly tracking which decisions are decidable now versus blocked on research, prototypes, or discussion."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "AI-interview sessions that extract decisions from the human, one dependency-respecting round at a time."},
+    {"name": "Planning & Prioritization", "description": "Using high-fidelity prototype tickets to get real feedback and prevent upfront planning from becoming waterfall."},
+    {"name": "Spec-Driven Development", "description": "Treating the spec as a disposable destination document for multi-session work - deleted once the code exists."},
+    {"name": "Agent Handoffs & Communication", "description": "Automatically writing a prompt and spawning a sub-agent to execute one ticket in a fresh session."},
+    {"name": "Software Factory", "description": "The surrounding pipeline the map feeds into - to spec, to tickets, implement, then automated code review."}
+  ],
+  "learnings": [
+    {
+      "title": "Single-session planning hits the smart zone of the context window",
+      "detail": "Matt's previous planning primitive, grill with docs, is still important but tied to one session. Some work is bigger than what fits in the context window - especially the smart zone at the start where the agent reasons best. Users pre-break work into small chunks to cope, then hit a question they cannot answer mid-grilling and get lost in fog, all while managing tokens. Wayfinder removes that limit: plan enormous chunks by orchestrating planning across many session types.",
+      "time_hint": "01:00"
+    },
+    {
+      "title": "Wayfinder models planning as a map from fog to destination",
+      "detail": "Big work starts at a vague start point and aims at a roughly known destination with foggy steps between. An initial grilling session interviews you to establish the premise; for foggy work that is not enough, so you run more sessions - prototyping, more grilling, research. Conceptually all of it is a map (hence the name): each item on the map is a ticket, and each ticket gets its own individual agent session. One skill does all of this and works with any coding agent.",
+      "time_hint": "02:10"
+    },
+    {
+      "title": "The frontier of tickets versus the fog of war",
+      "detail": "Wayfinder maintains two things: a frontier of tickets - decisions that are decidable right now - and everything still in fog, which cannot be decided because research, a prototype, or more conversation has not happened yet. As sessions resolve decisions, fog clears and the frontier advances, until enough decisions are made to reach the destination. Wayfinder also tracks real-world tasks (errands, talking to people, configuration) alongside the agent sessions.",
+      "time_hint": "03:35"
+    },
+    {
+      "title": "The map lives in your issue tracker, not in chat",
+      "detail": "Wayfinder persists state in the issue tracker. In Matt's course-video-manager repo, each Wayfinder map is a big issue with decision tickets as sub-issues; resolving a sub-issue writes the resolution back up to the parent map. The skills are issue-tracker agnostic - the demo uses GitHub, but configuration via setup (mappercode skills config) lets it run on Linear, Jira, or anything else. This persistence is what makes multi-session planning possible.",
+      "time_hint": "04:30"
+    },
+    {
+      "title": "Start a map by declaring the destination",
+      "detail": "The first decision in a new Wayfinder session is the destination. In the demo the destination is a buildable spec: a command palette with icon picker, diagram search, and copy-from-diagram features for the CVM app. Wayfinder explores the repo, invokes the grilling skill, asks what done looks like (recommending a spec as the output), asks initial questions, then creates the map: seven tickets immediately, of which only three were takable - icon name sources, component storage schema, and palette information architecture.",
+      "time_hint": "05:40"
+    },
+    {
+      "title": "Work a map by invoking Wayfinder per ticket in fresh sessions",
+      "detail": "After the initial chart-the-map prompt, you call Wayfinder with the ticket name or URL to work that ticket in a new session. Matt does it fancier with a handoff skill that automatically writes the prompt and spawns a Claude sub-agent, but semantically it is the same: Wayfinder on the map plus the specific ticket. The loop is chart the map, then walk each ticket, watching how resolving one ticket moves the frontier and opens new tickets.",
+      "time_hint": "06:50"
+    },
+    {
+      "title": "Four ticket types: research, prototype, grilling, task",
+      "detail": "Ticket types are carried into the issue tracker labels. Research tickets send the agent off to find information, usually immediately in a sub-agent that reports back. Prototype tickets build a prototype - Matt calls them unbelievably valuable for making plans come alive, and the antidote to the it-looks-like-waterfall criticism: prototypes are high-fidelity feedback, preventing huge low-fidelity upfront planning. Grilling tickets are discussions about implementation details. Task tickets are real-world actions the agent cannot do, or agent work scheduled behind other work.",
+      "time_hint": "07:40"
+    },
+    {
+      "title": "Blocking relationships capture dependent decisions",
+      "detail": "Some decisions can only be made after other decisions, so Wayfinder establishes blocking relationships between tickets. In the demo map, 14 of 17 tickets are done but the skill the map exists to build is still unbuilt - and finishing it will require revisiting other tickets based on how it works. Working the map is mostly a cycle of resolve a ticket, then check what the frontier opened up.",
+      "time_hint": "09:00"
+    },
+    {
+      "title": "Turn a completed map into a spec, then tickets - with links back to primary sources",
+      "detail": "Once the map is complete and the destination is a spec, Matt runs to-spec on the Wayfinder map. The resulting spec is dense (the first draft exceeded GitHub's character limit) and crucially every decision links back to its original decision ticket - the agent can consult the primary source discussion when confused. This fixes grill with docs's weakness: there the spec alone was the source of truth, but a spec is only a summary of what was actually said. Wayfinder maps make the primary source permanently available.",
+      "time_hint": "09:45"
+    },
+    {
+      "title": "Wayfinder replaces grill with docs for big work, not for everything",
+      "detail": "Wayfinder slots into the same pipeline position as grill with docs: instead of grilling then to-spec then to-tickets, you spend much longer in Wayfinder building the map, then to-spec, to-tickets, implement each ticket, and code review at the end. If work is completable and plannable in a single session, just plan it in a single session - Wayfinder is for when there is genuine fog of war. Matt also uses it for non-coding projects like commissioning a garden office (site surveys, finding builders).",
+      "time_hint": "11:40"
+    },
+    {
+      "title": "Specs are destination documents - non-persistent by design",
+      "detail": "Addressing the this-is-spec-driven-development objection: in Matt's flow the spec is just a destination for multi-session work - something that tells each implementation session where the work is going. He closes the spec's issue once the work is done and rarely refers to it again; once the spec is present in the code, it can be deleted. This differs from classic spec-driven development, where the spec is a living document you keep editing.",
+      "time_hint": "12:35"
+    },
+    {
+      "title": "Decision tickets are not implementation tickets",
+      "detail": "New users get confused because Wayfinder creates tickets early, before implementation. The distinction: Wayfinder tickets are decision tickets that resolve during planning; implementation tickets are created later from the spec. Mixing the two is what makes planning feel like premature task breakdown - keeping them separate keeps the map about decisions, not code.",
+      "time_hint": "13:20"
+    }
+  ],
+  "key_points": [
+    "Nothing is too big to plan - as long as the planning itself is orchestrated across sessions.",
+    "A spec is just a destination document for work too big for one session.",
+    "Measure planning progress in fog cleared, not tasks completed.",
+    "Prototypes are what stop heavy planning from becoming waterfall.",
+    "The map lives in your issue tracker - GitHub, Linear, or Jira - never in chat.",
+    "Every decision in the spec links back to its ticket - the primary source beats the summary.",
+    "Decision tickets resolve during planning; implementation tickets come later from the spec.",
+    "When the code matches the spec, delete the spec.",
+    "Wayfinder works on non-coding work too - Matt planned a garden office with it."
+  ],
+  "mermaid": "flowchart TD\n  idea[\"Foggy idea and rough destination\"] --> grill1[\"Initial grilling session - what does done look like\"]\n  grill1 --> map[\"Wayfinder map in issue tracker - parent issue with sub issues\"]\n  map --> frontier[\"Frontier - tickets decidable now\"]\n  map --> fog[\"Fog of war - blocked decisions\"]\n  frontier -->|research ticket| sub1[\"Sub agent finds info and reports back\"]\n  frontier -->|prototype ticket| sub2[\"Prototype built for feedback\"]\n  frontier -->|grilling ticket| sub3[\"Discussion session\"]\n  frontier -->|task ticket| sub4[\"Real world errand\"]\n  sub1 --> resolved[\"Ticket resolved - written back to map\"]\n  sub2 --> resolved\n  sub3 --> resolved\n  sub4 --> resolved\n  resolved --> frontier\n  fog -->|unblocked| frontier\n  frontier -->|map complete| spec[\"To spec - dense spec linking to decision tickets\"]\n  spec --> tickets2[\"To tickets - implementation tickets\"]\n  tickets2 --> impl[\"Implement each ticket then code review\"]",
+  "generated": "2026-10-22"
+}

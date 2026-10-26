@@ -1,0 +1,86 @@
+{
+  "video_id": "00Y-p62sk0s",
+  "title": "My M5 Max, Gemma 4, MLX LOCAL Stack. (This KILLS MODEL PROVIDERS)",
+  "summary": "Dan benchmarks local LLMs on a fully specced M5 Max MacBook Pro against the previous M4 Max, using a custom live-bench tool (github.com/disler/live-bench) that streams results from multiple devices to one UI. The lineup: Qwen 3.5 35B in GGUF (Nvidia NVFP4) and MLX variants, and Google's Gemma 4 in GGUF and community MLX builds, all mixture-of-experts models run through a just-style 'j' command runner. Three benchmarks: simple prompts (prefill/decode/wall time), context scaling via graph-walks breadth-first search from 200 tokens to 32K, and real agentic work inside the Pi coding agent with correctness checks and tool-call counting. Headline results: MLX variants are up to 2x faster than GGUF on Apple silicon (118 vs 60 tokens/sec decode on Qwen 3.5), the M5 Max is 15-50% faster than the M4 Max with far quieter fans and lower power draw (35W vs 40W), Gemma 4 fits in just 16GB RAM and pre-fills at ~550 tokens/sec, and local models stay usable up to roughly an 8-16K context window before wall-clock time explodes and accuracy collapses. He concludes local models are already viable for 'micro agent' tasks inside agent harnesses, but model providers still win for 90% of work today.",
+  "what_you_learn": "You learn how to actually evaluate whether a local open-weight model can replace cloud API calls for parts of your agent stack: which metrics matter (wall clock time, not tokens/sec), why MLX builds dominate GGUF on Apple silicon, and where the hard limits are (context window size, not raw intelligence). This gives you a practical framework for slotting cheap private local models into sub-agent processes while keeping frontier models for the hard work.",
+  "skills": [
+    {"name": "AI Benchmarking", "description": "Judging model performance by end-to-end latency including cold start, prefill, and decode instead of peak tokens per second."},
+    {"name": "Model Selection & Routing", "description": "Choosing Apple-silicon-optimized MLX builds over GGUF for up to 2x speed on Mac hardware."},
+    {"name": "Context Window Management", "description": "Recognizing that local small language models degrade sharply past 8-16K context regardless of advertised windows."},
+    {"name": "Local Model Deployment", "description": "Understanding model format trade-offs: GGUF prefills faster, MLX decodes nearly twice as fast on Apple silicon."}
+  ],
+  "learnings": [
+    {
+      "title": "Judge local models by wall clock time, not tokens per second",
+      "detail": "Three metrics matter: prefill (processing the incoming prompt), decode (the 'true' tokens per second people quote), and wall — the end-to-end time including cold start, prefill, decode, and hidden costs of running models locally. Wall is 'the thing that really matters' because it is the time you actually sit and wait. Non-deterministic systems also vary run to run, so warm the model up and measure multiple runs before trusting numbers.",
+      "time_hint": "3:33"
+    },
+    {
+      "title": "On Apple silicon, always prefer the MLX variant — up to 2x faster",
+      "detail": "The first benchmark compared Qwen 3.5 GGUF (Nvidia NVFP4 format, mixture of experts) against its MLX build and Gemma 4 in both formats. MLX dominated: Qwen 3.5 MLX hit 118 tokens/sec decode versus 60 for GGUF, with prefill nearly double. The rule he states flatly: if you are running on Apple silicon, always find an MLX model — there is no debate, they are up to twice as good as their GGUF counterparts. Ollama now supports MLX models directly.",
+      "time_hint": "13:40"
+    },
+    {
+      "title": "The M5 Max is 15-50% faster than the M4 Max at much lower power",
+      "detail": "Across benchmarks the M5 came in 15-50% faster than the fully maxed M4 — in the 32K context test, 280 seconds versus 400 seconds (about 40%). Prefill was nearly double. Meanwhile the M4's fans spun loudly at 40W while the M5 stayed relatively quiet at 35W, using only its new 'super core' for this work. His advice: upgrade from M1-M4 if local model performance matters, and if you buy, max out RAM and cores because a 35B model consumes a large chunk of RAM and all of the GPU when it runs.",
+      "time_hint": "12:40"
+    },
+    {
+      "title": "Warm up models before benchmarking — cold starts skew everything",
+      "detail": "The first run of any local model is a cold start: the model is not yet in memory, so both devices load it in, and results are meaningless until warm. Dan ran a '1 2 3' ping prompt on both machines first (the M4 actually warmed Qwen 3.5 before the M5), then re-ran benchmarks on warm models for clean numbers. Every local-model comparison needs this discipline.",
+      "time_hint": "2:21"
+    },
+    {
+      "title": "Gemma 4 maximizes intelligence per parameter and fits in 16GB RAM",
+      "detail": "Google's Gemma 4 was the compact standout: the MLX variant fit in just 16GB of RAM (smallest footprint of the lineup) while pre-filling at about 550 tokens/sec, and it blitzed through simple prompts. Dan highlights it as a truly open, US-origin model that is genuinely competitive with the Qwen series and other Chinese labs. The 26B parameter MLX Gemma and 35B Qwen were his recommended size class for top-tier local performance.",
+      "time_hint": "8:18"
+    },
+    {
+      "title": "Context window size — not speed or intelligence — is the true local-model limit",
+      "detail": "Using the graph-walks benchmark (breadth-first search over graphs at 200, 500, 1K, 2K, 4K, 8K, 16K, 32K tokens), accuracy and speed held to about 8-16K, then fell off a cliff: at 32K, Qwen failed to answer and Gemma answered incorrectly after hundreds of seconds. At 16K you already wait ~30 seconds, which he calls unusable. The practical conclusion: 32K is the proper context limit for small language models (35B and below) today, and work under 8K is in good shape.",
+      "time_hint": "17:25"
+    },
+    {
+      "title": "Agent context stacks up fast — two or three prompts in Claude Code already hit 32K",
+      "detail": "The reason context length matters more than benchmark prompts suggest: one-off prompts are not how models get used anymore. Every LLM now lives inside an agent, and the context window stacks up quickly — he guarantees two or three prompts in a coding agent already reach 32K tokens. When you expect local models to do agentic work, the effective context is what limits you, not the headline decode speed.",
+      "time_hint": "22:15"
+    },
+    {
+      "title": "Usability thresholds: 30+ tokens/sec is usable, below 20 is the dead zone",
+      "detail": "Dan's personal speed rubric: anything over 30 tokens per second is fully usable; below 20 is a dead zone he cannot wait for. The slowest model measured (Qwen 3.5 GGUF at ~50-60 tokens/sec) was already comfortably usable, and MLX variants pushed 100-118. So raw speed is largely solved at small context — the wall-clock killer is prompt length, not generation rate.",
+      "time_hint": "11:29"
+    },
+    {
+      "title": "Local models can already do agentic work inside the Pi coding agent",
+      "detail": "The final benchmark ran the models inside the Pi coding agent on tasks like create-file-hello-world, memoized Fibonacci (easy to validate: fib(10) is 55), and building a calculator package from a spec. The harness tracked correctness checks, total tokens, and total tool calls — M5 runs took 7-25 seconds on early tests versus 9-160 on the M4, with identical correctness. His framing: local models are great at 'micro agent tasks' — parsing, summarizing, small consolidated jobs — and he is wiring them into his Pi agent as sub-agents now to prepare for the future.",
+      "time_hint": "27:03"
+    },
+    {
+      "title": "Match model size to the task: small, workhorse, and state-of-the-art tiers",
+      "detail": "Dan sorts work into three buckets — personal, engineering, and product — and assigns cheap fast small models, workhorse models, and state-of-the-art models respectively. For product engineering with hundreds of thousands of users hammering your service, using a smaller model whenever a large one is not needed is a direct cost saving. He predicts Sonnet/Opus-4.0-class models will be runnable on-device by end of year, making this tiering strategy urgent.",
+      "time_hint": "31:28"
+    },
+    {
+      "title": "Practical operating rules for local inference on a Mac",
+      "detail": "Lessons from the trenches: a model that cannot fit in RAM simply cannot run (watch peak RAM, not just model file size — KV cache tricks help); always plug the laptop in because maxed GPU and fans drain battery fast; expect to re-run benchmarks because these systems are non-deterministic; and use a live-bench tool (his live-bench codebase with YAML-defined benchmarks, a backend, CLI, and streaming UI) so multiple devices report into one comparable view.",
+      "time_hint": "25:54"
+    },
+    {
+      "title": "Prepare now: local models will compound into a massive cost advantage",
+      "detail": "Dan's closing thesis: model providers want you hooked on their APIs, but the direction is clear — costs go down, performance goes up, and running models locally gives you privacy, speed, and zero external dependency. He is watching for a Mac Mini-class device with massive unified memory (an M5 Ultra or M6 with hundreds of GB of RAM) as the moment local models change the industry. Engineers who benchmark and prepare for local models now will be the ones saving resources when they are ready — even though for 90% of tasks today, providers are still the right call.",
+      "time_hint": "37:00"
+    }
+  ],
+  "key_points": [
+    "On Apple silicon, always find an MLX model — up to 2x faster than GGUF, no debate.",
+    "Wall clock time is the only metric that matters; tokens per second is a vanity stat.",
+    "Context window length, not intelligence or speed, is the true limit of local models — the cliff starts at 8-16K.",
+    "Two or three prompts inside a coding agent already stack up to 32K tokens of context.",
+    "30+ tokens per second is usable; below 20 is the dead zone.",
+    "The M5 Max is 15-50% faster than the M4 Max, quieter, and draws less power — and you should max out the RAM.",
+    "Gemma 4 fits in 16GB of RAM and pre-fills at ~550 tokens/sec — intelligence per parameter champion.",
+    "Local models are ready for micro agent tasks inside agent harnesses today; providers still win the other 90%."
+  ],
+  "mermaid": "flowchart TD\n  subgraph DEV[\"Devices\"]\n    M5[\"M5 Max MacBook Pro\"]\n    M4[\"M4 Max MacBook Pro\"]\n  end\n  subgraph MODELS[\"Models\"]\n    QG[\"Qwen 3.5 35B GGUF NVFP4\"]\n    QX[\"Qwen 3.5 35B MLX\"]\n    GG[\"Gemma 4 GGUF\"]\n    GX[\"Gemma 4 MLX\"]\n  end\n  LB[\"Live bench UI - streamed results\"]\n  M5 -->|\"j bench commands\"| LB\n  M4 -->|\"j bench commands\"| LB\n  QG --> BM1[\"Simple prompts - prefill decode wall\"]\n  QX --> BM1\n  GG --> BM1\n  GX --> BM1\n  BM1 --> T1[\"MLX up to 2x faster than GGUF\"]\n  QX --> BM2[\"Graph walks context scaling 200 to 32K\"]\n  GX --> BM2\n  BM2 --> T2[\"Cliff at 8K to 16K context\"]\n  QX --> BM3[\"Pi coding agent tasks with correctness checks\"]\n  GG --> BM3\n  BM3 --> T3[\"Local micro agents viable\"]\n  T1 --> OUT{\"Task routing\"}\n  T2 --> OUT\n  T3 --> OUT\n  OUT -->|\"simple private work\"| LOCAL[\"Run local model\"]\n  OUT -->|\"90 percent of tasks\"| CLOUD[\"Use model provider\"]",
+  "generated": "2026-10-21"
+}

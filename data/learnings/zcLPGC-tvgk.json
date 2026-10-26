@@ -1,0 +1,96 @@
+{
+  "video_id": "zcLPGC-tvgk",
+  "title": "LIVE: Uncle Bob on Software Fundamentals in the Age of AI",
+  "summary": "Matt Pocock interviews Robert C. Martin (Uncle Bob, author of Clean Code) about whether software fundamentals still matter when coding agents write the code. Bob describes his journey since last December: agents are fast but leave 'dog doo' behind, and messy code makes them thrash and spin just like humans - so he resurrected two quality techniques that were impractical in the 2000s (CRAP scoring from coverage plus cyclomatic complexity, and mutation testing) and made them cheap by letting agents run and fix against them. He explains why steering via long prompt documents fails (lost in the middle), why deterministic checks are the reliable constraint, and walks his multi-agent gauntlet pipeline: a specifier turns a human document into Gherkin acceptance tests and a QA procedure, a coder implements, a cleaner fixes CRAP scores, a 'merciless' hardener runs mutation testing, and a QA agent executes the system test. They debate spec-driven development (both are skeptical of big upfront planning; the cost of change has collapsed so agile returns), whether human disciplines like TDD should be imposed on agents (values yes, disciplines no), and how juniors learn strategic programming now that agents ate the tactical work (be treated like an agent under the gauntlet, read the old books).",
+  "what_you_learn": "You get a battle-tested quality harness for agent-written code: concrete metrics (CRAP, mutation testing) plus a staged multi-agent pipeline where each agent has one focused job and clean context. It also teaches the crucial distinction between steering (fragile, fades with context) and deterministic checks (reliable, layerable), and why clean-code fundamentals are not obsolete but are exactly what keeps agents from spiraling.",
+  "skills": [
+    {"name": "AI Output Verification", "description": "Constraining agents with tools - coverage, complexity, mutation testing - instead of prose instructions that fade from attention."},
+    {"name": "Testing Strategy", "description": "Flipping operators in the code and requiring the test suite to catch every mutant, proving tests actually test something."},
+    {"name": "Code Quality Metrics", "description": "A staged pipeline of focused agents - specifier, coder, cleaner, hardener, QA - each born, doing one task, and dying with clean context."},
+    {"name": "Context Window Management", "description": "The context-window effect where material at the start and end of context dominates and middle content is effectively ignored."},
+    {"name": "API & Module Design", "description": "John Ousterhout's small-interface, lots-hidden-below design that lets models work from interfaces and tests without reading implementations."},
+    {"name": "Strategic Thinking", "description": "Agents excel at tactical implementation; humans must own strategic direction, and juniors must still learn it."},
+    {"name": "Software Craftsmanship", "description": "Classic partitioning, interfaces and testing remain the way complexity is organized into a form models and humans can grasp."}
+  ],
+  "learnings": [
+    {
+      "title": "Agents are fast but leave mess - CRAP and mutation testing finally pay off",
+      "detail": "In the early 2000s Bob loved two ideas but found them impractical: CRAP (a score mixing test coverage with cyclomatic complexity that measures how 'crappy' a function is) and mutation testing (flip operators like less-than to greater-than, run the whole suite each time, kill every surviving mutant). Mutation testing took an overnight run around the year 2000. Agents changed the economics: they are fast, do not get bored, and will grind through hundreds of flagged functions - so he has agents run CRAP over everything they write and clean up the code, then run mutation testing to plug every test hole. His principle now: work toward never having to look at the code at all, verifying instead via CRAP scores, spot checks and other tests.",
+      "time_hint": "05:30"
+    },
+    {
+      "title": "Messy code makes agents thrash exactly like it makes humans thrash",
+      "detail": "Early on he let an agent do task after task without cleaning up, and watched it slow down, change one thing and inadvertently break another, go in circles - and once effectively give up. Agents may have a different threshold than humans, but the threshold exists: code can get messy enough that the agent cannot deal with it and starts spinning. That is why bad code matters even when code is cheap to produce - the agent working on it is not.",
+      "time_hint": "10:50"
+    },
+    {
+      "title": "Steering rules are Pirate guidelines - lost in the middle buries them",
+      "detail": "His first approach was steering: long prompts describing TDD, clean code and all the rules (the document grows to five or ten pages, or feed it the whole book). Models treat those rules like the Pirates of the Caribbean code - more like guidelines. Technical reason: 'lost in the middle' - as context builds, the beginning and end dominate attention while the middle fades, and anything beyond the first few sentences of your instructions gets shoved into that ignored middle. The consequence: trim the initial prompt to its absolute minimum so as much of it as possible stays in the model's priority zone.",
+      "time_hint": "13:20"
+    },
+    {
+      "title": "Deterministic checks never fade - they put the agent in a loop",
+      "detail": "Deterministic tools do not disappear from attention the way prose rules do, so you can keep layering them: strong types, tests, linters. The pattern is a loop - 'change the code until this tool says it is okay' - where the agent goes around adding tests, cutting cyclomatic complexity and splitting functions until it reaches conformance. Checks trade productivity for quality, so there is a limit: if the tooling slows agents below human speed you have lost the game. He currently keeps a factor of two to four over human speed and has not found the endpoint yet.",
+      "time_hint": "15:00"
+    },
+    {
+      "title": "The gauntlet: specifier, coder, cleaner, hardener, QA",
+      "detail": "Bob's multi-agent pipeline: a specifier turns a human-written document into Gherkin (given-when-then acceptance tests) plus a QA procedure written from a human's point of view ('you are operating this system at the UI - prove it works'). A coder writes unit tests and implementation and makes the Gherkin pass. A cleaner runs CRAP analysis and general review, fixing the implementer's mess. A hardener runs mutation testing and is 'absolutely merciless' - 100% coverage, every operator flipped. A QA agent turns the QA document into an executable script that drives the system for a deterministic result. Advantages: parallelism (several coders at once) and narrow focus, which keeps each agent's context small so its few rules are followed and the lost-in-the-middle problem shrinks.",
+      "time_hint": "20:20"
+    },
+    {
+      "title": "Spend an hour on a five-minute task to gain quality and future speed",
+      "detail": "A task a single agent finishes in five minutes with questionable results takes about an hour through the full gauntlet - still a factor of four or five faster than the half a day a person would take, at much higher quality than a human would invest. But beyond speed, this is spending productivity early to gain it later: every pass leaves the codebase cleaner, better tested and better partitioned, which is an investment in all future work.",
+      "time_hint": "22:45"
+    },
+    {
+      "title": "Context windows have trajectories - keep the direction unconfused",
+      "detail": "A session is not just a window but a trajectory: seed 'maybe we should test the UI here' and every subsequent change in that session will test the UI again; the only reset is a fresh context. This is why implementer and reviewer should be different agents - the implementer's get-it-working trajectory is incompatible with the hardener's 100%-coverage trajectory. Agents that are born, do one focused task, and die keep direction clean; one stray irrelevant comment (his example: a soap-opera mention derailing a coffee conversation) can contaminate everything that follows.",
+      "time_hint": "23:30"
+    },
+    {
+      "title": "Architecture still matters - enforce it with viewers and dependency rules",
+      "detail": "Upfront Bob manually interrogated agents about module structure ('the answers were horribly frightening') and designed the partitioning himself. Now his agents built him an architecture viewer - UML diagrams from any zoom level, down to popping the code of a submodule on screen - plus a deterministic dependency-rule tool: a tight specification file declaring which modules may depend on which, checked at the end, with violations fixed by inverting a dependency or inserting an interface. Well-partitioned modules with disciplined interfaces are grasped by humans and by models alike; a module stuffed with every topic under the sun confuses the agent exactly like the coffee-and-soap-opera contamination.",
+      "time_hint": "26:30"
+    },
+    {
+      "title": "Shift thresholds, not values - and do not impose human disciplines",
+      "detail": "Agents have huge, perfectly accurate short-term memory, so function-size thresholds should change: Bob keeps CRAP under 4 for humans but sets 6 for agents and considers 8 - six covered pathways through a function is the real meaning of a CRAP score of 6 at 100% coverage. But disciplines are different from values: TDD's line-by-line red-green-refactor is a human discipline for human wiring, and agents always fall back to Ousterhout-style 'write a function, then its test' anyway - so he allows it. Imposing human values on agents is right; imposing human rituals on them is a mistake.",
+      "time_hint": "32:30"
+    },
+    {
+      "title": "Big upfront planning fails again - the cost of change has collapsed",
+      "detail": "The temptation with agents is the 1970s waterfall temptation: specify, specify, specify, hand it over. Bob tried it this week and it was a disaster again, because you never think of everything and the agents run half-cocked off plans they cannot follow. His dollar-change house story: if every change to a house cost one dollar, you would skip the perfect architect plan and fiddle with the contractor until it looks right - and with agents the cost of change has plummeted near zero. Both expect spec-driven development to struggle and agile feedback loops to return: do a story, look at the architecture, reorganize, repeat.",
+      "time_hint": "36:30"
+    },
+    {
+      "title": "Specs are ephemeral - the artifact is the specification",
+      "detail": "Specifications change constantly and go away; unlike the old days when human-written source code was the final specification, nothing static defines the system anymore. Bob's advice about his own tools (CRAP analyzers for Clojure, Java, Go, written by his agents): do not download them - point your agents at them, let them study the essence, and build one tailored to you. And a striking asymmetry: agents actually read everything you send them (humans manage maybe 20% of a big spec), while humans read almost nothing the agents write.",
+      "time_hint": "42:40"
+    },
+    {
+      "title": "Learn strategy by becoming an agent - and read the old books",
+      "detail": "How does a junior learn strategic programming when agents ate the tactical work? Bob's path: write code yourself for a year so you know what agents deal with; then let a lead treat you like an agent - same tasks, same deterministic gauntlet - for months of being horribly unproductive while learning a lot, until you can be trusted to run an agent yourself. Like his old advice to spend a weekend writing assembly so you stop living in a fantasy world, you cannot lose the code entirely. For the strategic feel, read the unfashionable old books - DeMarco, Yourdon, The Pragmatic Programmer - filter the archaic parts, and learn to recognize agent thrashing because you have been through that struggle yourself.",
+      "time_hint": "46:50"
+    },
+    {
+      "title": "Fundamentals still apply - software is the most complex thing we do",
+      "detail": "Why do fundamentals matter? Dijkstra: software is the most complicated thing humans have ever attempted, and the fundamentals are how we organize that complexity into a form that can be conceived - by humans and by models, which are modeled after us. Every new abstraction layer (binary, assembly, compiler, now the model) triggered the same 'this will ruin everything' panic, and the same rules kept applying. People who think fundamentals do not matter will learn the hard way - the wall is there; Bob has watched agents hit it. The rules you throw away are the ones you will pick up off the floor in a year, dust off, and remember why you need.",
+      "time_hint": "53:15"
+    }
+  ],
+  "key_points": [
+    "Agents are fast but leave dog doo - and dog doo makes them spin just like it makes humans spin.",
+    "Models treat your prompt rules like Pirate guidelines - more what you'd call guidelines than actual rules.",
+    "Deterministic tools do not get lost in the middle; prose instructions do.",
+    "A CRAP score of 6 at 100 percent coverage means six tested pathways through the function.",
+    "The hardener is absolutely merciless: 100 percent coverage and every mutant killed.",
+    "Impose human values on agents, not human disciplines.",
+    "If a change cost one dollar, you would never hire the perfect-plan architect - and agent changes cost about a dollar.",
+    "Agents read everything you send them; you read nothing they write.",
+    "You cannot lose the code entirely - spend a weekend writing assembly.",
+    "The rules you throw away are the ones you will pick up off the floor in a year."
+  ],
+  "mermaid": "flowchart TD\n  doc[\"Human written document\"] --> spec[\"Specifier agent\"]\n  spec -->|given when then| gherkin[\"Gherkin acceptance tests plus QA procedure\"]\n  gherkin --> coder[\"Coder agent - unit tests and implementation\"]\n  coder --> cleaner[\"Cleaner agent - CRAP analysis and review\"]\n  cleaner --> hardener[\"Harden agent - merciless mutation testing\"]\n  hardener --> qa[\"QA agent - executable system test\"]\n  qa -->|any tool fails| coder\n  qa -->|all tools pass| done[\"Working program\"]\n  metrics[\"Human watches CRAP scores and spot checks\"] -->|adjust thresholds and rules| hardener\n  done --> metrics",
+  "generated": "2026-10-22"
+}

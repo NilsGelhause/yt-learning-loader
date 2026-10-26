@@ -1,0 +1,46 @@
+{
+  "video_id": "e-pFrQ_Rh0s",
+  "title": "AI Coding is exhausting",
+  "summary": "A short reflective video on why AI-assisted coding leaves developers mentally drained. Matt Pocock explains that coding used to alternate between strategic thinking and tactical implementation - and the tactical part (writing the code, moving things around, almost like playing a game) functioned as a break for the brain. AI has eaten that tactical side entirely, so now every working moment is strategic, long-term thinking. Developers must operate one level above the AI, reviewing and directing instead of doing - everyone has effectively been promoted to lead developer. That elevation demands high-level decision-making all day, which is rewarding but exhausting: he ends each day knackered and says this shift is baked into the loaf for anyone using AI.",
+  "what_you_learn": "You get a framework for what your role becomes when AI does the implementation: the tactical work disappears, and your job is continuous strategic direction one level above the agent. Understanding this shift - and that the fatigue is structural, not a personal failing - helps you design sustainable workflows around agentic tools instead of burning out on them.",
+  "skills": [
+    {"name": "Strategic Thinking", "description": "With AI handling implementation, all remaining developer work is long-term strategic reasoning."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Removing grunt work does not remove strain - it concentrates the day into nonstop high-level decisions."}
+  ],
+  "learnings": [
+    {
+      "title": "Tactical coding used to be a mental break",
+      "detail": "Traditional coding sessions alternated between strategy and implementation. Writing the code was the tactical side - almost non-verbal reasoning, moving stuff around, kind of playing a game - and it gave the brain a rest between hard decisions. That rhythm structured the cognitive load of a dev day.",
+      "time_hint": "0:13"
+    },
+    {
+      "title": "AI has eaten the tactical side of programming",
+      "detail": "Implementation is exactly what AI took over, so the restorative tactical work is gone. Everything that remains in a coding session is strategic, long-term thinking - there is no more downshift available in the workflow. Matt frames this as simply the new reality of AI-assisted development.",
+      "time_hint": "0:31"
+    },
+    {
+      "title": "You now have to think above the AI's level",
+      "detail": "To direct an AI tool usefully you must operate at a level above the one the AI is working at: see the whole picture, anticipate where it will go wrong, and shape the approach before and while it executes. Your attention moves up the abstraction ladder permanently.",
+      "time_hint": "0:41"
+    },
+    {
+      "title": "Everyone using AI has become a lead developer",
+      "description": "Matt's memorable line: we have all turned into lead developers - moved higher up the chain where the job is delegation, review, and direction rather than doing. That is a genuine promotion in responsibility, and it demands the high-level thinking that comes with it.",
+      "time_hint": "0:48"
+    },
+    {
+      "title": "The strain is structural, not optional",
+      "detail": "The trade is explicit: boring grunt work is taken away, but the brain is under much more constant strain, and Matt admits he ends each day pretty knackered even though he enjoys making high-level decisions. He offers no fix - the shift is baked into the loaf for anyone using AI - so the takeaway is to expect and plan for the fatigue, not to feel individually broken by it.",
+      "time_hint": "0:55"
+    }
+  ],
+  "key_points": [
+    "AI ate the tactical side of programming - the part that used to give your brain a break.",
+    "Every developer using AI has been promoted to lead developer, like it or not.",
+    "You must think one level above the level the AI is operating at.",
+    "Less grunt work does not mean less strain - it means nonstop strategic decisions.",
+    "The exhaustion is structural: baked into the loaf, not a personal failure."
+  ],
+  "mermaid": "flowchart TD\n  before[\"Coding before AI\"] --> strat1[\"Strategic thinking\"]\n  before --> tact1[\"Tactical implementation - a break for the brain\"]\n  tact1 --> strat1\n  now[\"Coding with AI\"] --> ai[\"AI does the tactical work\"]\n  now --> strat2[\"All day strategic thinking\"]\n  strat2 --> above[\"Operate one level above the AI\"]\n  above --> lead[\"Everyone is now a lead developer\"]\n  lead --> strain[\"Constant high level decisions\"]\n  strain --> tired[\"End of day - knackered\"]\n  tired -->|structural - baked into the loaf| accept[\"Expect and plan for the fatigue\"]",
+  "generated": "2026-10-22"
+}

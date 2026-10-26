@@ -1,0 +1,55 @@
+{
+  "video_id": "fn3iRGgRuWU",
+  "title": "Give your agent a goal, and let it be creative",
+  "summary": "Matt Pocock shows how to make AI agents improve a piece of software autonomously over time by combining verification with a measurable goal. His concrete project is a custom video editor he is using to record the video itself: he wanted to drop his dependency on OBS, so he had an agent build a replacement recorder with only the features he needs - but with exactly the same performance. The verification mechanism is a 'recorder scorecard': a script that scores OBS on a bunch of metrics and then scores the custom recorder against the same metrics. The script takes about 20 minutes to run. The improvement loop is: once a day, the agent reruns the scorecard and tries to get the results better and better, hunting for creative improvements each time. He calls this a massively underused pattern - give an agent a clear goal and a clear metric, and let it close the gap by itself, which is especially powerful for performance-sensitive software.",
+  "what_you_learn": "You learn the verification-plus-goal pattern that turns an agent from a one-shot code generator into a continuously improving engineer: build a scorecard that measures the system against a reference, then let the agent iterate against it autonomously. For a junior-mid developer this is a concrete recipe for performance work: define the metric, benchmark the incumbent, and hand the improvement loop to the agent.",
+  "skills": [
+    {"name": "Code Quality Metrics", "description": "A script that scores your software on defined metrics so agent progress is measurable."},
+    {"name": "Continuous Improvement", "description": "An agent that reruns a benchmark on a schedule and iterates to improve the results."},
+    {"name": "AI Benchmarking", "description": "Defining success as matching an incumbent tool's performance on chosen metrics."},
+    {"name": "Multi-Agent Orchestration", "description": "Giving an agent a clear goal and metrics and letting it find creative ways to close the gap."},
+    {"name": "AI Output Verification", "description": "Verifying agent output with measurable evidence instead of eyeballing results."}
+  ],
+  "learnings": [
+    {
+      "title": "Verifying an agent's work is unbelievably important",
+      "detail": "Pocock's framing: as you put more emphasis on agents, verification of their work becomes critical, and he has started weighting his workflows toward it. An agent that writes code you never measure is a liability; an agent whose output is scored on every run is one that can be trusted to keep working unsupervised.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Case study: replacing OBS with a custom video editor",
+      "detail": "The concrete example: he records with a custom-built video editor and wanted to drop his dependency on OBS. The agent built a replacement that did not need all of OBS's features - only the ones he needed - but it had to have exactly the same performance. This narrow-scope-but-equal-performance constraint is what makes the project verifiable.",
+      "time_hint": "00:06"
+    },
+    {
+      "title": "Build a scorecard that benchmarks against the incumbent",
+      "detail": "The verification artifact is a 'recorder scorecard': a script that scores OBS on a bunch of metrics and then scores the custom recorder based on how well it performs against OBS. Benchmarking against the incumbent tool turns vague 'it works fine' into a number to beat. The script takes about 20 minutes to run and produces all sorts of metrics.",
+      "time_hint": "00:22"
+    },
+    {
+      "title": "The daily autonomous loop: rerun the scorecard and improve",
+      "detail": "The improvement mechanism: once a day, the agent reruns the scorecard and tries to get the results better and better, looking for improvements every single time. The human's job shrinks to defining the metric and reviewing trajectory; the agent owns the iteration cycles, which is where the compounding gains live.",
+      "time_hint": "00:35"
+    },
+    {
+      "title": "Clear metrics unlock agent creativity",
+      "detail": "The reason the loop works: with a very clear set of metrics to track over time, the agent can look for more and more creative ways to make those metrics better. You are not scripting solutions - you are defining the target function and letting the agent search the solution space, which is exactly what LLMs are good at.",
+      "time_hint": "00:43"
+    },
+    {
+      "title": "Goal plus metric is a massively underused agent pattern",
+      "detail": "Pocock's summary: this is a massively underused way of using agents - just give it a goal, and over time it will get closer to that goal. It is especially amazing for performance-sensitive software, of which, he argues, most software actually is - any system where latency, throughput, memory, or CPU matter can be handed this kind of loop.",
+      "time_hint": "00:51"
+    }
+  ],
+  "key_points": [
+    "An agent without verification is a liability; a scored agent can work unsupervised.",
+    "Replace a tool by scoping features down but benchmarking performance at parity.",
+    "A 20-minute scorecard script turns 'it seems fine' into a number to beat.",
+    "Set the loop: once a day the agent reruns the benchmark and improves the results.",
+    "Clear metrics do not restrict the agent - they unlock its creativity.",
+    "Give an agent a goal and it will get closer to it every day."
+  ],
+  "mermaid": "flowchart TD\n  goal[\"Goal - replace OBS dependency\"] --> scope[\"Narrow scope - only needed features\"]\n  scope --> parity[\"Constraint - match OBS performance\"]\n  parity --> scorecard[\"Recorder scorecard script - 20 min run\"]\n  ref[\"OBS - incumbent reference\"] --> scorecard\n  scorecard --> metrics[\"Metrics for custom recorder\"]\n  metrics --> loop[\"Daily agent run\"]\n  loop -->|results improve| improve[\"Agent finds creative improvements\"]\n  loop -->|target reached| done[\"Performance parity achieved\"]\n  improve --> scorecard\n  verify[\"Human verifies metrics and trajectory\"] --> loop",
+  "generated": "2026-10-22"
+}

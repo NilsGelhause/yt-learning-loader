@@ -1,0 +1,49 @@
+{
+  "video_id": "Q8XzzKUbp0Y",
+  "title": "/retro is a banger of a skill",
+  "summary": "A short on how to respond when your agent makes a mistake: not with frustration, but by asking how to make that mistake harder to repeat. Dan introduces the /retro skill from his skills repo (v1.3), which conducts a retrospective over your previous agent sessions. It hunts for mistakes and process inefficiencies and converts them into either deterministic automated checks that verify the agent is doing the right thing, or steering-file entries (like coding-standards.md) so code-review agents catch the problem before production. He reports it forced him to admit his codebase was not as good as he thought, and that it gives agents an outlet to improve the codebase they operate in.",
+  "what_you_learn": "You learn the retrospective loop for agent workflows: every agent failure is raw material for a permanent guardrail. Concretely you see the two destinations for lessons learned - deterministic checks for things that can be verified mechanically, steering files for things that need judgment - which is exactly how you build agent systems that get more reliable over time instead of repeating the same mistakes.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "A /retro skill that runs a retrospective over previous agent sessions to find mistakes and inefficiencies."},
+    {"name": "AI Output Verification", "description": "Converting agent mistakes into automated checks that mechanically verify the agent does the right thing."},
+    {"name": "System Prompt Design", "description": "Encoding lessons into files like coding-standards.md so review agents catch mistakes before production."},
+    {"name": "Continuous Improvement", "description": "Treating every agent failure as an input that makes the whole system harder to fool next time."}
+  ],
+  "learnings": [
+    {
+      "title": "When an agent errs, ask how to make the error harder next time",
+      "detail": "The reframe that drives the whole short: an agent mistake is not an annoyance to get angry about, it is a signal. The productive question is 'what mechanisms do I have to make that mistake harder for the agent to make next time?' - turning one-off failures into permanent system improvements.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "/retro conducts retrospectives over your previous sessions",
+      "detail": "The /retro skill, fresh in the skills repo at v1.3, runs a retrospective on your previous agent sessions. After a mistake happens in a session you run retro, and it works back through the sessions to find the mistakes and the inefficiencies in your process. It is session-level memory turned into an improvement loop.",
+      "time_hint": "00:12"
+    },
+    {
+      "title": "Each finding becomes a check or a steering-file rule",
+      "detail": "Retro converts its findings into one of two mechanisms: automated checks that deterministically verify the agent is doing the right thing, or additions to steering files like coding-standards.md so that code-review agents catch those mistakes before they reach production. Mechanical problems get checks, judgment problems get written standards.",
+      "time_hint": "00:31"
+    },
+    {
+      "title": "Expect retro to humble you about your codebase",
+      "detail": "Dan reports retro has been invaluable and forced him to consider that his codebase was not as good as he thought. Retrospectives surface accumulated problems that neither you nor your agents complained about - it is surprising what agents will put up with without moaning, because they lack the incentive to flag systemic issues.",
+      "time_hint": "00:45"
+    },
+    {
+      "title": "Retro gives agents an outlet to improve their own environment",
+      "detail": "The deeper benefit: retro gives agents an outlet to actually improve the codebase they operate in. Instead of agents tolerating a flawed environment session after session, the retro loop captures what bothered them and turns it into fixes - making the codebase progressively better for both the human and the agents working in it.",
+      "time_hint": "00:55"
+    }
+  ],
+  "key_points": [
+    "An agent mistake is an invitation to make that mistake structurally harder.",
+    "/retro reviews your previous sessions and finds mistakes plus process inefficiencies.",
+    "Mechanical failures become deterministic checks; judgment failures become steering-file rules.",
+    "coding-standards.md style steering files let review agents catch mistakes pre-production.",
+    "Agents will put up with a surprising amount of codebase jank without ever moaning.",
+    "A retro loop makes the codebase better for the agents that work in it."
+  ],
+  "mermaid": "flowchart TD\n  err[\"Agent makes a mistake in a session\"] -->|ask| q{\"How do I make this harder next time\"}\n  q --> retro[\"/retro skill over previous sessions\"]\n  retro --> find[\"Find mistakes and inefficiencies\"]\n  find --> mech{\"What kind of finding\"}\n  mech -->|mechanical| check[\"Deterministic automated checks\"]\n  mech -->|judgment| steer[\"Steering files like coding-standards md\"]\n  check --> guard[\"Agent does the right thing by construction\"]\n  steer --> review[\"Code review agents catch it pre production\"]\n  guard --> better[\"Codebase improves for humans and agents\"]\n  review --> better",
+  "generated": "2026-10-22"
+}

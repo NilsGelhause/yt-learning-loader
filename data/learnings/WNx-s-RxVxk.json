@@ -1,0 +1,84 @@
+{
+  "video_id": "WNx-s-RxVxk",
+  "title": "I was an AI skeptic. Then I tried plan mode",
+  "summary": "Matt Pocock explains why Claude Code's plan mode - a mode where the agent is forbidden from writing files and instead explores the codebase and produces a plan - converted him from an AI skeptic into someone who runs every change through a plan-then-execute loop. He describes his full loop (plan with the AI, execute, test via unit tests/typecheck/manual QA, commit, repeat), how plan mode technically works (writes disabled, different system prompt, entered via shift-tab), and why it helps both sides: the agent gets its context loaded by a cheap explore sub-agent (Haiku 4.5), and the developer rubber-ducks requirements until they actually know what they want. He walks a real trace from his course video manager where an explore sub-agent burnt about 40k cheap tokens, the agent asked clarifying questions, he approved, executed, and re-entered plan mode when a new discovery appeared. He shares his CLAUDE.md rules for readable plans (extreme concision, sacrifice grammar, end with unresolved questions) and answers the 'I can do it faster myself' objection.",
+  "what_you_learn": "You learn the single highest-leverage workflow primitive for agentic coding: plan mode as a forced exploration-and-agreement phase before any writes, which loads the agent's context with cheap sub-agents and clarifies your own requirements through iteration. For a junior-mid developer building agent systems, it also teaches the underlying pattern of gating an agent's capabilities (removing the write tool) to force a higher-quality intermediate artifact, plus concrete CLAUDE.md prompt rules that make plans scannable instead of walls of text.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "A mode that disables an agent's file writes and swaps its system prompt so it must explore and produce a plan before changing anything."},
+    {"name": "Multi-Agent Orchestration", "description": "Cheap fast sub-agents that read large parts of a codebase and return a summary to the more expensive parent agent."},
+    {"name": "Model Selection & Routing", "description": "Using a cheap quick model (Haiku 4.5) for codebase exploration and an expensive model for the actual implementation."},
+    {"name": "AI Safety & Alignment", "description": "Forcing better agent behavior by disabling tools (here: writes) rather than asking nicely in a prompt."},
+    {"name": "Planning & Prioritization", "description": "Instructing the agent to make plans extremely concise and sacrifice grammar, cutting a 2000-word plan to 400 words."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Iterating back and forth with an AI on a plan until both sides know exactly what needs to be done, replacing a human colleague."}
+  ],
+  "learnings": [
+    {
+      "title": "The full loop is plan, execute, test, commit, repeat",
+      "detail": "Pocock's indispensable workflow: every piece of code first gets planned in plan mode with the AI, then the AI executes the plan (writes the code that was in the plan), then they test together via unit tests, type checking, or manual QA, then commit - and the process starts again. Dropping the plan step entirely, he argues, seriously hampers what you can get out of AI coding.",
+      "time_hint": "00:20"
+    },
+    {
+      "title": "Plan mode disables writes and swaps the system prompt",
+      "detail": "A coding agent can normally do four things: write to the file system, read files and websites, run bash/PowerShell scripts, and call MCP server tools. Plan mode works by disabling the write capability - the agent is not allowed to write files - and giving it a different system prompt that forces it to create a plan before making changes. If it tries to write, it hits an error. In Claude Code you enter it by pressing shift-tab until plan mode is reached.",
+      "time_hint": "01:40"
+    },
+    {
+      "title": "Blocked from writing, the agent explores and produces a detailed plan",
+      "detail": "Because the agent cannot write files in plan mode, it goes into exploration mode: it reads through the codebase, gathers all the information it might need, and puts that into a detailed plan it executes afterwards. The constraint is the point - removing the ability to act early forces a higher-quality intermediate artifact.",
+      "time_hint": "02:00"
+    },
+    {
+      "title": "Planning helps the agent by loading its context with cheap explore sub-agents",
+      "detail": "His analogy: a colleague who forgets everything about the repo with every commit would be told to explore the repo first. Plan mode does that for the LLM - it loads the context with relevant info and surfaces the codebase's actual code patterns. Claude Code often runs a cheap, fast model (Haiku 4.5) in an explore sub-agent that pings loads of file requests and sends a summary back to the parent expensive agent. Many failure modes people see with these tools come down to not planning, so the LLM makes stupid mistakes for lack of information.",
+      "time_hint": "02:55"
+    },
+    {
+      "title": "Planning helps you because nobody knows what they want upfront",
+      "detail": "Quoting the Pragmatic Programmer maxim that no one ever knows what they want: you rarely fully know the ramifications of a refactor or which of three UI options to pick. Developers traditionally rubber-duck - talk it out until the best solution emerges. An iterative planning process with the AI does the same: it proposes, you say 'no, not quite', and by the end both you and the AI have a clearer idea of what actually needs to be done. Then execution is simple and mostly autopilot.",
+      "time_hint": "03:50"
+    },
+    {
+      "title": "Real trace: a 40k-token explore on Haiku, clarifying questions, then approval",
+      "detail": "In the demo on his course video manager (a repos-to-repo-versions migration bug), he dictates the bug report, the explore sub-agent burns around 40,000 tokens - explicitly not on the expensive Opus model, but on Haiku 4.5. The agent then asks questions he had not answered ('should new repos default to v1.0 as the initial version name?'), showing it iterating with him rather than guessing. He approves the plan and moves to execution.",
+      "time_hint": "05:20"
+    },
+    {
+      "title": "Plans are saved as files and can be re-opened when reality changes",
+      "detail": "Claude Code saves plans to the file system - he has dozens accumulated. Mid-execution, a discovery appeared that neither he nor the AI had considered (sections still carried a repo ID from the previous iteration), so he kicked off plan mode again, the agent explored more and found it was a completely different task, and updated the existing plan file. Plans also double as collaboration artifacts: people put them in GitHub issues as RFCs for comments, or in PRs so reviewers can see the intent behind the code.",
+      "time_hint": "07:15"
+    },
+    {
+      "title": "One CLAUDE.md line makes plans readable: sacrifice grammar for concision",
+      "detail": "His key rule, verbatim: 'Make the plan extremely concise. Sacrifice grammar for the sake of concision.' This takes plans from about 2,000 words down to about 400, giving a detailed high-level overview he can scan fast to check whether anything looks wrong - answering the objection that plan mode turns your job into reading requirement documents all day.",
+      "time_hint": "08:20"
+    },
+    {
+      "title": "End every plan with a list of unresolved questions",
+      "detail": "His second rule: at the end of each plan, the agent must list any unresolved questions. This nudges the agent into an exploratory, slightly worried, paranoid mode - exactly where he wants it - and forces it to ask about anything it is confused about instead of silently guessing. He keeps the whole CLAUDE.md setup to just these few lines, because it is injected into every session and shorter instructions leave more instruction budget for everything else.",
+      "time_hint": "08:48"
+    },
+    {
+      "title": "'I can do it faster myself' is true - but only for a shrinking set of cases",
+      "detail": "When you know the codebase inside out, you hold a massive advantage over the LLM: you already have the context, so no explore sub-agent or token spend is needed, and you should just make the change. But those cases are limited - in a large organization you only deeply know so many repos. Plan mode lets you contribute effectively to repos you do not know, in languages you are not fluent in, because you and the LLM then walk in with the same amount of context. And if the change is small enough for you to beat the AI, it was probably simple; big architectural changes still deserve the rubber-duck process - and an AI rubber duck is cheaper than a colleague's time.",
+      "time_hint": "09:48"
+    },
+    {
+      "title": "Tools are guaranteed to get faster, so a speed-only advantage erodes",
+      "detail": "Whether models get much smarter is an open question, but they are guaranteed to get faster - so if your only advantage over AI is speed, that advantage erodes continuously. His answer is to use plan mode every single time: it builds familiarity with the tools and their weird baked-in weaknesses, and that feel for AI is what makes a career secure going forward.",
+      "time_hint": "11:25"
+    }
+  ],
+  "key_points": [
+    "Plan mode converted an AI skeptic: plan, execute, test, commit, repeat - every change, no exceptions.",
+    "Plan mode is just capability gating: writes are disabled, the system prompt changes, shift-tab to enter.",
+    "Cheap Haiku 4.5 explore sub-agents load the context so the expensive model does not have to.",
+    "No one knows what they want - iterating on a plan with the AI is rubber ducking that clarifies your own requirements.",
+    "Sacrifice grammar for concision: one CLAUDE.md line cuts 2,000-word plans to 400 words.",
+    "End every plan with unresolved questions - it puts the agent in a healthily paranoid mode.",
+    "Keep CLAUDE.md short: every line is spent in every session, eating instruction budget.",
+    "You can beat the AI only on repos you know deeply - plan mode levels you up everywhere else.",
+    "Tools will only get faster; a speed advantage erodes, so learn the tools instead."
+  ],
+  "mermaid": "flowchart TD\n  report[\"Describe bug or feature - dictated prompt\"] --> pm[\"Plan mode - writes disabled - shift tab\"]\n  pm --> explore[\"Explore sub agent on cheap Haiku reads the codebase\"]\n  explore --> planfile[\"Plan file saved to file system\"]\n  planfile --> questions[\"Agent lists unresolved questions\"]\n  questions -->|iterate back and forth| planfile\n  planfile --> approve[\"Human approves the concise plan\"]\n  approve --> exec[\"Execute - agent writes the code\"]\n  exec --> test[\"Test - unit tests typecheck manual QA\"]\n  test --> commit[\"Commit - loop restarts\"]\n  exec -->|new discovery| pm\n  planfile --> rfc[\"Plan doubles as RFC in GitHub issue or PR description\"]\n  rules[\"CLAUDE dot MD rules - concise plans and unresolved questions\"] --> planfile",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,60 @@
+{
+  "video_id": "oLx4yCbeklQ",
+  "title": "Claude Code's system tools are SO BLOATED",
+  "summary": "Matt Pocock shows how bloated the default Claude Code system prompt is, estimating that thousands of tokens of tool definitions and feature instructions sit in it unused. He walks through his own global settings.json where he disables features he never uses - plan-mode entry/exit control, the AskUserQuestion tool, cron scheduling, bundled skills like the code review skill, dynamic workflows, remote control, Claude connectors, and artifacts. Disabling them removes the tool definitions from the system prompt entirely, cutting his system tools from about 25K tokens down to around 8K. He points to an article and proxy setup so viewers can inspect what their own harness actually ships and tune their settings accordingly. The payoff: the less you send over the wire, the better the agent's outputs, because there is less material distracting the model.",
+  "what_you_learn": "You learn that an agent harness's system prompt is a budget you control, not a fixed cost - and that disabling unused features in settings.json is a direct, mechanical way to cut per-request tokens and improve output quality. It is a concrete lesson in tokenomics and harness engineering for anyone running coding agents daily.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "Customizing the agent harness configuration instead of accepting the vendor defaults."},
+    {"name": "Token Economics", "description": "Counting and minimizing tokens shipped in every request, starting with the system prompt."},
+    {"name": "System Prompt Design", "description": "Auditing the system prompt and deleting tool definitions and feature instructions you never use."},
+    {"name": "Agent Skill Design", "description": "Disabling individual tools in settings.json so their definitions are stripped from the prompt."},
+    {"name": "AI Vendor Management", "description": "Putting a proxy between you and the model to see exactly what your harness sends over the wire."}
+  ],
+  "learnings": [
+    {
+      "title": "Default harness system prompts carry thousands of unused tokens",
+      "detail": "Pocock found whole feature areas in his Claude Code system prompt - workflow, design sync, monitor - that he simply was not using, costing roughly 8,000 to 10,000 tokens per request. Since the system prompt is resent on every single request, this bloat is a recurring tax, not a one-time cost.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "Disabling a feature in settings.json removes its definition from the prompt",
+      "detail": "Claude Code lets you customize behavior in the global settings.json file. When you disable a feature there, its tool definitions are removed from the system prompt entirely - so the fix is mechanical, no prompt engineering required.",
+      "time_hint": "00:24"
+    },
+    {
+      "title": "Concrete disables: plan mode control, AskUserQuestion, crons, bundled skills",
+      "detail": "Examples from his config: he did not want the harness controlling plan-mode entry and exit, so he disabled those tools; he personally hates the AskUserQuestion tool, so he removed its definition; he deleted cron scheduling, the bundled custom code-review skill, everything to do with dynamic workflows, and remote control (which had a lot of prompt text for a feature he never used).",
+      "time_hint": "00:33"
+    },
+    {
+      "title": "Connectors and artifacts were silently burning tokens",
+      "detail": "Two sneaky offenders: Claude connectors, which were burning a large number of tokens he had not even realized, and the artifacts feature. These are good candidates to audit first, because their cost is invisible until you inspect the actual prompt.",
+      "time_hint": "01:06"
+    },
+    {
+      "title": "The result: system tools cut from 25K tokens to around 8K",
+      "detail": "After all the disables, his starting system-tools prompt dropped from roughly 25K tokens to around 8K - a two-thirds reduction that applies to every request he sends. He documented the exact config in an article so others can copy the approach.",
+      "time_hint": "01:14"
+    },
+    {
+      "title": "Use a proxy to see what you are actually shipping",
+      "detail": "Pocock recommends routing your traffic through a proxy to observe the real prompts and tool definitions your harness sends. Once you can see the actual payload, you can tune your settings to keep only the parts of the system prompt you need.",
+      "time_hint": "01:21"
+    },
+    {
+      "title": "Less over the wire means better outputs",
+      "detail": "The core principle: the less you send over the wire, the better your outputs are going to be, because the agent has less stuff distracting it. Prompt bloat is not just a cost problem - unused instructions and tool schemas actively compete with the relevant context for the model's attention.",
+      "time_hint": "01:32"
+    }
+  ],
+  "key_points": [
+    "Your system prompt is resent on every request - unused features are a recurring tax.",
+    "Disabling a tool in settings.json removes its definition from the system prompt entirely.",
+    "Pocock cut his system tools from 25K tokens to about 8K by disabling features he never used.",
+    "Connectors and artifacts can burn tokens silently - audit what you cannot see.",
+    "Put a proxy in front of your harness to see exactly what ships over the wire.",
+    "The less you send over the wire, the better the agent's outputs - bloat distracts the model."
+  ],
+  "mermaid": "flowchart TD\n  default[\"Default Claude Code config\"] -->|ships| bloat[\"System prompt 25K tokens\"]\n  bloat -->|unused features| waste[\"Workflow design sync monitor connectors artifacts\"]\n  settings[\"Global settings dot json\"] --> disable[\"Disable unused tools and features\"]\n  disable --> strip[\"Tool definitions stripped from prompt\"]\n  strip --> slim[\"System prompt down to 8K tokens\"]\n  proxy[\"Proxy inspection\"] -->|see what ships| audit[\"Audit the real payload\"]\n  audit --> settings\n  slim --> quality[\"Better outputs - less distracting the agent\"]",
+  "generated": "2026-10-22"
+}

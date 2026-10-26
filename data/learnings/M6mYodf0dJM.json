@@ -1,0 +1,80 @@
+{
+  "video_id": "M6mYodf0dJM",
+  "title": "mattpocock/skills: A complete AI Coding workflow, end-to-end",
+  "summary": "Matt Pocock records the first proper tutorial for his massively popular open-source skills repo (162k stars, 7.5M downloads at recording time), walking the main end-to-end flow on one of his own repos, the AI Hero CLI. He installs the skills with the skills.sh CLI (`npx skills@latest add mattpocock/skills`), choosing project vs global scope and symlink installation, then runs the setup skill which configures an issue tracker (GitHub, local markdown, Jira, or Linear — you just tell the agent), triage labels, and domain docs (context.md plus ADRs, single-context by default). He demonstrates the flow on a real change — stripping internal tooling from the CLI: a grill-with-docs interview session turns a vague idea into a shared-understanding plan, then /to-spec compresses the 46k-token discussion into a destination spec and /to-tickets slices it into tickets sized to one context window each. Finally he clears the context and runs /implement, which verifies with typecheck and build, then loads the code-review skill: two review axes (spec conformance and coding standards) each run in fresh sub agents, and the work is committed to the current branch. He frames the whole flow around his smart-zone rule — models degrade noticeably past roughly 140k tokens, so every ticket is budgeted to fit one fresh context window.",
+  "what_you_learn": "You get a complete, concrete reference pipeline for agentic feature development — interview (grill) to align, spec to fix the destination, tickets to slice work into single-context-window sessions, then implement plus two-axis code review in fresh sub agents. Even if you never install the repo, the underlying practices (stateful domain docs, spec-vs-journey separation, ticket sizing to the smart zone, never letting an agent review its own code in the same context) are directly transferable to any AI-assisted workflow you build.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "Installing agent skills with the skills.sh npx installer: selecting official skills, agents, project vs global scope, and symlink mode."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Replacing plan mode with an agent that interviews you, explores the codebase, and records what it learns in context.md and ADRs."},
+    {"name": "Domain Modeling", "description": "Maintaining context.md plus architectural decision records in the repo so agent sessions accumulate glossary and non-obvious decisions."},
+    {"name": "Spec-Driven Development", "description": "Compressing a discussion into a spec (the destination) and deriving tickets from it (the journey), both saved to the issue tracker."},
+    {"name": "Task Management", "description": "Cutting a spec into tickets each sized to a single context window or smart zone, and pushing back when slices are too small."},
+    {"name": "Token Economics", "description": "Budgeting agent work around the smart zone — degradation past about 140k tokens — and keeping skill context load tiny (660 tokens total)."},
+    {"name": "Autonomous Agent Operations", "description": "Handing an implement skill a spec or ticket and letting it run unattended: TDD where possible, typecheck and build, then commit."},
+    {"name": "Code Review", "description": "Reviewing on a spec axis and a standards axis, each in a separate fresh-context sub agent, because the implementing agent cannot review its own work well."}
+  ],
+  "learnings": [
+    {
+      "title": "Install skills with the skills.sh CLI and choose your scope",
+      "detail": "The installer command is `npx skills@latest add mattpocock/skills` (requires Node.js; npx runs the skills.sh CLI from Vercel). It lists 38 skills in two groups — the official mattpocock/skills and experimental ones he may delete — and you select with space. It can configure any agent, from universal ones to Claude-skill-based ones like Claude Code. Choose project scope for teams so everyone shares and contributes to one skill set, and global for solo work; always pick symlink over copying files into the agents and .claude folders.",
+      "time_hint": "0:54"
+    },
+    {
+      "title": "User-invoked skills cost almost no context",
+      "detail": "Unlike many skills repos, these skills are mostly user-invoked: they do not leech their long descriptions into the context window. Pocock keeps descriptions short and precise, so all installed skills together take only 660 tokens of context — very light context load even with 38 skills installed.",
+      "time_hint": "4:10"
+    },
+    {
+      "title": "Setup configures tracker, labels, and domain docs — and it is tracker-agnostic",
+      "detail": "Running the setup skill makes the skills repo-aware: it requires an issue tracker to save specs and tickets into, and it genuinely does not care which — GitHub, local markdown, Jira, or Linear. You just tell the agent 'set it up with Jira' and it configures itself. Triage labels get sensible defaults, and domain documentation means a context.md plus ADRs inside the repo; choose single context (fine for 99% of people) over multi-context, which exists only for monorepos with several bounded contexts.",
+      "time_hint": "4:34"
+    },
+    {
+      "title": "Ask Matt: the maintainer distilled into a skill",
+      "detail": "The ask-matt skill is essentially Pocock as a skill — it knows everything about the skills repo and what to do first. Asked how to get started on a code change, it answers: start at the top of the main flow and walk down it in one unbroken context window, and be conscious of the tokens you are using, because managing the context window is essential to using AI well.",
+      "time_hint": "6:52"
+    },
+    {
+      "title": "Grill-with-docs replaces plan mode and leaves artifacts behind",
+      "detail": "The first flow step is grill-with-docs: the agent interviews you to sharpen the idea and, because you are in a repo, it is stateful — it records what it learns in context.md and ADRs. This is where 'I want to change X' becomes a crisp, defensible plan. Questions that can be settled by talking are settled in the grill; questions that need a runnable answer go to the prototype skill; sessions are bridged in and out by handoff. Pocock runs it in auto mode, not plan mode. In the demo the grill explores the internal namespace with 11 subcommands and ends after six questions with a plan: delete 10 command files, delete three tests, rewire shared modules.",
+      "time_hint": "8:31"
+    },
+    {
+      "title": "The smart zone ends around 140k tokens — plan work around it",
+      "detail": "Pocock thinks of a model's context window as having a smart zone that ends around the 140k mark; above that you get attention degradation, weird hallucinations, and a significantly dumber agent. So he budgets work in roughly 100k chunks: removing 10 commands fits easily in one window, which is the fork in the road — small enough for one session means skip spec and tickets and go straight to implement.",
+      "time_hint": "10:45"
+    },
+    {
+      "title": "to-spec compresses the whole discussion into the destination document",
+      "detail": "When work needs multiple sessions, /to-spec takes the entire discussion — 46.1k tokens in the demo — and compresses it into a document saved to the issue tracker. The demo spec is detailed: problem statement, solution, user stories, implementation decisions, testing decisions. The spec is the destination you are heading to over the multi-ticket sprint, and at the end you compare the implementation against it to verify the work matched.",
+      "time_hint": "12:00"
+    },
+    {
+      "title": "to-tickets slices the spec into smart-zone-sized sessions",
+      "detail": "/to-tickets turns the spec into an implementation plan where each ticket is supposed to be the size of a single context window or smart zone. The agent first produced three slices; Pocock pushed back — 'do it in one slice instead' — and it complied, showing you should adjust slicing to the actual work. A real example shows the pattern at scale: a detailed spec with 11 sub-issue tickets, each a single short session that says just what to build now, because most acceptance criteria already live in the main spec.",
+      "time_hint": "13:00"
+    },
+    {
+      "title": "Implement one ticket per session and clear context between tickets",
+      "detail": "With spec (where you are going) and tickets (how you get there) in place, each ticket is implemented in its own session — you do not say 'do every ticket', you implement one, check whether you still have smart zone left, and usually clear the context between every ticket. After clearing, Pocock runs /implement on the ticket: the skill runs typecheck, build, and extra repo-specific verification, then automatically loads the code review skill.",
+      "time_hint": "14:00"
+    },
+    {
+      "title": "Code review runs on two axes, each in a fresh sub agent",
+      "detail": "The review has two axes. The spec axis compares the work against the original spec and cross-checks every acceptance criterion — it catches things the agent forgot or that tickets left unspecified. The standards axis checks the repo's documented coding standards (or classic Martin Fowler smells if none are documented). Both run as sub agents because the main agent wrote the code and agents are bad at reviewing code they have just written — they think it is fantastic — while fresh-context reviewers do a much better job. Both reviews pass, and the work is committed to the current branch.",
+      "time_hint": "15:10"
+    }
+  ],
+  "key_points": [
+    "Walk the main flow top to bottom in one unbroken context window whenever you can.",
+    "All 38 skills together cost only 660 tokens of context because they are user-invoked.",
+    "The skills do not care which issue tracker you use — tell the agent and it configures itself.",
+    "The smart zone ends around 140k tokens; above that the model gets dumber and hallucinates.",
+    "The spec is the destination; the tickets are the journey.",
+    "Size every ticket to a single context window, and clear the context between tickets.",
+    "Never let an agent review its own code in the same context — use fresh sub agents.",
+    "The final spec cross-check catches everything the agent forgot during implementation."
+  ],
+  "mermaid": "flowchart TD\n  install[\"npx skills add mattpocock skills - 660 tokens of context\"] --> setup[\"setup skill - tracker labels context dot md ADRs\"]\n  setup --> grill[\"grill with docs - interview plus repo exploration\"]\n  grill --> fork{\"Fits one smart zone of about 100k tokens\"}\n  fork -->|yes| impl[\"implement ticket - TDD typecheck build verify\"]\n  fork -->|no| spec[\"to spec - compress discussion into destination doc\"]\n  spec --> tickets[\"to tickets - one per context window\"]\n  tickets --> clear[\"Clear context between tickets\"]\n  clear --> impl\n  impl --> review[\"code review in fresh sub agents\"]\n  review --> axis1[\"spec axis - acceptance criteria cross check\"]\n  review --> axis2[\"standards axis - coding standards or Fowler smells\"]\n  axis1 --> commit[\"Commit to current branch\"]\n  axis2 --> commit",
+  "generated": "2026-10-22"
+}

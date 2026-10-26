@@ -1,0 +1,74 @@
+{
+  "video_id": "8IDzBRRFnQU",
+  "title": "MAXIMIZE Your Claude Code Subscription (Without Getting BANNED)",
+  "summary": "Dan breaks down how to use a Claude Pro or Max subscription (OAuth token) instead of a paid API key without violating Anthropic's terms of service as of April 2026. He defines one golden rule — the subscription is for your individual use only, and the moment someone else's request routes through your OAuth token you must switch to an API key — and then classifies usage into three tiers: safe (personal scripts, cron pipelines, CI on your own repo, Claude Code web/desktop), controversial (agency work on a personal token, Slack bots used by multiple people, open-source CLIs without bring-your-own-token, third-party agent harnesses), and bannable (multi-tenant SaaS on your token, reselling Claude, team-sharing one subscription, extracting tokens from keychain). He then demonstrates with a public codebase how to verify which credential a call actually uses (API key source field, five-hour rate limit events), how to obtain the OAuth token via 'claude setup-token', and the gotcha that ANTHROPIC_API_KEY must be unset or it silently overrides the OAuth token. He closes by tracing Anthropic's confusing public flip-flopping (Boris Cherny, Tarik, Peter Steinberg / OpenClaw ban and unban) and argues the confusion stems from Anthropic being compute constrained.",
+  "what_you_learn": "You learn the legal and practical boundary between a Claude subscription OAuth token and an API key, plus how to concretely wire the OAuth token into CLI and Agent SDK calls and prove which credential is being billed. For a developer building agent systems, this is the compliance knowledge that keeps you from losing access to frontier models while still using your paid plan for personal agentic work.",
+  "skills": [
+    {"name": "AI Vendor Management", "description": "Knowing when a subscription OAuth token is legitimate versus when Anthropic requires API-key authentication for products and services."},
+    {"name": "Token Economics", "description": "Routing your own agentic workloads through an already-paid subscription instead of burning API credits."}
+  ],
+  "learnings": [
+    {
+      "title": "The golden rule: one human, one subscription, one beneficiary",
+      "detail": "Your Pro or Max subscription is for your individual use. The moment your code routes someone else's request through your subscription OAuth token, you have crossed from individual use into product territory and must switch to an API key. The one-sentence test: am I the only human whose work these agents are running? If yes, OAuth is fine; if not, use an API key. This single rule gets you through 90% of the terms-of-service questions.",
+      "time_hint": "1:45"
+    },
+    {
+      "title": "Anthropic's usage policy literally says products and SDKs need API keys",
+      "detail": "Searching 'product' in Anthropic's usage policy yields: developers building products or services that interact with Claude's capabilities, including the SDK, should use API authentication. So building a product is fine on your subscription while you author the code — but using the subscription inside the product to serve others is not. Dan's interpretation is based on the published documentation as of April 2026, not employee tweets.",
+      "time_hint": "2:16"
+    },
+    {
+      "title": "Safe use covers personal scripts, CI, and Claude Code itself",
+      "detail": "Safe usage includes personal scripts on your own laptop, cron jobs and .dotfiles, pipelines and agentic workflows where you are the only user, the Claude Agent SDK running your own research agents, CI running your own repo with the Claude Code OAuth token, Claude Code on your work laptop for code you author, and all first-party Claude Code web/desktop functionality. Team and enterprise subscriptions have different rules centered on team usage.",
+      "time_hint": "3:10"
+    },
+    {
+      "title": "Controversial use: agency work, multi-user bots, shared team tools",
+      "detail": "Gray areas: agency or contractor workflows exposed to clients through your personal token; Slack bots and daily reports used by multiple humans (the output is not just for you); open-source CLIs, which are only safe if everyone brings their own token; internal team tools running on one developer's Pro/Max token, which is very risky for individuals (fine on enterprise seats). Dan's blanket recommendation for anything gray: grab an API key and stop guessing.",
+      "time_hint": "4:25"
+    },
+    {
+      "title": "Bannable use is easy for Anthropic's abuse classifiers to detect",
+      "detail": "Instant-ban territory: shipping a product that runs on your Pro/Max OAuth token, multi-tenant SaaS logging into Claude on behalf of users, stretching one subscription across a team with no team/enterprise seats, reselling Claude, and extracting tokens from your .json config or OS keychain to reuse them. Detection signals include token volume, prompt classification, and third-party harness request patterns no individual would produce. His one-liner: don't trade frontier AI access for a few hundred bucks.",
+      "time_hint": "13:30"
+    },
+    {
+      "title": "Anthropic publicly flip-flopped on third-party harnesses for months",
+      "detail": "The timeline: Feb 18 — Tarik says local experimentation with the Agent SDK is encouraged, but businesses should use API keys. Apr 3 — Boris Cherny (creator of Claude Code) says subscriptions will no longer cover third-party usage like OpenClaw because subscriptions weren't built for those usage patterns and capacity is managed. Apr 6 — Peter Steinberg (OpenClaw creator) reports first-party harness use being blocked too, attributed to an overactive abuse classifier. Apr 10 — Steinberg's account is banned then reinstated, and Anthropic staff later say OpenClaw-style CLI usage is allowed again while long-lived gateway hosts should use API keys. Dan's takeaway: read the docs, not the tweets.",
+      "time_hint": "7:32"
+    },
+    {
+      "title": "The compute-constraint theory explains the confusion",
+      "detail": "Dan's explanation for the flip-flopping: Anthropic is experiencing exponential growth with massive growing pains, is compute constrained, and wants to defend its highest-revenue subscribers by prioritizing first-party product usage. He can't blame the business logic but does blame the unclear communication — at the time of filming, news broke that Anthropic was A/B testing blocking Claude Code usage on the Pro subscription entirely, which Sam Altman publicly mocked with an 'okay, boomer' comment, and Simon Willison criticized the AB-test games.",
+      "time_hint": "20:05"
+    },
+    {
+      "title": "Verify billing with the API key source and rate limit fields",
+      "detail": "In the demo codebase (github.com/disler/max-your-cc-sub), running the CLI with an API key shows 'api_key_source' set and no rate-limit events, while OAuth usage shows api_key_source as none plus a 'five_hour' rate limit type — because OAuth bills against your subscription, which has rate limits. A single ping prompt cost about 2 cents on the API key, inflated by the massive system prompt. These fields in the raw streamed JSON are the ground truth for which credential was used.",
+      "time_hint": "16:35"
+    },
+    {
+      "title": "The gotcha: unset ANTHROPIC_API_KEY or it silently overrides your OAuth token",
+      "detail": "If the ANTHROPIC_API_KEY environment variable is set, the CLI prefers it and bills your API key even when you intended to use the OAuth token. The demo script pops that variable out of the environment passed to subprocess.run. To obtain the OAuth token you run 'claude setup-token', which opens a browser and issues a token that bills against subscription usage; you then set it as the CLAUDE_CODE_OAUTH_TOKEN environment variable.",
+      "time_hint": "18:36"
+    },
+    {
+      "title": "When unsure, ask Anthropic sales directly",
+      "detail": "For gray-area questions about permitted authentication use, Anthropic's own docs point you to contact sales. Dan says he asked them directly whether a third-party agent harness like the Pi coding agent is allowed with an OAuth token, and recommends engineers do the same instead of guessing. He personally plays it conservative: he uses an API key inside the Pi agent harness whenever touching Anthropic models, keeping his subscription usage firmly in the safe tier.",
+      "time_hint": "15:20"
+    }
+  ],
+  "key_points": [
+    "One human, one subscription, one beneficiary — memorize that line.",
+    "The one-sentence test: am I the only human whose work these agents are running?",
+    "Controversial usage? Grab an API key and stop guessing.",
+    "Unset ANTHROPIC_API_KEY or your OAuth token silently never gets used.",
+    "OAuth usage shows api_key_source none and five-hour rate limits; API keys show no rate limit events.",
+    "Get your OAuth token with claude setup-token, then set CLAUDE_CODE_OAUTH_TOKEN.",
+    "Read the usage policy docs, not employee tweets — Anthropic flip-flopped for months on third-party harnesses.",
+    "Don't trade frontier AI access and tooling for a few hundred bucks."
+  ],
+  "mermaid": "flowchart TD\n  Q{Who benefits from the agent work?} -->|\"only me\"| SAFE[\"Safe tier - OAuth token OK\"]\n  Q -->|\"gray area\"| GRAY[\"Controversial tier - prefer API key\"]\n  Q -->|\"other humans\"| BAN[\"Bannable tier - API key or ban\"]\n  SAFE --> P1[\"Personal scripts and cron pipelines\"]\n  SAFE --> P2[\"CI on own repo with Claude Code OAuth\"]\n  SAFE --> P3[\"Claude Code web and desktop\"]\n  GRAY --> C1[\"Agency work on personal token\"]\n  GRAY --> C2[\"Slack bots used by multiple humans\"]\n  GRAY --> C3[\"Third-party agent harnesses\"]\n  BAN --> X1[\"Multi-tenant SaaS on your token\"]\n  BAN --> X2[\"Reselling Claude\"]\n  BAN --> X3[\"Team sharing one subscription\"]\n  TOK[\"claude setup-token\"] --> ENV[\"Set CLAUDE_CODE_OAUTH_TOKEN\"]\n  ENV --> UNSET[\"Unset ANTHROPIC_API_KEY first\"]\n  UNSET --> RUN[\"Run CLI or Agent SDK\"]\n  RUN --> CHK{\"Check output fields\"}\n  CHK -->|\"api_key_source none plus five hour rate limit\"| OK[\"Bills subscription\"]\n  CHK -->|\"api_key_source set\"| API[\"Bills API key\"]",
+  "generated": "2026-10-21"
+}

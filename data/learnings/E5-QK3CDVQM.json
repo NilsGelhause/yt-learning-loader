@@ -1,0 +1,90 @@
+{
+  "video_id": "E5-QK3CDVQM",
+  "title": "I Open-Sourced My Own AFK Software Factory",
+  "summary": "Matt Pocock open-sources Sandcastle, a TypeScript library for orchestrating AI coding agents in isolated sandboxes - the tool behind the AFK agents that have been picking up backlog tasks, implementing features, doing QA, and running in parallel across his repos for the last six months. The motivation: AFK agents need sandboxing (YOLO mode will happily delete your home directory or exfiltrate code), and existing tools either failed at AFK use or tried to sell a third-party service. Sandcastle's core is one function - sandcastle.run(agent, sandbox, prompt) - from which arbitrarily complex workflows are built. He walks the setup (npm install, npx sandcastle init, pick agent, sandbox provider, backlog manager, and template; the Sandcastle GitHub label), the generated .sandcastle directory (custom Dockerfile, .env with Anthropic API key and GitHub token), and a live run where a planner agent picks up a labeled issue, emits a plan as JSON wrapped in plan tags, spawns one implementer sandbox per issue on its own branch, runs a reviewer when there are commits, and finishes with a merger agent that resolves conflicts and merges everything back to main, closing the issue with a comment. He highlights the agent-agnostic design (a Codex reviewer can review a Claude implementer) and executable prompt blocks that run git diff when the prompt resolves.",
+  "what_you_learn": "You get an end-to-end reference architecture for a self-hosted AFK software factory: sandboxing as the safety prerequisite for autonomy, GitHub issues with a label as the backlog queue, and a planner-implementer-reviewer-merger pipeline of parallel agents as the execution engine. Just as valuable is the mindset: prompts and workflows are plain code and markdown files you own, so you can swap agents per stage, add adversarial cross-model review, or reshape everything into PR flows.",
+  "skills": [
+    {"name": "Software Factory", "description": "A pipeline of planner, implementer, reviewer, and merger agents that turns a labeled backlog into merged code, unattended."},
+    {"name": "Agent Guardrails", "description": "Running agents in isolated sandboxes so they can operate AFK without permission prompts or system damage."},
+    {"name": "Multi-Agent Orchestration", "description": "Parallel agents in separate sandboxes per task, coordinated from one TypeScript orchestration script."},
+    {"name": "Agent Harness Engineering", "description": "Owning the orchestration code and prompts instead of renting a closed coding tool."},
+    {"name": "Issue & Backlog Management", "description": "GitHub issues filtered by a dedicated label as the task queue the factory picks up."},
+    {"name": "Git Workflows", "description": "A reviewer agent gates each implementer's branch, and a merger agent untangles conflicts back to main."},
+    {"name": "Code Review", "description": "One agent implementation reviewed by a different agent, or several implementations merged into the best result."},
+    {"name": "Prompt Engineering", "description": "An exclamation-mark code fence in a prompt file executes a shell command like git diff when the prompt resolves."}
+  ],
+  "learnings": [
+    {
+      "title": "AFK agents need sandboxing; YOLO mode is not an option",
+      "detail": "Matt's six-month goal has been coding agents running totally AFK: picking up backlog tasks, implementing features, doing QA, in parallel. The blocker is permission requests. Bypassing them with YOLO mode means the agent can do mad things - delete your home directory - or, in enterprise settings, exfiltrate data to a third party. Sandboxing is the prerequisite for safe autonomy; he tried DIY Docker sandboxes and hit so many AFK problems that he built Sandcastle instead.",
+      "time_hint": "1:00"
+    },
+    {
+      "title": "Sandcastle is one function: run an agent in a sandbox with a prompt",
+      "detail": "What he wanted was a simple TypeScript function: run this prompt inside this sandbox using this agent. Sandcastle is exactly that - a TypeScript library for orchestrating AI coding agents in isolated sandboxes, centered on sandcastle.run calls in a .sandcastle/main.mts file in each repo. From that one function you can build systems that parallelize agents side by side, review their own code, and merge it back.",
+      "time_hint": "1:35"
+    },
+    {
+      "title": "Setup: install, init, pick agent, sandbox, backlog, template, label",
+      "detail": "Setup is npm install @aihero/sandcastle, then npx sandcastle init. You select an agent (Claude Code, or Codex - swappable per stage), a first-class sandbox provider (Docker today, extensible with your own), a backlog manager (GitHub issues is his preference - AFK agents need a way to pick up tickets), and one of five templates; he maxes out with a parallel planner with a review step. Choosing GitHub issues creates a sandcastle label, and only issues carrying that label get picked up.",
+      "time_hint": "2:10"
+    },
+    {
+      "title": "The Dockerfile is yours: install anything into the agent's environment",
+      "detail": "Init throws a .sandcastle directory into the repo, key file being the Dockerfile - the full instructions for the container Sandcastle runs inside. The template installs system dependencies, the GitHub CLI, renames the home directory to agent, and installs Claude Code. Because it is your Dockerfile you can install anything an agent needs. You also set .sandcastle/.env (Anthropic API key plus GitHub token); a linked issue has up-to-date advice on using a Claude subscription instead of an API key, since Anthropic is finicky about subscription use for this.",
+      "time_hint": "3:10"
+    },
+    {
+      "title": "A run starts with the planner: issues in, plan JSON out",
+      "detail": "A package.json script runs the orchestrator via npx tsx .sandcastle/main.mts. On the demo issue (scaffold a TypeScript template with Vitest, type checking, a Commander-based CLI, and CI), the planner agent sets up its Docker sandbox, reads the open issues carrying the sandcastle label - including labels and comment bodies - works out which are unblocked, and outputs its plan as a JSON object wrapped in plan tags, along with how much context window it used.",
+      "time_hint": "5:15"
+    },
+    {
+      "title": "main.mts orchestration: parse the plan, one implementer sandbox per issue",
+      "detail": "The template's main.mts parses the plan JSON out of the plan tags, then runs a separate sandbox and implementer agent for each issue, passing the issue title, task ID (issue number), and branch name as prompt arguments. The planner can be swapped to Codex just by changing the agent argument, and every prompt lives in an editable markdown file scaffolded by the template - the workflow is code you own, not a prescription from the tool.",
+      "time_hint": "7:15"
+    },
+    {
+      "title": "The reviewer gates on commits, and review can be adversarial across agents",
+      "detail": "If the implementer produced more than one commit, a reviewer agent runs. This pattern is powerful because implementers make mistakes and reviewers generally catch them. Because Sandcastle is agent-agnostic, adversarial review is trivial: let sandcastle.codex review code written by Claude Code, or run several implementers in parallel on the same task and have a reviewer take all the branches, choose the best one, or mix them - that is the power of owning your own process.",
+      "time_hint": "8:00"
+    },
+    {
+      "title": "Executable prompt blocks run commands when the prompt resolves",
+      "detail": "The review prompt uses a syntax copied from Claude Skills: an exclamation mark before a code fence makes Sandcastle execute that block when resolving the prompt - so the prompt literally contains the output of git diff source-branch branch at review time. Prompts stay static files while embedding live repository state.",
+      "time_hint": "8:40"
+    },
+    {
+      "title": "The review prompt has a slot for your project coding standards",
+      "detail": "The review prompt itself is a basic process - understand the change, analyze for improvements, check correctness, maintain balance - and crucially it contains a coding standards section you fill in with any project standards you want enforced on every review. This is where team conventions get injected into the AFK pipeline.",
+      "time_hint": "8:55"
+    },
+    {
+      "title": "A merger agent resolves the gnarly conflicts parallel branches create",
+      "detail": "After the branches are built, a merger agent takes all branches plus the original issues (so it understands the changes) and merges them back to main. An agent does this rather than a git merge because parallel branches can conflict, and merge conflicts can be pretty gnarly - he likes a really powerful agent acting as a senior merger developer. The result: multiple agents ran in parallel on their own branches and everything landed on main.",
+      "time_hint": "9:15"
+    },
+    {
+      "title": "End to end, unattended: type checks, merge, issue closed with a comment",
+      "detail": "Checking back on the live run: the implementer scaffolded the repo (tsconfig.json, vitest.config.ts, CLI files) doing red-green-refactor with tests first; the reviewer found the code clean and well-structured with clear naming; the merger ran the type checks, merged the branch, and closed the GitHub issue with a comment. The whole scaffold happened while the human could have been having a cup of tea - and this setup has massively increased his velocity.",
+      "time_hint": "10:00"
+    },
+    {
+      "title": "It is just code: reshape the factory into PR flows or anything else",
+      "detail": "Sandcastle is deliberately not opinionated. The planner-implementer-reviewer-merger flow is just a template of Matt's own workflow; you could make the branches PR branches instead, or build any other flow. It is a programmatic way to run Claude Code, Codex, and future agents inside sandboxes - turning scripts into mini software factories.",
+      "time_hint": "10:40"
+    }
+  ],
+  "key_points": [
+    "Sandbox first, then autonomy - YOLO mode is how you delete your home directory.",
+    "One function, run agent sandbox prompt, is enough to build a software factory.",
+    "A GitHub label is the contract: the factory only touches issues marked with it.",
+    "Implementers make mistakes; reviewers catch them; mergers untangle the conflicts.",
+    "Agent-agnostic orchestration means a Codex reviewer can grade a Claude implementer.",
+    "An exclamation-mark code fence in a prompt executes git diff when the prompt resolves.",
+    "The review prompt has a coding-standards slot - that is where team conventions enter the pipeline.",
+    "It is just code - the workflow is yours to reshape into PR flows or parallel best-of-N runs."
+  ],
+  "mermaid": "flowchart TD\n  gh[\"GitHub issue carrying the sandcastle label\"] --> planner[\"Planner agent in a Docker sandbox\"]\n  planner -->|\"plan JSON wrapped in plan tags\"| parse[\"main.mts parses the plan\"]\n  parse --> impl[\"Implementer agent per issue - own branch and sandbox\"]\n  impl -->|\"more than one commit\"| reviewer[\"Reviewer agent with coding standards slot\"]\n  reviewer --> merger[\"Merger agent - senior developer\"]\n  merger --> main[\"Merged to main - type checks run - issue closed with a comment\"]\n  subgraph sc[\"Sandcastle library\"]\n    run[\"sandcastle.run - agent plus sandbox plus prompt\"]\n    docker[\"Your Dockerfile - system deps plus gh CLI plus Claude Code\"]\n    dyn[\"Executable prompt blocks - git diff at resolve time\"]\n  end\n  run --> planner",
+  "generated": "2026-10-22"
+}

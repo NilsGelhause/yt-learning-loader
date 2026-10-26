@@ -1,0 +1,83 @@
+{
+  "video_id": "9tmsq-Gvx6g",
+  "title": "Never Run claude /init",
+  "summary": "Matt Pocock recommends never running any coding agent's init command (like claude /init) and deleting any CLAUDE.md or AGENTS.md you suspect an agent created. He grounds this in an arXiv paper (2602.11988) evaluating repository-level context files, which concluded that unnecessary requirements from context files make tasks harder, while human-written context files describe only minimal requirements. He then demos /init on his real work repo (a large React Router app with an Effect backend) and dissects the result line by line: a pointless intro paragraph, package.json scripts that are trivially discoverable from the source of truth, architecture claims discoverable from config files, and references to specific services that will rot the moment code changes. He explains the context-window economics - the system prompt chunk is inflexible and crowds out exploration, implementation, and testing - and the instruction budget of roughly 300-500 instructions. His conclusion: put steering into discoverable agent skills instead of global context, keep CLAUDE.md to a single line ('you are on WSL on Windows'), and rely on the agent's built-in explore phase to build context just in time.",
+  "what_you_learn": "You learn why auto-generated context files actively hurt agent performance (token cost on every request, distraction, documentation rot, and unnecessary requirements that make tasks harder) and what to do instead: shrink the system prompt to the minimum, treat the file system as the source of truth, and move steering rules into discoverable skills so they are applied just in time rather than burned on every request. It is a concrete lesson in context engineering and tokenomics for anyone running coding agents daily.",
+  "skills": [
+    {"name": "Context Window Management", "description": "Splitting the finite context window across system prompt, exploration, implementation, and testing - and keeping the inflexible parts minimal."},
+    {"name": "System Prompt Design", "description": "Keeping the always-present system prompt as small as possible to free context and cut cost on every request."},
+    {"name": "Context Engineering", "description": "Letting agents build needed context at the moment of the task via exploration instead of preloading it globally."},
+    {"name": "Documentation", "description": "Any documentation referencing specific files and patterns goes stale on the first refactor and then conflicts with reality."},
+    {"name": "Planning & Prioritization", "description": "The sub-agent exploration step agents run before making changes, which should build context on demand."},
+    {"name": "Agent Skill Design", "description": "Placing steering rules in skills the model can discover and load only when relevant, instead of the global context file."}
+  ],
+  "learnings": [
+    {
+      "title": "Never run claude /init - and delete agent-generated context files",
+      "detail": "Every coding agent ships some init command promising to generate a CLAUDE.md or AGENTS.md with codebase documentation. Matt recommends never running it, and deleting any such file you find that an agent created. The generated file burns tokens, distracts the agent, and goes out of date faster than a pear on a hot day.",
+      "time_hint": "0:00"
+    },
+    {
+      "title": "A paper shows unnecessary context-file requirements make tasks harder",
+      "detail": "Matt cites an arXiv paper (2602.11988) evaluating whether repository-level context files help coding agents. Its conclusion: unnecessary requirements from context files make tasks harder, and human-written context files describe only minimal requirements. This is the empirical backing for keeping context files tiny and for not trusting auto-generated ones.",
+      "time_hint": "0:25"
+    },
+    {
+      "title": "The context window has four competing consumers",
+      "detail": "Matt sketches how an agent's context window gets consumed: the system prompt (everything available on every request - MCP servers, system tools, and the entire CLAUDE.md), exploration of the codebase, the implementation itself, and testing/debugging (which balloons when something goes wrong). Exploration, implementation, and testing are flexible in size; the system prompt is not - it is hardwired the moment the agent starts.",
+      "time_hint": "1:50"
+    },
+    {
+      "title": "Shrinking the system prompt buys room and cuts cost",
+      "detail": "Everything you add to CLAUDE.md makes the inflexible system-prompt chunk bigger, leaving less room for actual work and costing more on every single request. Matt's personal goal: get the initial prompt as low as possible - that is the best possible outcome for both capability and cost.",
+      "time_hint": "3:00"
+    },
+    {
+      "title": "Global context is irrelevant to most sessions",
+      "detail": "The common advice is to add things to CLAUDE.md whenever you notice the agent doing something you dislike (wrong package installer, a React pattern you hate). But that chunk is global: a React steering rule is dead weight in a pure API-and-database session and in a documentation session. Anything in global scope affects everything you do and costs tokens every time.",
+      "time_hint": "3:40"
+    },
+    {
+      "title": "The generated file is full of trivia and rot",
+      "detail": "Dissecting the actual /init output on his React Router plus Effect repo: an intro paragraph ('this file provides guidance to Claude code') that helps nobody, package.json scripts that are trivially discoverable by opening the source of truth, architecture lines (React 19, React compiler, SSR) visible in react-router.config and vite.config.ts, and references to specific services (drizzle service, DB function services, clip service, repo parser service - 'dump service - that's not what it sounds like') that will go stale the moment any implementation changes. 'Too much is global. Too much is going to go out of date and just rot away.'",
+      "time_hint": "4:15"
+    },
+    {
+      "title": "The file system is the source of truth",
+      "detail": "Searching effect.service finds eight visible instances across db.service, drizzle.service, dump.service, and repo parser.service - the file system itself tells Claude what is going on. If you structure your file system correctly, it gives the agent an impression of the overall architecture that is defined in the source of truth of your code, not in documentation which can rot away.",
+      "time_hint": "5:50"
+    },
+    {
+      "title": "The realistic instruction budget is 300 to 400 instructions",
+      "detail": "LLMs have a context window but also a budget for how many instructions they can take on at once. Every sentence in CLAUDE.md ('backend logic uses Effect for dependency injection', 'services are defined with Effect.services', 'routes execute Effect via Runtime.runPromise') is an instruction. Realistically an LLM handles 300-400 instructions, capping around 500 even on bigger models - so stuffing CLAUDE.md with mostly-irrelevant instructions hamstrings the agent before it starts.",
+      "time_hint": "7:30"
+    },
+    {
+      "title": "Steering belongs in discoverable skills, not global files",
+      "detail": "Useful steering should live somewhere - Matt's example: LLMs are reluctant to use reducers in front-end logic, but reducers are amazing with LLMs because you can pull them out as a testable unit that drives the UI. He would put such rules into agent skills that the LLM can discover, applying them just in time without burning instruction budget immediately. (Skills are the topic of another video.)",
+      "time_hint": "8:10"
+    },
+    {
+      "title": "His entire CLAUDE.md is one six-word line",
+      "detail": "The only thing in any CLAUDE.md in Matt's whole setup is a single line: 'you are on WSL on Windows'. It is worth keeping because the Windows-Linux path-resolution divide is unintuitive and the instruction gives the agent context it cannot easily discover. He used to steer agent behavior there too ('in all interactions and commit messages be extremely concise...') but considers that better placed inside a skill - or not run at all.",
+      "time_hint": "8:55"
+    },
+    {
+      "title": "Delete the file and rely on the built-in explore phase",
+      "detail": "The closing recommendation: delete the auto-generated CLAUDE.md ('bye-bye claude.md') and rely on the built-in explore phase - a sub-agent the orchestrator spawns to read files and search the codebase (in the demo it explored with sonnet 4.6) - which every agent should be doing now to build the needed context just in time before implementation.",
+      "time_hint": "10:10"
+    }
+  ],
+  "key_points": [
+    "Never run claude /init - the generated file burns tokens and rots fast.",
+    "Unnecessary requirements from context files make agent tasks harder - per arXiv 2602.11988.",
+    "The system prompt chunk is inflexible; everything else in the context window is flexible.",
+    "Every CLAUDE.md sentence is an instruction - the budget is 300 to 400, maybe 500.",
+    "The file system is the source of truth; structure it to tell the architecture story.",
+    "Steering rules belong in discoverable skills, applied just in time.",
+    "Matt's entire CLAUDE.md: 'you are on WSL on Windows' - six words.",
+    "Delete the file, let the explore phase build context just in time before implementing."
+  ],
+  "mermaid": "flowchart TD\n  init[\"claude /init\"] --> junk[\"Auto generated CLAUDE.md - trivia and rot prone file references\"]\n  junk --> burn[\"Burns tokens on every single request\"]\n  win[\"Context window\"] --> sp[\"System prompt - inflexible chunk\"]\n  win --> ex[\"Explore phase - sub agent searches codebase\"]\n  win --> impl[\"Implementation\"]\n  win --> tst[\"Testing and debugging - balloons on failure\"]\n  sp -->|\"shrink\"| gain[\"More room for work and lower cost\"]\n  fs[\"Structured file system is the source of truth\"] --> ex\n  ex --> jit[\"Context built just in time\"]\n  steer[\"Steering rules\"] --> skills[\"Discoverable agent skills\"]\n  skills --> jit\n  claudemd[\"CLAUDE.md reduced to one line - you are on WSL on Windows\"] --> sp",
+  "generated": "2026-10-22"
+}

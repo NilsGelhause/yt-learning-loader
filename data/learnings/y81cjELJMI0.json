@@ -1,0 +1,53 @@
+{
+  "video_id": "y81cjELJMI0",
+  "title": "Your skills are WAY TOO LONG",
+  "summary": "Matt Pocock argues that most agent skills (SKILL.md instruction files) are outrageously bloated, and that the bloat is self-inflicted: people are scared to delete prose because they think a magic combination of words might be load-bearing, so they only ever append. He makes the case that natural language is just as malleable as code - you can delete, condense, and deduplicate it. The payoff of ruthlessly editing skills down is concrete: they cost less context window, are easier to security audit and maintain, compose better with each other, and make it clearer to the model what behavior and output you actually want.",
+  "what_you_learn": "You learn why skill files (the instruction packs you hand to coding agents like Claude Code) obey the same economics as code - small, well-factored modules win - and that editing natural-language instructions is a normal, expected maintenance activity. For a developer building agent systems, this is the difference between skills that quietly degrade and skills that stay sharp.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "Ruthlessly cutting and condensing agent skill files to keep them short and sharp."},
+    {"name": "Context Window Management", "description": "Every word in a skill file consumes context window space each time the skill loads."},
+    {"name": "Prompt Engineering", "description": "Treating natural-language instructions as malleable code that can be deleted, condensed, and deduplicated."}
+  ],
+  "learnings": [
+    {
+      "title": "Bloated skills hurt twice: context cost and maintenance debt",
+      "detail": "Pocock's core complaint: people produce enormous skills that are painful to include in the context window, but the bigger cost is that they become hard to audit and hard to maintain, accumulating sediment (outdated advice) and duplication. When a skill loads on every invocation, its length is a recurring tax on every agent run.",
+      "time_hint": "00:06"
+    },
+    {
+      "title": "People treat skill prose as untouchable - unlike code",
+      "detail": "He observes a strange asymmetry: everyone is happy to edit code that isn't working, but they are scared to touch someone else's natural language in a skill file - as if the author might be proud of their wording, or as if some magical combination of words were doing the work. That fear is the root cause of ever-growing skills.",
+      "time_hint": "00:23"
+    },
+    {
+      "title": "Skills grow by appending because deletion feels risky",
+      "detail": "The failure mode: people only ever add to a skill, because they are afraid to delete anything that might be load-bearing. Pocock's counter: English is just as malleable as code, maybe more so - you can delete stuff and condense stuff without breaking anything, and testing how concise you can get is a real test of your thinking.",
+      "time_hint": "00:46"
+    },
+    {
+      "title": "Small skills are composable, auditable, and clearer",
+      "detail": "The benefits of ruthless editing, listed concretely: once skills are smaller they are more easily composable with each other, easier to security audit, easier to maintain, and it is simply clearer what you want the model to do. Shorter instructions leave less room for the model to misread your intent.",
+      "time_hint": "01:00"
+    },
+    {
+      "title": "A skill is behavior instruction, not an execution program",
+      "detail": "Pocock pushes back on the idea that a skill must be a long, poncy execution program for the agent. At its core a skill is just an instruction describing the ways you want the agent to behave and the things you care about in its output. That reframing removes the excuse for length - an instruction should be as short as it can be while still directing behavior.",
+      "time_hint": "01:12"
+    },
+    {
+      "title": "Ruthless editing is the discipline: delete, condense, ship shorter",
+      "detail": "The closing prescription: stop believing skills need to be long, ruthlessly edit them, and keep them short - with the promise of better agent results. The practical takeaway for a skill author is to treat every skill file like code under active refactoring: cut dead paragraphs, merge duplicates, and re-test.",
+      "time_hint": "01:25"
+    }
+  ],
+  "key_points": [
+    "The bigger your skills are, the more painful they are in the context window - and the harder they are to audit.",
+    "Skills grow because people are scared to delete prose they think might be load-bearing.",
+    "English is just as malleable as code - delete stuff, condense stuff.",
+    "A skill is not an execution program; it is an instruction of how you want the agent to behave.",
+    "Concise skills are more composable, easier to security audit, and clearer to the model.",
+    "Ruthlessly edit your skills - shorter skills produce better results."
+  ],
+  "mermaid": "flowchart TD\n  huge[\"Enormous agent skills\"] --> ctx[\"Context window tax on every run\"]\n  huge --> debt[\"Hard to audit and maintain\"]\n  fear[\"Fear of deleting prose\"] --> append[\"Only appending to skills\"]\n  append --> sediment[\"Sediment and duplication builds up\"]\n  insight[\"English is as malleable as code\"] --> edit[\"Ruthlessly edit - delete and condense\"]\n  edit --> small[\"Short skills\"]\n  small --> comp[\"Composable with other skills\"]\n  small --> audit[\"Easy to security audit\"]\n  small --> clear[\"Clearer behavior instructions\"]\n  comp --> results[\"Better agent results\"]\n  audit --> results\n  clear --> results",
+  "generated": "2026-10-22"
+}

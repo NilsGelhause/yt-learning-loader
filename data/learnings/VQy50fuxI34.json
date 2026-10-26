@@ -1,0 +1,95 @@
+{
+  "video_id": "VQy50fuxI34",
+  "title": "FORGET Loop Engineering. Agentic Engineering is about THIS",
+  "summary": "Dan Eisler argues that 'loop engineering' (popularized by Boris Cherny and Peter Steinberger) is a hype-filled rebrand of the software development life cycle and the wrong mental model. Instead, engineers should think of AI developer workflows (ADWs) inside a software factory: prompts go in, a specific workflow runs (code plus agents), results come out. He walks through a progression of increasingly complex workflows built from three actors of value creation (engineers, agents, and raw code), from a single build agent with linter feedback loops, to specialized scout/plan/build/test agents, git worktrees, per-agent sandboxes, ticket-driven pipelines, a racing-sandbox hotfix workflow for production outages, and finally a routing software factory that picks the right specialized workflow and model tier per ticket type. He closes with practical rules: keep it simple, separate code from agents, do the workflow yourself first, diagram it with mermaid, and combine agents with code because code costs zero tokens.",
+  "what_you_learn": "You learn the correct mental model for building production agent systems: designing AI developer workflows (routing, conditions, loops, specialized agents, sandboxes) as first-class engineering artifacts rather than just prompting in a loop. For a junior-mid developer it translates agent hype into a concrete architecture you can draw, build with an agent SDK, and iterate on.",
+  "skills": [
+    {"name": "AI Developer Workflows", "description": "Designing repeatable prompt-to-result pipelines of code plus agents as the core unit of agentic engineering."},
+    {"name": "Software Factory", "description": "A routing layer that dispatches tickets to many specialized agent workflows at the right model tier and price."},
+    {"name": "Strategic Thinking", "description": "Engineers, agents, and raw code as the units of value creation, placed correctly for performance, price, and speed."},
+    {"name": "Agent Guardrails", "description": "Giving each agent its own isolated computer to run, review, and race in without tripping over each other."},
+    {"name": "Agent Work Isolation", "description": "Using worktrees as a first step toward parallel isolated agent execution for plan-build-test-review-merge pipelines."},
+    {"name": "Autonomous Agent Operations", "description": "A specialized surgical agent plus human-in-the-loop approval plus racing sandboxes to resolve production crashes fast."},
+    {"name": "Agent Harness Engineering", "description": "The prompts, skills, and system prompts wrapping your application, where meta-engineering effort belongs."},
+    {"name": "Planning & Prioritization", "description": "The two constraints of agentic engineering: the engineer shows up at the start (planning/prompting) and end (review/validation)."}
+  ],
+  "learnings": [
+    {
+      "title": "Loop engineering is a rebrand of the SDLC",
+      "detail": "Dan pushes back on the phrase 'loop engineering' from Anthropic's Boris Cherny and OpenAI's Peter Steinberger: it is a terrible rebrand of the software development life cycle. If loops deserve their own engineering, then conditions, functions, and every control-flow construct would too. The better frame: your prompts go into a software factory, a specific workflow (code plus agents) runs, and results come out.",
+      "time_hint": "0:10"
+    },
+    {
+      "title": "Three actors of value creation",
+      "detail": "Engineering work now has three actors: engineers, agents, and code. Code is the unsung hero: it is fast, deterministic, costs zero tokens, and has no hallucination. Reliability ranks code first, engineers second, agents third. Knowing when and where to place each actor is the name of the game of agentic engineering.",
+      "time_hint": "3:30"
+    },
+    {
+      "title": "The simplest workflow and the two constraints",
+      "detail": "The foundation is an engineer prompting an LLM and reviewing the result, with an agent at the center. Every workflow starts here. The two constraints of agentic engineering are prompting (planning) and reviewing (validation): done properly, the engineer shows up only at the beginning and the end, while the system does everything else.",
+      "time_hint": "4:45"
+    },
+    {
+      "title": "Loops come from deterministic code, not from agents",
+      "detail": "The first real loop appears when you add a linter: if lint fails, results route back into the build agent; if it passes, they flow on. Scaling means adding more deterministic code (formatter, type checker, tests) with pass/fail conditions feeding back into the build agent until everything passes and reaches final engineering review.",
+      "time_hint": "5:30"
+    },
+    {
+      "title": "Consolidate validation into a test agent, then add planning",
+      "detail": "Next step: wrap lint, typecheck, and tests into a single test agent (scaling compute to add confidence), then add a planning step. This mirrors the human pipeline of plan, build, test, review, ship that engineers already know; AI is simply added to each step. The loop is one small piece of this developer workflow.",
+      "time_hint": "7:40"
+    },
+    {
+      "title": "Git worktrees: a great place to start, not to end",
+      "detail": "A popular pattern is putting each agent in its own git worktree for isolation and parallelism, with deterministic code building the worktrees from a prompt. Multiple agents then run the plan, build, test, review, merge, ship pipeline concurrently. Worktrees are a start, but full sandboxes are the better destination.",
+      "time_hint": "9:10"
+    },
+    {
+      "title": "Agent sandboxes give full isolation",
+      "detail": "Instead of worktrees, give every agent its own sandbox, its own computer. You gain full isolation, you can jump into the sandbox yourself to inspect the work, webpage, tests, or app before review, then merge and ship when done. Dan predicts agent sandboxes will become the majority of computers in the world as agents scale.",
+      "time_hint": "10:35"
+    },
+    {
+      "title": "Ticket systems are code, and the agentic layer is the focus",
+      "detail": "Adding a kanban/ticket system is just wrapping code around the pipeline; inputs arrive from support, product, and engineers. The important delineation is the agentic layer: the agents, prompts, skills, and system prompts wrapping your application. Agentic engineering is not about the agents alone but about the whole team and user stack built on the three actors.",
+      "time_hint": "12:00"
+    },
+    {
+      "title": "The full ticket pipeline: scout, plan, build, test, CI",
+      "detail": "A complete workflow: code moves the ticket to planning, a scout agent gathers code, tickets, docs, and prior specs, a plan agent (state-of-the-art model) plans, then a build agent works in a sandbox, a test agent loops until results pass, CI/CD runs (fail routes back to build), and finally the engineer reviews and ships. Advanced teams can skip the engineer-translation step by teaching the org to write good tickets.",
+      "time_hint": "13:50"
+    },
+    {
+      "title": "The production-down hotfix workflow with racing sandboxes",
+      "detail": "For a production crash: support files a ticket, an engineer prompts a scout agent that routes to a specialized surgical hotfix agent (prioritized to ship a fix ASAP, nothing else). A human approves or rejects the plan (human in the loop), then multiple sandboxes race the solution in parallel, first agent to pass wins, failures loop back, and the engineer validates and ships the hotfix.",
+      "time_hint": "15:20"
+    },
+    {
+      "title": "The software factory routes tickets to specialized workflows",
+      "detail": "At scale you get many specialized sandbox workflows (chores, bugs, features, hotfixes) behind a routing system: a factory router (simple LLM call or deterministic code) plus an intake agent inspects the codebase and dispatches the right workflow. Match model tier to work type: workhorse or even lightweight models for chores, state-of-the-art planners and scouts so nothing gets missed. The best teams eventually drop engineering review on trusted workflows.",
+      "time_hint": "17:50"
+    },
+    {
+      "title": "Build the system that builds the system",
+      "detail": "The central thesis: the best engineering teams do meta-work on the agentic layer, never touching the product directly. Engineers are responsible for the code; the factory operates the application better than engineers, code, or agents could alone. This compounds because a templated workflow runs hundreds or thousands of times, delivering consistent results. Dan distinguishes this from vibe coding: agentic engineering means knowing your system works so well you do not have to look.",
+      "time_hint": "21:55"
+    },
+    {
+      "title": "Practical rules for building ADWs",
+      "detail": "Dan's distilled advice: keep it simple and start with the smallest workflow; separate code from agents (use an agent SDK, run the build agent, run the linter as code, pass failures back with the same session ID, because an agent calling code inside one skill creates massive testing problems); design each workflow by doing the work end-to-end yourself first; diagram it with mermaid or mermaid.live; and use agents plus code, because speed costs zero tokens and code never hallucinates. Classic patterns (isolatable, decoupled, single interface) matter more than ever since correct workflows get multiplied thousands of times.",
+      "time_hint": "26:50"
+    }
+  ],
+  "key_points": [
+    "It is not a loop you are after, it is an AI developer workflow.",
+    "Code is the unsung hero: zero tokens, no hallucination, runs at the speed of light.",
+    "The two constraints of agentic engineering are planning (prompting) and reviewing (validation).",
+    "Worktrees are a great place to start, agent sandboxes are where you end up.",
+    "Build the system that builds the system; the app layer is for your agents.",
+    "Match the model to the ticket: SOTA planners and scouts, workhorse builders, lightweight chores.",
+    "First agent to pass the gate wins; the rest of the racing sandboxes were cheap insurance.",
+    "Separate your code and your agents, or you just have an agent calling code."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Ticket from kanban board\"] --> B[\"Factory router code or LLM call\"]\n  B --> C[\"Spin up agent sandbox\"]\n  C --> D[\"Scout agent gathers context\"]\n  D --> E[\"Plan agent with SOTA model\"]\n  E --> F[\"Build agent with workhorse model\"]\n  K[\"Three actors engineer agent code\"] --> F\n  F --> G[\"Test agent validation loop\"]\n  G -->|\"fail\"| F\n  G -->|\"pass\"| H[\"CI/CD pipeline\"]\n  H -->|\"fail\"| F\n  H -->|\"pass\"| I[\"Engineer review\"]\n  I --> J[\"Merge and ship\"]\n  L[\"Software factory of specialized workflows\"] --> B",
+  "generated": "2026-10-21"
+}

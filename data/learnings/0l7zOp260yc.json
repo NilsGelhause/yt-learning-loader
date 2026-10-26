@@ -1,0 +1,48 @@
+{
+  "video_id": "0l7zOp260yc",
+  "title": "There is no such thing as greenfield",
+  "summary": "Matt Pocock argues that the greenfield/brownfield distinction is largely meaningless, especially in the AI-coding era. Every project is built for the real world, which means working around external constraints and integrating with existing software from day one. The only real difference is that a brownfield codebase already has its conventions, tests, and standards sorted out, while in greenfield you choose them up front and they harden quickly once AI has generated a pile of code. Since AI lets us move from fresh codebase to legacy codebase in days rather than months, greenfield stays 'green' for at most a week. He closes that brownfield codebases, despite their size, can be made easy to navigate with deliberately designed documentation and folder structure.",
+  "what_you_learn": "A mindset shift for working with AI agents on existing codebases: stop treating 'brownfield' as a handicap and start treating conventions, docs, and folder structure as the real navigability levers. It also warns that early architectural choices lock in fast once AI-generated code lands, so decide conventions deliberately at project start.",
+  "skills": [
+    {"name": "Codebase Navigation", "description": "Making large existing codebases easy to work through via deliberate documentation and folder structure design."},
+    {"name": "Documentation", "description": "Designing documentation as a first-class artifact that determines how navigable a codebase feels."},
+    {"name": "Software Architecture", "description": "Choosing conventions deliberately at project start because they become harder to change once code accumulates."}
+  ],
+  "learnings": [
+    {
+      "title": "Greenfield and brownfield are basically the same thing",
+      "detail": "Matt's core claim: whatever you build, you build for the real world, and the real world always imposes external constraints and existing software to integrate with. A truly unconstrained 'blank slate' project does not exist in practice, so the skill set is the same for both.",
+      "time_hint": "0:10"
+    },
+    {
+      "title": "The only real difference is unsorted working conventions",
+      "detail": "In a brownfield codebase you already have coding conventions, an existing test suite, and coding standards. Even if undocumented, they are implicit in the code already written. In greenfield you get to choose all of that yourself out of the gate - but you still end up with the same artifacts.",
+      "time_hint": "0:35"
+    },
+    {
+      "title": "Greenfield choices harden fast once AI code lands",
+      "detail": "Once you have made your initial choices and AI has generated a bunch of code into the repo, those choices become progressively harder to change. AI coding massively accelerates this: we now move from fresh codebase to legacy codebase faster than ever before.",
+      "time_hint": "0:52"
+    },
+    {
+      "title": "Your codebase stays green for a week at most",
+      "detail": "How long does greenfield stay green? Matt's answer: not very long, maybe a couple of days, maybe a week at most. The implication is that agonizing over the greenfield/brownfield distinction is wasted effort because every project is brownfield almost immediately.",
+      "time_hint": "1:00"
+    },
+    {
+      "title": "Navigate brownfield codebases through docs and folder structure",
+      "detail": "Brownfield codebases can contain a lot of code, but you can make them pretty easy to navigate and work through if you design your documentation properly and design your folder structure properly. Navigability is a design choice, not a function of codebase size or age.",
+      "time_hint": "1:17"
+    }
+  ],
+  "key_points": [
+    "There is no such thing as greenfield - you are always building for the real world.",
+    "The only difference between greenfield and brownfield is whether conventions are sorted out yet.",
+    "AI turns a fresh codebase into a legacy codebase in days, not months.",
+    "Your codebase stays green for a week at most.",
+    "Undocumented code still has conventions - they are implicit in the code already written.",
+    "Documentation and folder structure design, not codebase size, determine navigability."
+  ],
+  "mermaid": "flowchart TD\n  real[\"Real world constraints and integrations\"] --> both[\"Greenfield and brownfield are the same\"]\n  both --> bf[\"Brownfield - conventions tests standards already exist\"]\n  both --> gf[\"Greenfield - you choose conventions up front\"]\n  gf --> ai[\"AI generates code fast\"]\n  ai --> harden[\"Choices become hard to change\"]\n  harden --> legacy[\"Legacy in days not months\"]\n  bf --> nav[\"Navigability via documentation and folder structure design\"]",
+  "generated": "2026-10-22"
+}

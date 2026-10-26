@@ -1,0 +1,94 @@
+{
+  "video_id": "DzbqeO_diOQ",
+  "title": "PLANS For Fable 5: Rebuilding My /Plan Skill for Mythos Class Models",
+  "summary": "Dan rebuilds his /plan meta skill from scratch for Fable 5 and Mythos-class models in a slow, hands-on devlog. Before any agent touches the work he writes a raw.md brain dump defining priorities (performance over speed over cost), the plan's audience trifecta (engineer, team, AI agents), and the properties the new plan template must have: HTML-first output, embedded images via GPT Image 2, rich append-only metadata (created/modified/commits/agent/session), back and forward references, per-phase task breakdowns with checklists, closed-loop validation commands, a togglable Q&A section, and free-form notes. He then brings in Claude Code running Opus 4.8 on high effort to convert the markdown skeleton into an HTML template and to build a workflows directory (create plan, update plan, update references, build plan, image generation) routed by a table in the skill. Finally he runs /plan-f3 against a real request - re-implementing his agent-to-agent HTTP communication network with the Iron peer-to-peer gossip protocol - producing a rich HTML plan with a hero image, per-phase imagery, a parity matrix in the notes, and amend/validation sections.",
+  "what_you_learn": "You learn how to design a reusable planning meta skill (a skill that produces other skills and documents) by writing your requirements by hand first, then encoding them as template sections, workflow routing tables, and closed-loop validation rules for an agent to execute. It is a masterclass in treating plans as living, versioned artifacts that both humans and agents read and update.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "Building a skill whose output is another skill, prompt, or document, with templated sections the model fills and structure it must leave untouched."},
+    {"name": "Testing Strategy", "description": "Specifying a system by first listing the properties it must have, then ordering those properties into an implementation structure."},
+    {"name": "Planning & Prioritization", "description": "Templating your engineering: forcing every plan into an identical format of problem, solution, files, and phases so results are consistent and reviewable."},
+    {"name": "Workflow Design", "description": "Embedding multiple workflows inside one skill via a when-to-call table plus a workflows directory, so one skill handles create, update, build, and references."},
+    {"name": "Documentation", "description": "Treating plans as append-only living documents with back/forward references, amend history, and metadata logs maintained by agents over the codebase lifecycle."},
+    {"name": "AI Output Verification", "description": "Per-phase validation commands and checklists that prevent an agent from leaving a phase or completing a plan until every box is checked."}
+  ],
+  "learnings": [
+    {
+      "title": "Why rebuilding the planning skill: planning and reviewing are the two constraints",
+      "detail": "Dan argues most engineers make a massive mistake handing /plan to Claude Code and praying, because it assumes the model knows what you want - he calls this part of the mass deprecation of raw engineering talent. Agentic engineering pushes against two constraints, planning and reviewing, and upfront investment in a great plan improves both: the more you plan, the less you review, and Mythos-class models make this ever more true - but only if you know how to extract the capability with the right template.",
+      "time_hint": "03:15"
+    },
+    {
+      "title": "Write raw.md by hand before any agent touches the work",
+      "detail": "For a critical meta skill, Dan's first step is not prompting an agent but opening a raw.md document and typing out what he is going to do: the API sketch (/plan-f3 taking a user prompt plus a `questionable` flag for interactive Q&A), priorities (performance over speed over cost - spending tokens to win), and the properties list. This write-up serves as context for himself and every agent that later works on the skill. His rule: the more you will reuse a skill, the more upfront investment it deserves.",
+      "time_hint": "02:20"
+    },
+    {
+      "title": "Property-based engineering: define properties, then order them",
+      "detail": "Dan enumerates the properties the new plan format must have before writing any of it: per-phase task breakdown, embedded checklists, HTML with embedded images, a questions-and-answers section (togglable to avoid over-indexing on human-in-the-loop), rich updatable header metadata (created, modified, commits, agent name, session ID, back references, forward references), validation and testing sections that block completion, new-versus-existing file sections, and synced HTML/image styling. Everything except the created date is a list that agents append to, never rewrite.",
+      "time_hint": "10:30"
+    },
+    {
+      "title": "Design the plan for the trifecta: you, your team, your agents",
+      "detail": "The audience of every plan is the agent trifecta: the individual engineer, the engineering team, and AI agents. Most engineers over-index on one audience. This shapes the format: HTML is chosen so all three get visual, rich documents; images are included because a picture is worth a thousand words to both humans and multimodal models; and a free-form notes section is left open because constraining agents entirely would limit the plan's value.",
+      "time_hint": "09:50"
+    },
+    {
+      "title": "Templating your engineering beats letting the model improvise",
+      "detail": "The core of the meta skill is a plan format the model must mirror: fill in the templated sections and leave everything else exactly as-is. Dan's counter to the critique that templates limit models: nine times out of ten, spelling out the exact format plus a free-form notes section beats letting the model plan freely - and the template encodes your specific domain knowledge, which is what differentiates you from the normal distribution of results. His V1 spec format, over a year old, is 80% unchanged.",
+      "time_hint": "45:30"
+    },
+    {
+      "title": "Phased plans with per-phase checklists, statuses, and validation commands",
+      "detail": "The plan body requires implementation phases, each self-contained and validatable: a description, step-by-step tasks with an embedded checklist, and a testing strategy naming the exact commands that prove the phase's tasks complete. Agents may not exit a phase until every box is checked and every command passes; a task that is truly blocked gets marked F for failed and the agent moves on. Final validation commands prove each phase complete, mirrored from the phase-level tests.",
+      "time_hint": "25:10"
+    },
+    {
+      "title": "One skill, many workflows: the routing table pattern",
+      "detail": "Rather than separate spec and build skills, Dan overloads one unified skill with five workflows in a workflows directory: create plan, update plan, update references, build plan, and image generation. A table in the skill maps the incoming user prompt to the workflow to run and the file to read. This keeps the skill standalone with no cross-dependencies while giving the agent multiple embedded pathways.",
+      "time_hint": "35:50"
+    },
+    {
+      "title": "Build plan workflow: one agent, one prompt, one purpose",
+      "detail": "The build workflow is for the fresh-context agent that executes the plan: it must receive or infer a plan path, read all images and depth-one back references (leaning toward heavy context since the builder has a fresh window), then execute phases top to bottom while announcing each phase, updating task statuses (empty, work in progress, X for done, F for failed), looping on validation until it passes, running final validation, updating metadata, and reporting per-phase summaries.",
+      "time_hint": "42:20"
+    },
+    {
+      "title": "Plans as living artifacts: amend history and reference maintenance",
+      "detail": "The skill includes update plan and update references workflows so the plan stays current over the codebase lifecycle: metadata lists are append-only (comma-separated, only ever appended to), and an amend section records a running history of changes made after the plan was executed on. Agents also maintain back references to previous plans and AI docs, and forward references so future documents link back - treating the plan as a maintained artifact, not a one-shot output.",
+      "time_hint": "40:40"
+    },
+    {
+      "title": "HTML gives agents more useful tokens - spend them deliberately",
+      "detail": "Dan cites Anthropic's research that more valuable tokens give agents a slight edge on producing the result you want. HTML plans chew up a lot of tokens, but that cost was accepted upfront by writing priorities in raw.md. Images serve the same goal: faster ingestion for humans and a deeper understanding for multimodal models, with audio and video as the next input modalities. He plans SVG support next for dynamic diagrams, since raster images are expensive to update.",
+      "time_hint": "52:10"
+    },
+    {
+      "title": "Image generation discipline with GPT Image 2",
+      "detail": "A reusable ~200-line Astral UV single-file script wraps the OpenAI GPT Image 2 API for creating and editing images. The skill constrains usage: professional, focused images on one or two primary ideas, prompts under ten words to avoid text-heavy images, one hero image, one per phase, and optional question images, all generated in parallel, wide format, high quality, with a synced visual identity between the HTML styling and the images (driven by the original user prompt).",
+      "time_hint": "31:45"
+    },
+    {
+      "title": "Live demo: /plan-f3 produces an Iron gossip-network migration plan",
+      "detail": "The payoff: running /plan-f3 in Claude Code with Opus 4.8 (questionable mode off, high effort) against a request to re-implement his HTTP-based agent-to-agent network using Iron, a Tailscale-for-applications peer-to-peer protocol. After ~6 minutes of research the agent emits a full HTML plan: collapsible metadata with session ID and commits, hero image, problem/solution sections, relevant files, four implementation phases with per-phase imagery and closed-loop prompts, and - because the notes section was left free - an unprompted feature parity matrix comparing the old and new communication frameworks.",
+      "time_hint": "50:15"
+    },
+    {
+      "title": "Keep agents surgical and iterate when they drift",
+      "detail": "Throughout the build the agent does unrequested work: adding styling sections, duplicating the Q&A section, expanding prompts beyond what was asked. Dan's response is to correct the skill text in place - be surgical, do only what was asked - rather than re-plan. He treats every skill as an iteration and commits to git along the way so changes can be rolled back, aiming for a powerful V1 rather than perfection.",
+      "time_hint": "32:30"
+    }
+  ],
+  "key_points": [
+    "Great planning is great engineering - the future is created by those who plan it, not those who vibe code it.",
+    "Don't outsource your thinking: handing /plan to the model and praying deprecates your engineering skill.",
+    "The more you invest in planning up front, the less reviewing you do after.",
+    "Template your engineering: constrain the format, then leave a free-form notes section so agents can add value.",
+    "Design every plan for three audiences: you, your engineering team, and your AI agents.",
+    "A plan is a living artifact - append-only metadata, amend history, back and forward references.",
+    "HTML and images are not decoration: they are more useful tokens that make agents produce better results.",
+    "One agent, one prompt, one purpose - the build agent gets a fresh context and reads the plan's images and references.",
+    "Know your priorities before you spend: performance over speed over cost, and accept the token bill on purpose."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Engineer writes raw dot md by hand\"] --> B[\"Properties and priorities defined\"]\n  B --> C[\"Agent - Claude Code Opus 4.8 high effort\"]\n  C --> D[\"Skill dot md with routing table\"]\n  D -->|\"create plan\"| E[\"Create Plan Workflow\"]\n  D -->|\"update plan\"| F[\"Update Plan Workflow - amend history\"]\n  D -->|\"update references\"| G[\"Reference Maintenance - append only\"]\n  D -->|\"build plan\"| H[\"Build Workflow - fresh context agent\"]\n  D -->|\"image generation\"| I[\"GPT Image 2 Script\"]\n  E --> J[\"HTML Plan Artifact\"]\n  I --> J\n  J --> K[\"Header Metadata - created modified commits agent session\"]\n  J --> L[\"Problem Solution and Hero Image\"]\n  J --> M[\"Phases with Checklists and Validation Commands\"]\n  J --> N[\"Back and Forward References\"]\n  J --> O[\"Free Form Notes and Amend Section\"]\n  H --> P[\"Task Statuses - empty work in progress X done F failed\"]\n  P -->|\"loop until commands pass\"| M\n  M -->|\"every box checked\"| Q[\"Plan Complete\"]",
+  "generated": "2026-10-21"
+}

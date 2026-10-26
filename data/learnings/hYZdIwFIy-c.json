@@ -1,0 +1,59 @@
+{
+  "video_id": "hYZdIwFIy-c",
+  "title": "Red Green Refactor is OP With Claude Code",
+  "summary": "Matt Pocock argues that red-green-refactor (test-driven development), the 20-30-year-old practice from Kent Beck's Extreme Programming, is a perfect fit for coding agents. He re-explains the cycle - write a failing test (red), write the minimal implementation to make it pass (green), then refactor safely behind the green test suite - and shows the prompt rules from his TDD skill: one test at a time, minimal code to pass, and only after all tests pass look for refactor candidates. His core insight is observational: watching an agent go red then green is hard to fake, so it builds real trust in agent output. He closes on why feedback loops and code quality matter even more in the AI era: LLMs are eager code generators that need back pressure, and they replicate whatever quality they find in your codebase.",
+  "what_you_learn": "You learn how to convert classic TDD into a control mechanism for AI coding agents: the red-green sequence is a trust signal that is nearly impossible for an agent to fake, so you can skim agent-written tests instead of reading every one. You also learn the concrete anti-pattern to forbid (agents writing 90 tests in one massive edit) and why feedback loops like types and tests are the back pressure that keeps eager LLMs stable.",
+  "skills": [
+    {"name": "Test-Driven Development", "description": "The TDD cycle of failing test, minimal passing implementation, then safe refactoring, applied as the core loop for coding agents."},
+    {"name": "AI Output Verification", "description": "Using observable red-then-green sequences as proof an agent's code actually works, cutting down manual test review."},
+    {"name": "Continuous Improvement", "description": "Imposing back pressure on eager AI code generation through strong types, unit tests, and CI signals."},
+    {"name": "Code Quality Metrics", "description": "Keeping the codebase clean because an LLM replicates the quality it sees - it happily plays in the mud if given mud."}
+  ],
+  "learnings": [
+    {
+      "title": "Red means a failing test, green means the minimal implementation that passes it",
+      "detail": "In the red-green-refactor cycle (from Kent Beck's Extreme Programming, as popularized by TDD advocates like Sam Williams), red is writing a failing test so CI goes red - for example testing a database fetch via an SDK before the API method or DB schema even exists. Green is then writing the minimal implementation to make CI pass again. The minimal part matters because the next step is refactoring, and you can only refactor fearlessly because the green test suite proves nothing broke.",
+      "time_hint": "00:55"
+    },
+    {
+      "title": "Watching an agent go red then green is a trust signal that is hard to fake",
+      "detail": "Pocock's key argument for the AI era: when you see the agent write a failing test, then write an implementation without touching the test, and then see the test go green, a reasonable agent cannot really fake that sequence. That means you do not need to read every test the agent creates - you skim the titles to see what is covered, and QA the committed chunk afterwards to flush out any bad tests.",
+      "time_hint": "02:07"
+    },
+    {
+      "title": "A TDD skill encodes the incremental loop as reusable prompt rules",
+      "detail": "He invokes a dedicated TDD skill when building features (linked in the description). Its core instruction is an incremental loop: for each remaining behavior, write the next test, see that it fails, then write the minimal code to pass. These rules live in a skill file so every session gets the same disciplined loop without re-explaining it.",
+      "time_hint": "03:00"
+    },
+    {
+      "title": "The one-test-at-a-time rule fights the LLM's love of huge horizontal test layers",
+      "detail": "LLMs love to create huge horizontal layers: they write 90 tests in one massive file edit and then try to one-shot an implementation that passes all of them. Pocock finds this produces a lot of crap tests. Forcing one test, then its implementation, then the next test keeps every test tightly coupled to the behavior being implemented, which is what makes tests actually guide the implementation.",
+      "time_hint": "03:25"
+    },
+    {
+      "title": "Refactoring comes only after the whole loop is green",
+      "detail": "Once the incremental loop is done and all tests pass, the skill tells the agent to look for refactor candidates - reshaping the code now that a passing suite makes refactoring safe. Keeping this as a separate final phase prevents the agent from gold-plating mid-loop and breaking the tight test-code pairing.",
+      "time_hint": "04:13"
+    },
+    {
+      "title": "Feedback loops are the back pressure that keeps eager AI stable",
+      "detail": "AI is so eager to create code and find the fastest solution that you must impose back pressure to keep it in a stable state. Strong types like TypeScript and unit tests are the main tools for this. This is the unsaid theme of the video: feedback loops matter so much more with AI than they did with human developers, because the generation speed is so much higher.",
+      "time_hint": "04:25"
+    },
+    {
+      "title": "Code quality matters more than ever because the LLM replicates what it sees",
+      "detail": "If you have a low-quality codebase, the LLM will replicate it - just like any developer, it will be happy to play in the mud if what you have is mud. Maintaining a high code quality baseline is therefore not aesthetic but functional: it is the input signal that determines the quality of everything the agent generates next.",
+      "time_hint": "04:50"
+    }
+  ],
+  "key_points": [
+    "Red-green-refactor is a 30-year-old practice that turns out to be a perfect fit for coding agents.",
+    "A red-then-green sequence is nearly impossible for an agent to fake - so you can skim tests instead of reading them all.",
+    "LLMs love to write 90 tests in one massive edit and one-shot the implementation; forbid it - one test at a time.",
+    "Only refactor after the whole loop is green; the passing suite is your safety net.",
+    "AI needs back pressure: strong types and unit tests keep eager code generation stable.",
+    "An LLM replicates the quality it sees - it will happily play in the mud if your codebase is mud."
+  ],
+  "mermaid": "flowchart TD\n  feature[\"Feature request\"] --> red[\"RED - agent writes one failing test\"]\n  red -->|CI goes red| green[\"GREEN - minimal implementation to pass\"]\n  green -->|tests pass| refactor[\"REFACTOR - reshape code safely behind green tests\"]\n  refactor --> qa[\"Human QA of the committed chunk\"]\n  qa --> next[\"Next behavior - repeat loop\"]\n  next --> red\n  backpressure[\"Back pressure - strong types and unit tests\"] --> green",
+  "generated": "2026-10-22"
+}

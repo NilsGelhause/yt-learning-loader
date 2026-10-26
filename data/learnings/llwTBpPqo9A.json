@@ -1,0 +1,74 @@
+{
+  "video_id": "llwTBpPqo9A",
+  "title": "Claude Code tried to improve /init... Is it any better?",
+  "summary": "Matt Pocock test-drives the Claude Code team's redesigned /init script, which is available behind an environment variable after he and others (including the Claude Code team) publicly criticized the old version for generating bloated CLAUDE.md files. Running it on his course-video-manager repo (React Router, TypeScript, Prettier, Vitest), the new init asks setup questions, explores the codebase for about two minutes, and proposes a CLAUDE.md plus skills and hooks. Matt then grills every single proposal line by line, applying three filters: is it already guaranteed deterministically by a hook, is it trivially discoverable from the code itself, and is it durable (unlikely to change)? Nearly everything gets dropped - npm run typecheck steering because a hook already intercepts npx tsc, testing patterns because exploration surfaces them, effect package install flags moved into a narrow skill for progressive disclosure. The surviving output is a one-line CLAUDE.md plus one small skill. His verdict: a real improvement over the old init, but the agent is too sycophantic - it folded on every pushback instead of steelmanning its choices - and users with less context paranoia would still end up with a bloated file.",
+  "what_you_learn": "You learn a practical review rubric for anything an agent-generated config proposes to put in your context: prefer deterministic hooks over instructions, reject what is trivially discoverable in the repo, keep only durable recommendations, and spend the LLM's limited instruction budget carefully. It also shows how to counter sycophancy by explicitly prompting the agent to stand up to you, and how progressive disclosure (a narrow, non-user-invocable skill) beats stuffing rare knowledge into CLAUDE.md.",
+  "skills": [
+    {"name": "System Prompt Design", "description": "CLAUDE.md should contain almost nothing beyond environment info - every line must justify its permanent slot in context."},
+    {"name": "Agent Guardrails", "description": "Enforce conventions with hooks that intercept and rewrite tool calls instead of hoping instructions get followed."},
+    {"name": "Context Engineering", "description": "Rare or situational knowledge belongs in narrowly-scoped skills loaded on demand, not in always-loaded context."},
+    {"name": "Context Window Management", "description": "An LLM can only handle a limited number of instructions, and the conversation itself spends from that budget."},
+    {"name": "Prompt Engineering", "description": "Explicitly telling the agent to stand up to you and argue its case counters its default instinct to agree."},
+    {"name": "Agent Memory & State", "description": "Only persist agent guidance that is unlikely to change; lists of current state rot and create maintenance debt."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Interrogating each proposed line of generated config before accepting it, regardless of how reasonable it sounds."}
+  ],
+  "learnings": [
+    {
+      "title": "The new /init exists because creators pushed back on the old one",
+      "detail": "After Matt's 'Never run claude /init' video (huge, bloated CLAUDE.md files), Tarik from the Claude Code team asked him what init should do. His feedback: use progressive disclosure much more aggressively, propose a set of skills, and keep CLAUDE.md extremely minimal - basically only environment info. The redesigned init ships in the Claude binary behind an environment variable, and Matt feels a duty to test whether his old video needs deprecating.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Let init explore before it asks",
+      "detail": "Run on his course-video-manager repo, the new init first asks which CLAUDE.md files to set up and whether to configure skills and hooks. Matt's criticism: it should not ask - it should just explore and report opportunities. He dictates 'I have no idea, why don't you tell me', and Claude spends 1 minute 54 seconds surveying the repo, then recommends skills plus hooks: a format-on-edit hook running Prettier after every edit, and a verify skill for typecheck and tests, correctly noticing the repo already has three skills.",
+      "time_hint": "01:25"
+    },
+    {
+      "title": "The AskUserQuestion UI is a bad surface for review",
+      "detail": "Matt explains why he never uses the AskUserQuestion tool in his own skills: when init asks 'Does this proposal look right?', he cannot actually see the proposal, and pressing N for notes does not let him annotate the design - so he escapes the UI instead. His rule of thumb for agent flows: prefer proposals as readable documents in the conversation over modal question UIs, so a human can properly review and respond to them.",
+      "time_hint": "02:37"
+    },
+    {
+      "title": "If a hook already enforces it, the CLAUDE.md line is redundant",
+      "detail": "Init proposed steering text: 'use npm run typecheck, never npx tsc'. But Matt already has a hook that detects npx tsc in a bash tool call and redirects it to npm run typecheck - deterministic enforcement. Asked what the CLAUDE.md line would add, the agent concedes: nothing, the hook enforces it deterministically, and drops it. This is the general principle behind his other video on forcing the right CLI: hooks guarantee behavior; instructions merely suggest it.",
+      "time_hint": "03:40"
+    },
+    {
+      "title": "Ask the agent to stand up to you to counter sycophancy",
+      "detail": "LLMs are naturally sycophantic, so when Matt disagrees he prompts: 'stand up to me on this one, give me the best possible justification for including it'. Against the useEffect-reducer steering line, the agent argues Claude's default instinct when writing reducers is React's useReducer, and one CLAUDE.md line is cheap insurance against a mistake that is annoying to catch in review. That argument - non-obvious failure cost, not token cost - is what earns a line its place.",
+      "time_hint": "04:55"
+    },
+    {
+      "title": "The LLM has an instruction budget, and conversation spends it",
+      "detail": "Matt thinks in terms of the budget an LLM has for instructions - it can reasonably handle only about 500, and the conversation itself is full of them (each correction, each 'stand up to me' consumes budget too). This is the real cost of every CLAUDE.md line: not its token count, but a permanent claim on a scarce instruction-following budget. It is also why he accepted the single useEffect-reducer line despite its narrowness - cheap insurance is worth it; marginal lines are not.",
+      "time_hint": "06:00"
+    },
+    {
+      "title": "Reject what is trivially discoverable and what will rot",
+      "detail": "Two more filters he applies. Testing patterns (effect Vitest, create test DB, truncate all tables) were rejected because Claude explores the repo before writing tests and will find them in existing test files - documenting them creates a CLAUDE.md dependency that must be updated when tests change. The skill init generated also listed currently-installed effect packages, which he killed: recommendations must be durable, and lists of current state rot as the codebase moves.",
+      "time_hint": "06:45"
+    },
+    {
+      "title": "Move rare knowledge into a narrow, non-user-invocable skill",
+      "detail": "For the rare 'npm install --force for effect packages' rule, Matt has init move it into a dedicated skill invoked only when installing effect packages - progressive disclosure that avoids burning always-on instruction budget. He also sets user-invocable: false so the skill never appears in his own skill list, since only the model needs it. He keeps the generated skill's 'why not' explanation, which is genuinely useful, while trimming the rote parts.",
+      "time_hint": "08:05"
+    },
+    {
+      "title": "Verdict: better, but still too eager to please",
+      "detail": "The final output is a refreshingly minimal one-line CLAUDE.md plus one narrow skill - a clear improvement over the old init, which asked no questions and produced an enormous file. But Matt flags the sycophancy: the agent folded on every single pushback ('Smart. That's a better home for it.') instead of arguing, and someone with less context paranoia would still have accepted a decently-sized CLAUDE.md. His feedback to the Claude Code team: make it less sycophantic, more proactive in suggesting skills, and have it provide the steelman argument for every line it wants to include.",
+      "time_hint": "09:30"
+    }
+  ],
+  "key_points": [
+    "CLAUDE.md should be nearly empty - every line must earn its permanent slot in context.",
+    "A hook that intercepts npx tsc beats a hundred lines telling the agent not to use it.",
+    "An LLM can only follow so many instructions; the conversation itself spends that budget.",
+    "Reject guidance that is trivially discoverable by exploring the code.",
+    "Only durable recommendations belong in config - lists of current state rot.",
+    "Say 'stand up to me' when the agent folds too easily - sycophancy is the default.",
+    "Rare rules belong in narrow skills with progressive disclosure, not in always-loaded context.",
+    "The new /init is a real improvement, but it still needs to argue for its choices."
+  ],
+  "mermaid": "flowchart TD\n  envvar[\"Environment variable enables new init\"] --> questions[\"Setup questions - project or personal CLAUDE dot md\"]\n  questions --> explore[\"Claude explores repo for 1m54s\"]\n  explore --> proposal[\"Proposal - CLAUDE dot md plus hooks plus skills\"]\n  proposal --> grill[\"Human grills each line\"]\n  grill --> f1{\"Already enforced by a hook\"}\n  f1 -->|yes - typecheck steering| drop1[\"Drop it\"]\n  grill --> f2{\"Trivially discoverable in code\"}\n  f2 -->|yes - test patterns build commands| drop2[\"Drop it\"]\n  grill --> f3{\"Durable and frequent enough\"}\n  f3 -->|no - effect package list| drop3[\"Drop or move to skill\"]\n  f3 -->|yes - useEffect reducer line| keep[\"Keep one line\"]\n  keep --> out[\"Minimal CLAUDE dot md plus one narrow non user invocable skill\"]\n  drop3 --> skill[\"Progressive disclosure skill\"]\n  skill --> out\n  out --> verdict[\"Improvement - but agent stayed too sycophantic\"]",
+  "generated": "2026-10-22"
+}

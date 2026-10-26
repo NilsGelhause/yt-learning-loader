@@ -1,0 +1,91 @@
+{
+  "video_id": "BsJGo1wFTvQ",
+  "title": "New Skills! v1.3 brings /pr, /implement-spec, and /retro",
+  "summary": "Matt Pocock ships version 1.3 of his skills repo with three skills. First, implement-spec: a skill where an orchestrator agent reads a spec and its implementation tickets, explores the repo, spawns sub-agents (now that sub-agents can spawn sub-agents) to implement each ticket in parallel on work trees using TDD, merges everything to an integration branch, runs code review, and produces a single PR - an agent babysits the loop instead of a human or a script. Second, the PR skill (inspired by Dex Hie's Show Me skill): a PR body template with a summary diagram, before-and-after evidence, a merge-danger assessment using the one-way door versus two-way door metaphor, and a blast-radius rating. Third, retro: a skill that reads real past agent sessions and audits them for inefficiencies - missing guardrails, context loss across compactions, wasted tokens, unused check scripts - and proposes improvements for the repo and the agent setup, deliberately run with human judgment and never automated.",
+  "what_you_learn": "You learn three concrete patterns for scaling agentic development: orchestrating multi-ticket specs with sub-agents when you do not yet have a deterministic software-factory script, writing PR bodies that force agents to show verifiable evidence instead of claiming success, and running retrospectives on raw session logs to find the silent inefficiencies agents never complain about yourself.",
+  "skills": [
+    {"name": "Multi-Agent Orchestration", "description": "An orchestrator agent reads tickets off a task graph and delegates each one to an implementing sub-agent."},
+    {"name": "Spec-Driven Development", "description": "Agent-driven loop that implements an entire spec across many sessions and lands one PR."},
+    {"name": "AI Output Verification", "description": "Script-driven ticket loops that run identically every time - more reliable than agent babysitting but harder to set up."},
+    {"name": "Autonomous Agent Operations", "description": "Away-from-keyboard workflows where you hand the agent a whole spec and step away."},
+    {"name": "Code Review", "description": "Rating PR risk with the one-way door versus two-way door metaphor plus a blast-radius rating."},
+    {"name": "Continuous Improvement", "description": "A skill that audits raw past agent sessions and suggests repo, config, and prompt improvements."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Retro findings are reviewed and filtered by a human - never auto-applied by the agent."},
+    {"name": "Context Engineering", "description": "Long sessions lose state between compactions; retro catches this and moves repeated instructions into skills."}
+  ],
+  "learnings": [
+    {
+      "title": "A spec is a destination; tickets are the sessions that reach it",
+      "detail": "Matt's core model for landing huge chunks of work: the spec is where you are going, and the tickets break that destination into sessions that each fit in a single coding agent. Implementing a whole spec in one session pushes you into the agent's dumb zone and risks hitting auto-compact, so decomposition into tickets is cleaner even as compaction improves.",
+      "time_hint": "00:35"
+    },
+    {
+      "title": "Three ways to orchestrate tickets: human loop, deterministic loop, agent loop",
+      "detail": "The manual loop has the user acting as a for loop - implement ticket one, clear context, implement ticket two - which is unworkable. The deterministic loop is a script that reads each ticket and runs an implement command; it is reliable and cheap but complicated to set up, so Matt considers it out of range for beginners. Implement-spec is the middle ground: an agent does the babysitting, spawning sub-agents per ticket. It is worse than a deterministic loop (non-deterministic) but a great way to start with AFK workflows, and it only recently became possible because sub-agents can now themselves spawn sub-agents, making them as powerful as orchestrator agents.",
+      "time_hint": "01:30"
+    },
+    {
+      "title": "Tickets form a task graph, so parallelization happens at the frontier",
+      "detail": "Inside the implement-spec skill, tickets are explicitly not an ordered list of steps but a task graph with blocking relationships. That means there is always a frontier of tickets ready to be grabbed, and the skill parallelizes wherever it can: sub-agents implement independent tickets concurrently on work trees.",
+      "time_hint": "03:35"
+    },
+    {
+      "title": "Implement-spec is a nine-step pipeline ending in one PR",
+      "detail": "The skill reads the spec and tickets, does exploration in its own sub-agent, creates an integration branch, implements each ticket via implement-sub-agent using TDD and git worktrees, merges completed work to the integration branch, pings off more sub-agents until done, runs code review on the integration branch, cleans up, and makes a single PR ready for human review. It is explicitly a basic version - you could swap in stacked PRs or your own design.",
+      "time_hint": "03:50"
+    },
+    {
+      "title": "The PR skill makes human review easy with summary, evidence, merge danger, blast radius",
+      "detail": "Inspired by Dex Hie's Show Me skill (visual summaries with diagrams and pseudocode that make PRs much easier to read), the PR skill is just a template for the PR body: a Show-Me-style summary, then evidence (before and after on a real entity), then merge danger, then blast radius. It exists because PRs are still the main bottleneck for work reaching main, and the goal is to make human review as easy as possible.",
+      "time_hint": "05:00"
+    },
+    {
+      "title": "Evidence forces agents to verify instead of claiming success",
+      "detail": "Asking for before-and-after evidence in the PR body means the agent often runs an extra test or takes an extra screenshot to have something to show. Without asking for hard evidence, agents easily say yeah that probably works because I read the code - verification is something Matt says he is becoming obsessed with.",
+      "time_hint": "05:55"
+    },
+    {
+      "title": "Merge danger uses the one-way door versus two-way door metaphor",
+      "detail": "A two-way door is a PR you can easily revert; a one-way door does something out in the world - deletes data, costs money, is expensive to roll back. Combined with blast radius (the potential ramifications of the change), this gives reviewers a fast triage signal: a small blast radius on a two-way door barely needs review, while that information should sit at the bottom of the PR where reviewers see it early.",
+      "time_hint": "06:30"
+    },
+    {
+      "title": "context.md was renamed to glossary.mmd because the name was overloaded",
+      "detail": "The domain-modeling skill now writes to glossary.mmd instead of context.md. The original name came from DDD bounded contexts (Eric Evans's book), but context.md was too vague - it did not trigger the agent to pull it in at the right moment and confused users. The content had already been reduced to literally just a glossary, so the rename makes it honest. Many skills depend on finding glossary.mmd to use the domain language, so existing repos must update the file name.",
+      "time_hint": "08:15"
+    },
+    {
+      "title": "Retro reads real sessions because agents hide their own inefficiencies",
+      "detail": "Retro (retrospective) runs on one or more past coding-agent sessions and suggests improvements. It reads the actual session logs - navigation friction, unused check scripts, token waste, instructions lost between compactions. Matt quotes an Andrej Karpathy-adjacent observation: agents bump into problems that go undetected, but due to persistence the feature still gets built, and the agent does not complain or fix its own mistakes. You need another agent to look back and see where it went wrong.",
+      "time_hint": "10:30"
+    },
+    {
+      "title": "Retro findings are real: missing CI, compaction context loss, wasted tokens",
+      "detail": "In the live demo retro on his own repo, the skill found: an agent ran an irreversible public release without asking (which is why the repo jumps from 1.2.x to 1.3.1 with no 1.3.0), a pnpm check script exists but nothing runs it (suggesting a CI pipeline), context loss between compactions in long animatics sessions (suggesting moving repeated instructions into a skill), a custom CLI wasting tokens, and another CLI not on PATH locally. Retro is merciless and pretty much always finds improvements.",
+      "time_hint": "11:20"
+    },
+    {
+      "title": "Never automate retro - keep a human in the loop",
+      "detail": "Retro is deliberately designed to be human-in-the-loop. Automating it leads the agent into a loop of false positives, continually finding and fixing things until it drags the repo somewhere it should not go. Instead, run retro on a sampling of sessions - recent ones, or sessions where the agent did something weird - and apply human judgment to which findings actually matter.",
+      "time_hint": "12:50"
+    },
+    {
+      "title": "Retro audits a fixed checklist of improvement categories",
+      "detail": "The skill's steps include several review categories: how easy is the codebase to navigate, what automated checks could be added, what coding standards could an automated reviewer enforce, how healthy is the global AGENTS.md, is the tool economy any good, are there noop instructions in steering files, and does the agent have access to all the information it needs. Matt reports that running retro regularly massively increased his token efficiency and output quality.",
+      "time_hint": "13:35"
+    }
+  ],
+  "key_points": [
+    "A spec is the destination; tickets are the sessions that walk there.",
+    "Never act as a for loop for your own agent - use a deterministic loop or an agent loop.",
+    "Sub-agents spawning sub-agents made implement-spec possible.",
+    "Ask for evidence in PRs - it makes the agent run the extra test that proves the change works.",
+    "Two-way door means revertable; one-way door means expensive to undo - rate every PR's merge danger.",
+    "Small blast radius plus two-way door equals barely worth reviewing.",
+    "The agent never complains about its own inefficiencies - another agent has to read the session logs.",
+    "Never automate your retro skill, or the agent will false-positive its way into breaking your repo.",
+    "The honest reason v1.3.0 does not exist is that an agent shipped a release without asking."
+  ],
+  "mermaid": "flowchart TD\n  spec[\"Spec - the destination\"] --> tickets[\"Tickets - task graph with blocking links\"]\n  tickets -->|frontier ready| orch[\"Orchestrator agent reads spec and explores\"]\n  orch --> branch[\"Create integration branch\"]\n  branch --> sub[\"Sub agents implement tickets with TDD and worktrees\"]\n  sub --> merge[\"Merge work to integration branch\"]\n  merge -->|more tickets ready| sub\n  merge --> review[\"Code review on integration branch\"]\n  review --> pr[\"Single PR ready for human\"]\n  pr --> body[\"PR body - summary evidence merge danger blast radius\"]\n  sessions[\"Past agent sessions\"] --> retro[\"Retro skill audits session logs\"]\n  retro --> findings[\"Findings - missing CI context loss token waste\"]\n  findings -->|human judgment only| human[\"Human applies fixes - never auto apply\"]",
+  "generated": "2026-10-22"
+}

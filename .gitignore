@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# runtime noise
+server.out.log
+server.err.log
+data/audit.log
+data/jobs.json
+data/test_results.json
+
+# heavy / personal data stays local; the learning library (videos.json,
+# learnings/*.json) IS tracked as a backup
+data/thumbs/
+data/transcripts/
+data/progress/
+teach/

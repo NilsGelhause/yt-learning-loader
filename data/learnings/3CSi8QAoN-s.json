@@ -1,0 +1,71 @@
+{
+  "video_id": "3CSi8QAoN-s",
+  "title": "How to actually force Claude Code to use the right CLI (don't use CLAUDE.md)",
+  "summary": "Matt Pocock answers the common question of how to force Claude Code to use the right CLI command (pnpm instead of npm, wrapper scripts instead of npx, blocking git push) without relying on CLAUDE.md instructions. He explains why CLAUDE.md is the wrong tool: it makes task-specific instructions global, burns the LLM's limited instruction budget (roughly 500 instructions), and negative instructions like 'never run git push' reduce probability but never prevent deterministically. The solution is Claude Code hooks - deterministic code that runs at fixed points of the agent's execution cycle, in particular the PreToolUse hook, which can block a tool call before it executes. He pastes a prepared prompt into a fresh Claude Code session that asks the agent to convert the CLAUDE.md instructions into deterministic bash hook scripts wired into settings.json, reviews the generated npm.sh script (checks if the command starts with npm, echoes 'use pnpm not npm', exits with code 2), and demos it: npm install React Query is blocked and Claude automatically switches to pnpm install. He finishes by generalizing: move every enforceable rule out of the instruction budget into just-in-time enforcement (hooks, ESLint rules), and notes the pattern ports to Codex and other agents.",
+  "what_you_learn": "You learn the key distinction between probabilistic steering (instructions in CLAUDE.md) and deterministic enforcement (hooks that run code before a tool call), and get a ready-made prompt plus the mechanics - exit code 2 blocking, PreToolUse matchers, settings.json wiring - to convert your own CLAUDE.md rules into hooks. For an agent-systems beginner this is the canonical example of shaping an LLM agent with surrounding deterministic machinery instead of prompt words.",
+  "skills": [
+    {"name": "Agent Guardrails", "description": "Guaranteeing an agent cannot run a command, instead of just reducing the probability via instructions."},
+    {"name": "Context Window Management", "description": "The limited number of instructions an LLM can follow (roughly 500) before it gets weaker and more confused."},
+    {"name": "Continuous Improvement", "description": "Replacing warnings and instructions with machine-checkable feedback like hooks and ESLint rules."},
+    {"name": "Prompt Engineering", "description": "Using a prompt inside Claude Code itself to convert CLAUDE.md instructions into deterministic hook scripts."}
+  ],
+  "learnings": [
+    {
+      "title": "CLAUDE.md instructions work but are the wrong default",
+      "detail": "The first approach everyone tries is putting 'use pnpm not npm' in CLAUDE.md. It works most of the time, especially when the file is otherwise nearly empty, but it makes a task-specific instruction global for every action in the repo. Matt has advocated almost always deleting your CLAUDE.md precisely because of this.",
+      "time_hint": "0:35"
+    },
+    {
+      "title": "LLMs have an instruction budget of about 500 instructions",
+      "detail": "An LLM can realistically hold only about 500 instructions before it gets less powerful and more confused, and you want it spending that budget on complicated plans and implementation, not on whether to use npm or pnpm. The killer detail: negative instructions like 'we never want it to git push' burn budget on something you are not actually using the budget to prevent - they reduce the chance of the command but do not deterministically stop it.",
+      "time_hint": "1:15"
+    },
+    {
+      "title": "Hooks run deterministic code at points in Claude Code's execution cycle",
+      "detail": "Hooks let you run deterministic code when events fire - session start, when a permission dialog appears (to auto-approve things), and the one Matt uses: PreToolUse, which runs before a tool call executes and can block it. When an event fires, all matching hooks run in parallel. This is the mechanism for preventing a command deterministically while also guiding the LLM toward the correct solution.",
+      "time_hint": "2:05"
+    },
+    {
+      "title": "A prompt can convert CLAUDE.md instructions into deterministic hooks",
+      "detail": "Matt prepared a prompt (lifted syntax from the Claude Code docs) that you paste into a session: take the instructions in the CLAUDE.md file and turn them into deterministic Claude Code hooks in the project directory, doing only the ones you can (like preferring one CLI over another or disallowing commands), using separate .sh files per hook, then confirming with the user which hooks to create, implementing them, and giving test instructions. The agent reported two enforceable rules: block npm commands and block git push.",
+      "time_hint": "2:40"
+    },
+    {
+      "title": "The generated hook checks the command and exits with code 2",
+      "detail": "The generated npm.sh bash script checks whether the command starts with npm as the command, echoes 'use pnpm not npm', and exits with code 2 - the non-zero exit code is what blocks the tool call and feeds the message back to the agent. Claude Code then made it executable with chmod +x.",
+      "time_hint": "3:30"
+    },
+    {
+      "title": "Hooks are wired into settings.json with matchers",
+      "detail": "The agent writes a hooks property into settings.json: a PreToolUse entry that matcher-matches any bash tool, and when it matches, runs the npm.sh command block. This is the actual wiring that makes the hook fire on every bash tool call in the project.",
+      "time_hint": "4:00"
+    },
+    {
+      "title": "Demo - npm install blocked, agent automatically switches to pnpm",
+      "detail": "After deleting the instruction from CLAUDE.md and restarting Claude Code in the project, Matt asks it to npm install React Query. The PreToolUse hook fires with 'blocked - use pnpm not npm', and the agent proceeds to run pnpm install @tanstack/react-query instead. One mechanism both prevented a command and steered the agent to the right one, and the instruction was removed from the global CLAUDE.md.",
+      "time_hint": "5:00"
+    },
+    {
+      "title": "Enforce rules just in time to keep them out of the instruction budget",
+      "detail": "The bigger pattern: take instructions out of the instruction budget and enforce them deterministically so the remaining CLAUDE.md instructions are available just in time - hovering in the background until Claude progressively discovers them. Matt applies the same idea to style rules he hates (like positional parameters in functions) by turning them into ESLint rules, so the feedback loop lints Claude into the right thing without warning or instructing it.",
+      "time_hint": "5:35"
+    },
+    {
+      "title": "The hooks pattern ports to other coding agents",
+      "detail": "Matt notes Claude is not the be-all and end-all - he wants to try other coding agents too - but the hooks idea is not exclusive to Claude Code. The same knowledge and approach likely transfer to Codex or whatever agent you are using; deterministic interception of tool calls is a general harness concept.",
+      "time_hint": "6:30"
+    }
+  ],
+  "key_points": [
+    "CLAUDE.md instructions are probabilistic - hooks are deterministic.",
+    "An LLM only holds about 500 instructions; do not waste them on npm vs pnpm.",
+    "Negative instructions reduce the chance of a bad command but never prevent it.",
+    "PreToolUse hooks run before a tool call and can block it - exit code 2 says no.",
+    "Paste a prompt, let Claude write your hook scripts and wire settings.json.",
+    "Demo payoff: npm install blocked, agent automatically runs pnpm install instead.",
+    "Turn style opinions into ESLint rules so feedback loops replace instructions.",
+    "Hooks are a harness idea, not a Claude idea - it ports to Codex and others."
+  ],
+  "mermaid": "flowchart TD\n  want[\"Human rule - use pnpm not npm\"] --> choice{\"How to enforce\"}\n  choice -->|\"instruction\"| md[\"CLAUDE.md - global budget burning and probabilistic only\"]\n  choice -->|\"deterministic\"| hook[\"PreToolUse hook - npm.sh\"]\n  prompt[\"Prompt pasted into Claude Code\"] --> gen[\"Agent generates hook script and settings config\"]\n  gen --> cfg[\"settings.json hooks - PreToolUse matcher bash\"]\n  cfg --> hook\n  call[\"LLM issues bash tool call\"] --> hook\n  hook -->|\"starts with npm\"| block[\"Echo use pnpm not npm - exit code 2\"]\n  hook -->|\"other command\"| allow[\"Tool call executes normally\"]\n  block --> adapt[\"LLM adapts and runs pnpm install instead\"]\n  block --> saved[\"Instruction removed from CLAUDE.md budget\"]",
+  "generated": "2026-10-22"
+}

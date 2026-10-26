@@ -1,0 +1,64 @@
+{
+  "video_id": "yv8VZpov8bk",
+  "title": "I'm using claude --worktree for everything now",
+  "summary": "Matt Pocock reacts to Claude Code's new built-in git worktree support, which lets agents run in parallel without interfering with each other. He first demos plain git worktrees in his course video manager repo - git worktree add creates a second folder on its own branch that VS Code's source control shows alongside the main repo, so he can commit, publish, PR, merge, and pull back to main, then clean up with git worktree remove. He then tries claude --worktree, which creates a worktree under .claude/worktrees with a generated branch name and still uses git worktree under the hood, and has the agent delete a file, commit, push, and open a PR. He hits one real paper cut: commits land on the branch the worktree was created from (main) unless you push with the explicit worktree branch name, which is dangerous if main is unprotected. He wraps up on sub-agents now supporting worktrees (opt-in) and why tying each worktree's lifecycle to a single agent makes parallelization effectively free.",
+  "what_you_learn": "You learn the practical mechanics of running Claude Code agents in isolated git worktrees, including the exact commands (git worktree add/remove, claude --worktree, git push origin <worktree-branch>) and the one footgun that can silently push agent commits to main. For a developer building multi-agent systems, this is the cheapest isolation primitive: one folder, one branch, one agent, one PR, then delete - parallel agent work with a clean lifecycle and no interference.",
+  "skills": [
+    {"name": "Agent Work Isolation", "description": "Claude Code's built-in claude --worktree command that creates and manages worktrees under .claude/worktrees for agent sessions."},
+    {"name": "Agent Guardrails", "description": "Protecting main so agent commits pushed to a worktree's source branch cannot land on main by accident."},
+    {"name": "Agent Harness Engineering", "description": "A tool absorbing another tool's complexity - Claude managing git worktree creation and cleanup inside its own lifecycle."}
+  ],
+  "learnings": [
+    {
+      "title": "git worktree add checks out a second branch in its own folder",
+      "detail": "Running git worktree add UI-updates inside a repo on main creates a new UI-updates folder on a separate branch with its own git state. Pocock cd's into it, confirms with git status that it sits on the UI-updates branch, and creates a file there - demonstrating multiple branches checked out on one machine at the same time.",
+      "time_hint": "00:42"
+    },
+    {
+      "title": "Good IDEs surface worktrees in source control automatically",
+      "detail": "Inside VS Code (and Cursor), the source control panel shows both the main repo and the worktree, so changes in the worktree can be staged, committed, and pushed to a new branch without leaving the IDE. He publishes the branch and opens a PR from the UI, merges it, then git pull in the main folder brings the change home.",
+      "time_hint": "01:22"
+    },
+    {
+      "title": "Worktrees are removed with git worktree remove",
+      "detail": "Once work in a worktree is merged, the folder can be deleted either with a plain rm -rf or properly with git worktree remove UI-updates. After removal the IDE's source control panel goes back to showing only the main worktree. Cleaning up matters because a leftover worktree folder keeps consuming disk and attention.",
+      "time_hint": "02:27"
+    },
+    {
+      "title": "claude --worktree wraps git worktree with automatic naming and lifecycle",
+      "detail": "Running claude --worktree creates a worktree at .claude/worktrees/<generated-funny-name> with an auto-named branch - it is just git worktree under the hood. The agent then works inside it (deleting fubar.md, running git status and git log, committing, pushing), and on Ctrl+C Claude asks whether to keep or remove the worktree. If you remove it without pushing, all commits are lost, so he pushes first.",
+      "time_hint": "03:04"
+    },
+    {
+      "title": "Paper cut: agent commits land on the branch the worktree was created from",
+      "detail": "His first surprise: after the agent committed and pushed, git log on main showed the deletion commit - the worktree was created from main, so the commit went against main. git worktree and claude --worktree behave differently here, and he suspects claude --worktree needs extra configuration to branch properly. The lesson: verify which branch an agent actually committed to before merging anything.",
+      "time_hint": "04:17"
+    },
+    {
+      "title": "Always push the explicit worktree branch name - and protect main",
+      "detail": "The fix: push with the specific generated branch, e.g. git push origin worktree-delightful-dazzling-sketch, which creates that branch on the remote. Otherwise the agent's commits target the source branch - in this case main. Stated bluntly: if your main branch is not protected and you create a worktree from it, you can accidentally push commits straight to main when you meant to open a PR.",
+      "time_hint": "05:41"
+    },
+    {
+      "title": "Sub-agents now support worktrees but you must opt in",
+      "detail": "From the announcement, sub-agents can also use worktrees: a parent agent spins up a sub-agent, which makes a PR back to main, all orchestrated from above. But it is opt-in - Claude will not use worktrees for its agents automatically; you have to ask it to. This is the building block for parallel multi-agent development on one repo.",
+      "time_hint": "06:40"
+    },
+    {
+      "title": "A worktree per agent ties lifecycle to work and makes parallelization free",
+      "detail": "Pocock's overall verdict: he wants to use worktrees every time he runs Claude, because any idea can instantly become a new worktree, get working code, and ping back to main as a PR. Managing the whole worktree lifecycle inside the agent session means parallelization costs almost nothing - and it fits his belief that AI coding is not that different from human coding, just that you must teach the AI the fundamentals like effective parallelization.",
+      "time_hint": "07:05"
+    }
+  ],
+  "key_points": [
+    "git worktree add <name> gives you a second folder on its own branch - two checkouts, one repo.",
+    "claude --worktree creates .claude/worktrees/<funny-name> and is plain git worktree under the hood.",
+    "Removing a worktree without pushing first deletes its commits forever.",
+    "Agent commits land on the branch the worktree was created from - push the explicit worktree branch name.",
+    "An unprotected main plus a worktree created from main equals accidental pushes to main.",
+    "Sub-agent worktrees exist but are opt-in - you must tell Claude to use them.",
+    "One worktree per agent, one PR back to main: parallelization becomes nearly free."
+  ],
+  "mermaid": "flowchart TD\n  idea[\"New idea or task\"] --> cmd[\"claude --worktree\"]\n  cmd --> folder[\"Worktree in .claude/worktrees with generated branch name\"]\n  folder --> agent[\"Agent edits commits and pushes\"]\n  agent --> risk{\"Pushed which branch\"}\n  main[\"Unprotected main branch\"] -->|source branch risk| risk\n  risk -->|default - commits land on main| danger[\"Accidental commits to main\"]\n  risk -->|explicit push of worktree branch| pr[\"Open PR back to main\"]\n  pr --> merge[\"Merge - pull in main checkout\"]\n  agent --> exit[\"Ctrl C - keep or remove worktree\"]\n  exit -->|remove before push| lost[\"Unpushed commits lost\"]\n  exit -->|push first| clean[\"git worktree remove - cleaned up\"]\n  sub[\"Sub agents opt in to worktrees\"] --> agent",
+  "generated": "2026-10-22"
+}

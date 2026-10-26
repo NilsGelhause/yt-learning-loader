@@ -1,0 +1,58 @@
+{
+  "video_id": "SF1Ab0Y-9BY",
+  "title": "Don't know which model to choose? *taps the graph*",
+  "summary": "Matt Pocock walks through a benchmark graph from the DeepSWE benchmark (deepswe.datacurve.ai) that plots AI models by average cost per task on the x-axis and quality (percentage of tasks solved) on the y-axis, with each model shown at several effort levels. He isolates three models: Claude Fable, which improves noticeably from low to high effort but plateaus between extra-high and max, and costs about $13 per completed task at high effort; GPT 5.6 Sol, which reaches the same performance as Fable at high effort for only about $3.50 per task; and Claude Sonnet 5, which sits around 40% quality at medium effort but whose max effort point is more expensive than Claude Fable 5 while reaching only about 54%. He closes with the caveat that all benchmarks are flawed because they do not represent your actual day-to-day work - the graph is a starting point for model and effort selection, especially good at exposing differences between lower effort levels.",
+  "what_you_learn": "You learn a practical method for choosing models and effort levels for agentic coding: read cost-per-task against quality on a public benchmark to find the cost-to-performance sweet spot, and treat effort level as a tunable knob with diminishing returns (and sometimes outright bad deals). This is tokenomics in action - the same task can cost 4x more depending on model and effort settings.",
+  "skills": [
+    {"name": "AI Benchmarking", "description": "Using public benchmarks like DeepSWE as a starting signal for model capability, with the caveat that they never represent your own workload."},
+    {"name": "Model Selection & Routing", "description": "Comparing models on cost-per-task versus solved-task quality rather than reputation or list price."},
+    {"name": "Token Economics", "description": "Pricing agent runs by cost per actual completed task exposes how wildly total spend varies with model and effort settings."}
+  ],
+  "learnings": [
+    {
+      "title": "The DeepSWE graph plots cost per task against quality",
+      "detail": "The benchmark visualization at deepswe.datacurve.ai puts average cost per task on the horizontal axis and quality (the amount of tasks the model got right) on the vertical axis. Each model appears as several points - one per effort level - so you can see both how a model scales with effort and how it compares to others at the same spend.",
+      "time_hint": "0:07"
+    },
+    {
+      "title": "Read the graph as a frontier, not a ranking",
+      "detail": "The useful question the graph answers is not which model is best overall but which point on the cost-quality frontier you should buy for your workload. A model that is worse on absolute quality can still be the right choice if it solves enough of your tasks at a far lower cost per task.",
+      "time_hint": "0:21"
+    },
+    {
+      "title": "Claude Fable scales with effort up to a plateau",
+      "detail": "Fable performs noticeably differently at low versus medium versus high effort - but there is no difference between extra high and max. Past a certain effort level you are paying more for zero quality gain, so blindly cranking effort to max is wasted spend on this model.",
+      "time_hint": "0:28"
+    },
+    {
+      "title": "Fable at high effort costs about $13 per completed task",
+      "detail": "Matt calls Fable exceedingly expensive: at high effort it runs about $13 per actual task completed. That is the reference price to beat when shopping the rest of the frontier for the same quality level.",
+      "time_hint": "0:39"
+    },
+    {
+      "title": "GPT 5.6 Sol matches Fable's quality at $3.50 per task",
+      "detail": "At high effort, GPT 5.6 Sol achieves the same performance as Fable on this benchmark for vanishingly low cost - roughly $3.50 per task. That is nearly a 4x price difference for the same benchmark result, the clearest demonstration in the video of why cost-per-task beats model reputation when choosing.",
+      "time_hint": "0:45"
+    },
+    {
+      "title": "Claude Sonnet 5's max effort is a bad deal",
+      "detail": "The hilarious one, per Matt: Sonnet 5 sits around 40% quality at medium effort, but its max-effort point costs more than Claude Fable 5 while reaching only about 54% quality. Max effort is not automatically worth it - you must check the marginal quality you get for the marginal dollars, and sometimes the answer is do not upgrade.",
+      "time_hint": "0:55"
+    },
+    {
+      "title": "Benchmarks are a starting point, not a verdict",
+      "detail": "All benchmarks are flawed because they do not represent what you are doing day to day - they do not represent your work. Matt's advice: use the graph as a starting point for choosing model and effort level, then validate on your own tasks. The graph is especially good at exposing differences between lower effort levels, where curves spread out the most.",
+      "time_hint": "1:10"
+    }
+  ],
+  "key_points": [
+    "Plot cost per task against tasks solved - the frontier tells you what quality your dollars actually buy.",
+    "Claude Fable plateaus between extra high and max effort: past the plateau you pay for nothing.",
+    "$13 per task for Fable at high effort versus $3.50 for GPT 5.6 Sol at the same quality.",
+    "Sonnet 5 at max effort costs more than Fable 5 and still only reaches about 54% - max effort is not automatically a good deal.",
+    "All benchmarks are flawed: they do not represent your work - validate on your own tasks.",
+    "Effort level matters most at the low end, where models differ the most."
+  ],
+  "mermaid": "flowchart TD\n  bench[\"DeepSWE benchmark graph\"] --> x[\"X axis - average cost per task\"]\n  bench --> y[\"Y axis - quality - tasks solved\"]\n  bench --> pts[\"One point per model per effort level\"]\n  fable[\"Claude Fable\"] --> fcurve[\"Low medium high differ - extra high equals max\"]\n  fable --> fcost[\"About $13 per task at high effort\"]\n  sol[\"GPT 5.6 Sol\"] --> solcost[\"About $3.50 per task - same quality as Fable\"]\n  sonnet[\"Claude Sonnet 5\"] --> smax[\"Max effort costs more than Fable 5 for only 54 percent\"]\n  bench --> caveat[\"Benchmarks are flawed - not your workload\"]\n  caveat --> use[\"Starting point for model and effort selection\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,53 @@
+{
+  "video_id": "A0scuiiGBC4",
+  "title": "Kill your MEMORY.md",
+  "summary": "Matt Pocock argues against Claude Code's auto-memory feature and recommends turning it off entirely. Auto-memory saves anything it interprets as a preference into a local MEMORY.md file, and because it is over-eager, a preference about one specific feature silently spreads into every future conversation with the agent. He prefers a completely stateless agent that starts from a consistent base each session, making its behavior predictable. Explicit preferences should instead be written deliberately by the human into CLAUDE.md or a doc in the repository, keeping the human in control of steering rather than letting remembered kludge accumulate.",
+  "what_you_learn": "You learn a concrete configuration decision for making AI coding agents predictable: disable auto-memory, treat memory build-up as drift-inducing kludge, and inject context explicitly through CLAUDE.md or repo docs so every session starts from a known, consistent base.",
+  "skills": [
+    {"name": "Agent Memory & State", "description": "Running agents with no retained memory between sessions so behavior starts from a consistent, predictable base."},
+    {"name": "AI Safety & Alignment", "description": "Preferring configuration that makes agent behavior repeatable over convenience features that introduce variance."},
+    {"name": "System Prompt Design", "description": "Writing preferences into CLAUDE.md or repository docs instead of letting the agent infer and store them itself."}
+  ],
+  "learnings": [
+    {
+      "title": "Turn Claude Code auto-memory off completely",
+      "detail": "In Claude Code you can disable auto-memory by going into the memory settings and turning it off. When it is on, everything the agent decides is a preference gets saved into a local file called MEMORY.md, which is then injected into future sessions. Matt keeps it off completely and recommends almost deleting everything the agent has saved on its own.",
+      "time_hint": "0:07"
+    },
+    {
+      "title": "Auto-memory is too eager and lets one preference contaminate everything",
+      "detail": "The failure mode: you express a preference about one specific feature and how it should be built, the agent saves it to its memory bank, and from then on it influences every single conversation, even unrelated ones. A local decision becomes global context, which is almost never what you want.",
+      "time_hint": "0:22"
+    },
+    {
+      "title": "A stateless agent is predictable because it works from a consistent base",
+      "detail": "With auto-memory off, the agent does not remember anything from previous sessions. Matt argues this makes it much more predictable: he knows how it will behave because every session starts from the same consistent base, rather than from an unknown accumulation of remembered preferences.",
+      "time_hint": "0:43"
+    },
+    {
+      "title": "Memory build-up is kludge that makes every session slightly different",
+      "detail": "Over time, saved memories pile up into a kludge. Each time you use the agent it behaves slightly differently and slightly less predictably, because you no longer know exactly what context it is working from. Stateless operation eliminates this drift entirely.",
+      "time_hint": "0:55"
+    },
+    {
+      "title": "The human should control steering, not the agent's memory",
+      "detail": "Matt's principle: you should be in control of the steering - choosing where the agent goes. If you want a preference expressed, do it yourself deliberately by editing CLAUDE.md (misheard as claw.md in captions) or making a small doc in the repo, so the instruction is visible, versioned, and intentional.",
+      "time_hint": "1:06"
+    },
+    {
+      "title": "Explicit docs beat ambient memory for reliability",
+      "detail": "The contrast is between ambient, agent-decided memory and explicit, human-authored context. Putting preferences in CLAUDE.md or a repo doc means you can review, diff, and delete them; MEMORY.md entries are invisible until they silently shape behavior.",
+      "time_hint": "1:16"
+    }
+  ],
+  "key_points": [
+    "Turn auto-memory off in Claude Code and almost delete everything the agent saved itself.",
+    "Auto-memory is way too eager: one feature-specific preference leaks into every conversation.",
+    "A stateless agent is predictable because every session starts from a consistent base.",
+    "Memory build-up is kludge; every session becomes slightly less predictable.",
+    "You should control the steering - put preferences in CLAUDE.md or a repo doc yourself.",
+    "People are obsessed with agents remembering things; killing the memory works better."
+  ],
+  "mermaid": "flowchart TD\n  auto[\"Auto memory ON\"] --> md[\"MEMORY dot md local file\"]\n  md --> eager[\"Over eager preference saving\"]\n  eager --> leak[\"One feature preference leaks into every conversation\"]\n  leak --> drift[\"Kludge builds up and behavior drifts\"]\n  off[\"Auto memory OFF\"] --> stateless[\"Completely stateless agent\"]\n  stateless --> pred[\"Predictable consistent base every session\"]\n  ctl[\"Human controls the steering\"] --> explicit[\"Preferences written to CLAUDE dot md or repo docs\"]\n  explicit --> stateless",
+  "generated": "2026-10-22"
+}

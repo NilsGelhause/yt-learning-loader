@@ -1,0 +1,84 @@
+{
+  "video_id": "A8mokin_YOs",
+  "title": "New Skills! v1.1 brings /wayfinder, /research, /implement, /to-spec, /to-tickets",
+  "summary": "Matt Pocock ships version 1.1 of his skills repo live in the video by merging the release PR. The headline changes: two renames for precision — to-prd becomes to-spec (the output was always a specification, broader than a product requirements document) and to-issues becomes to-tickets (issues is GitHub/Linear jargon; tickets are the journey from spec to built thing), with a migration path of deleting and re-adding skills via the npx installer. He fixes long-standing grilling bugs — multiple questions asked at once (now with the reasoning explained: it is bewildering), agents ending interviews and jumping straight into implementation (now blocked by a confirmation gate), and agents 'grilling themselves' by exploring the codebase (fixed by explicitly separating facts the agent discovers from decisions only the user can make). He formalizes the full development lifecycle with a new, deliberately tiny implement skill that ends by invoking code review, and upgrades code review with named Martin Fowler refactoring smells, which work because the smell names are deep in every model's priors. The flagship addition is Wayfinder: for ideas too big for one agent session, it charts a shared map of decision tickets on the repo's issue tracker — with blocking relationships, per-session-sized tickets, and types for research, grilling, prototype, and tasks — until the route from idea to spec is clear. Supporting skills include research (background agent investigating primary sources into a markdown file) and a TDD skill rewritten as reference-only material (red before green, one slice at a time, refactoring moved out of the loop into code review).",
+  "what_you_learn": "You see how an experienced agent-workflow maintainer iterates on prompts and skills: rename things until the vocabulary matches reality, explain WHY to the model (not just what) to change behavior, add explicit gates for irreversible transitions, and exploit what is already deep in model priors (Fowler smells) with a few lines of prompt. The Wayfinder section is the most valuable part — a concrete pattern for planning work that blows past one context window, using an issue tracker as shared, collaborative, resumable state instead of fragile chat history.",
+  "skills": [
+    {"name": "Spec-Driven Development", "description": "Naming the flow precisely: to-spec creates the destination, to-tickets the journey, because spec is broader and more accurate than PRD."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "One question at a time with the reasoning explained, a facts-vs-decisions distinction, and a confirmation gate before enacting any plan."},
+    {"name": "Planning & Prioritization", "description": "Charting a too-big, foggy idea as a map of decision tickets on the issue tracker, worked one session at a time until the route is clear."},
+    {"name": "Iterative Prototyping", "description": "A Wayfinder ticket type that raises discussion fidelity with a cheap rough artifact when how it should look or behave is the key question."},
+    {"name": "Code Review", "description": "Parallel sub agents checking code against repo standards and against the originating spec, now graduated out of in-progress."},
+    {"name": "Multi-Agent Orchestration", "description": "A small skill that spins up a background agent to investigate against primary sources and write findings to a markdown file."},
+    {"name": "Test-Driven Development", "description": "TDD skill reduced to reference-only rules — red before green, one slice at a time — with refactoring moved into code review."}
+  ],
+  "learnings": [
+    {
+      "title": "Renames that matter: to-spec and to-tickets",
+      "detail": "Two main-flow skills were renamed, and Pocock argues the vocabulary shapes the output. to-prd became to-spec because what it produced was never really a product requirements document — non-product things were leaking in — while spec is the broader, correct term for a description of a thing you want to build, technical or not. to-issues became to-tickets because issues is biased toward GitHub and Linear; the model is: you have a spec (the destination), and underneath it tickets (the journey to enact it). Migration requires deleting the old skills and re-running `npx skills add mattpocock/skills`, because the installer will not pick up renames; then audit your skills folder for stale leftovers.",
+      "time_hint": "0:37"
+    },
+    {
+      "title": "Tell the model WHY, and gate the transition to implementation",
+      "detail": "The grilling reference skill was sharpened in two ways. First, it always said ask one question at a time, but models still occasionally asked several — the fix was explaining the reason: asking multiple questions at once is bewildering. Second, many users on different models reported the grilling session simply ending and the agent going straight into implementation, so a confirmation gate was added: do not enact the plan until the user confirms a shared understanding has been reached.",
+      "time_hint": "2:34"
+    },
+    {
+      "title": "Facts vs decisions stops the agent from grilling itself",
+      "detail": "A stranger bug: the agent would grill itself — explore the codebase and then ask and answer its own questions (especially on Fable). The fix is a couple of leading words that split interrogation into facts, which the agent finds by exploring the codebase, and decisions, which must be made by the user. Since this change, the weird self-grilling reports largely disappeared — a cheap, two-sentence prompt change with outsized effect.",
+      "time_hint": "3:00"
+    },
+    {
+      "title": "The complete lifecycle is now explicit: grill, spec, tickets, implement",
+      "detail": "v1.1 turns what was primarily a planning process into a proper software development lifecycle. The flow: grill-with-docs interviews you, maintaining a glossary and architectural decision records to capture non-obvious stuff; its output goes into a spec that defines the destination; to-tickets spreads development over multiple agent sessions; then each ticket is implemented with the implement skill. The implement skill itself is deliberately tiny — implement the work described in the spec or tickets, use TDD where possible at pre-agreed seams, run typechecking and single test files regularly and the full suite once at the end, then code review and commit.",
+      "time_hint": "4:06"
+    },
+    {
+      "title": "A trivial skill earns its place by closing the loop",
+      "detail": "Pocock almost did not ship the implement skill because it is so simple — it mostly relies on the agent's priors and the harness. Its real value is structural: at each stage of the process the skill calls the next one, so implement ends by invoking code review. That makes the lifecycle self-chaining — every stage hands off to the next automatically — which is what turns a pile of prompts into a workflow.",
+      "time_hint": "5:30"
+    },
+    {
+      "title": "Code review graduates with two axes as parallel sub agents",
+      "detail": "The code review skill is promoted out of in-progress and keeps its theory: two axes, each run as its own sub agent in parallel. The standards axis checks the code against the repo's documented coding standards — Pocock thinks coding standards belong in their own file (e.g. coding-standards.md), separate from AGENTS.md, and are most useful at review time. The spec axis checks the code faithfully implements the originating issue, PR, or spec. Running both in fresh sub agents keeps reviewers unbiased by the implementation context.",
+      "time_hint": "6:45"
+    },
+    {
+      "title": "Named refactoring smells are deep in the agent's priors",
+      "detail": "After rereading Martin Fowler's Refactoring, Pocock added smell names to the code review skill — about ten lines, and outrageously useful in testing. The trick: Refactoring is so old and well-cited that the smells (mysterious name, duplicated code, feature envy, data clumps, primitive obsession, repeated switches, divergent change, speculative generality, message chains, middle man) are deep in every model's priors, so merely invoking the name leads the agent to repeat it back — 'I found some message chains, I need to remove them' — and fix the issue itself.",
+      "time_hint": "7:00"
+    },
+    {
+      "title": "Wayfinder charts a foggy, too-big idea as a map of tickets",
+      "detail": "Wayfinder is the flagship addition, designed for the moment a loose idea arrives that is too big for one agent session and wrapped in fog — you would blow the smart zone or the whole context window before the route is visible. The skill charts the way as a shared map on the repo's issue tracker (GitHub issues), then works its tickets one at a time until the route is clear. A live example: a Sandcastle-repo spike on pulling in the AI SDK as a dependency, where every pending decision is a sub-issue with blocking relationships — no decision can be made before the key early one — and each decision is scoped to the size of one agent session. When all tickets close, their information is saved onto the map and you convert it to a spec the regular way. It kills the anxiety of manually managing sessions and handoffs, and it is collaborative — the map lives in GitHub for the whole team.",
+      "time_hint": "7:52"
+    },
+    {
+      "title": "Wayfinder ticket types: research, grilling, prototype, tasks",
+      "detail": "Wayfinder tickets carry a type. Research means an AFK task — the agent goes off, does research, and comes back. Grilling means a decision that needs an interview session with the user. Prototype means the decision is best made at higher fidelity: the agent makes a cheap, rough, concrete artifact to react to (outline or rough UI logic code via the prototype skill) when how should it look or how should it behave is the key question — essential for almost anything touching front-end. Tasks are the boring config, provisioning, and data-shaping work that needs neither a grilling decision nor AI automation. The original tickets stay as primary sources on the map.",
+      "time_hint": "9:30"
+    },
+    {
+      "title": "Supporting skills: research and prototype",
+      "detail": "Two small skills support Wayfinder. The research skill spins up a background agent so you keep working while it reads; it investigates the question against primary sources and writes findings to a simple markdown file saved where the repo already keeps such notes, matching the existing convention. The prototype skill (the subject of its own video) now models a choice between a logic-or-state prototype and a UI prototype — they are built quite differently — and Wayfinder can invoke it itself for prototype-type tickets.",
+      "time_hint": "11:21"
+    },
+    {
+      "title": "TDD becomes reference-only: red before green, refactoring moves to review",
+      "detail": "The old TDD skill prescribed a step-by-step interactive process — confirming which tests to write, walking through them — which did not fit how most people want TDD to work and could not be handed to an AFK agent. The rewritten skill is reference material only: red before green, one slice at a time, with refactoring explicitly split out of the loop. Pocock's reasoning: refactoring belongs in the code review stage, because folding it into implementation overloads the implement agent. The result is a TDD skill you can pass to an unattended agent and it just works.",
+      "time_hint": "12:12"
+    }
+  ],
+  "key_points": [
+    "Name things precisely: it was never a PRD, it was a spec; they were never issues, they were tickets.",
+    "Explain WHY to the model — one question at a time because multiple questions are bewildering.",
+    "Gate irreversible transitions: do not enact the plan until the user confirms shared understanding.",
+    "Separate facts the agent can discover from decisions only the user can make.",
+    "Fowler's smell names are deep in model priors — ten lines of prompt makes agents find and fix them.",
+    "Wayfinder charts a foggy, too-big idea as a map of blocking decision tickets on your issue tracker.",
+    "Refactoring belongs in code review, not in the red-green loop — do not overload the implement agent.",
+    "A workflow of skills beats a pile of prompts when every stage calls the next one."
+  ],
+  "mermaid": "flowchart TD\n  v11[\"skills v1 point 1 merged\"] --> rename[\"to spec and to tickets renamed - destination and journey\"]\n  rename --> grill[\"grill with docs - glossary plus ADRs - one question at a time with confirmation gate\"]\n  grill --> way{\"Idea too big for one session\"}\n  way -->|no| spec[\"to spec - destination document\"]\n  way -->|yes| wf[\"Wayfinder map of decision tickets on issue tracker\"]\n  wf --> types[\"Ticket types - research grilling prototype tasks\"]\n  types --> spec\n  spec --> tickets[\"to tickets - one per smart zone\"]\n  tickets --> impl[\"implement - TDD at seams typecheck then code review\"]\n  impl --> review[\"code review - parallel sub agents\"]\n  review --> smells[\"Refactoring smells - Fowler names deep in priors\"]\n  smells --> commit[\"Commit to branch\"]",
+  "generated": "2026-10-22"
+}

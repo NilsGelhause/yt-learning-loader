@@ -1,0 +1,34 @@
+{
+  "video_id": "LzCMVyAcZKE",
+  "title": "Coding ROAD TRIP",
+  "summary": "A four-minute test stream before the 'Coding ROAD TRIP' format launched. The streamer is trying Restream for the first time to multistream to YouTube and Twitch simultaneously: YouTube and its chat work, but his Twitch dashboard keeps showing him offline even though Restream reports the stream as live. He pokes at bitrate settings (Twitch warns the bitrate is below its recommended range and suggests dropping below 5000), lowers his bitrate, drives his truck while checking chat, and ultimately cancels the stream to debug. The only coding content is the announcement of the format itself: trucking in Euro Truck Simulator 2 while answering TypeScript questions.",
+  "what_you_learn": "Very little direct engineering content - this is a connectivity shakedown, not a lesson. The one transferable nugget is practical livestreaming ops: when multistreaming through a relay like Restream, verify each platform's dashboard independently, because the relay can report 'live' while a platform shows 'offline', and platform bitrate warnings are the first thing to check.",
+  "skills": [
+    {"name": "Personal Automation", "description": "Dropping output bitrate below platform recommendations, e.g. under 5000 for Twitch, when a relay connection misbehaves."}
+  ],
+  "learnings": [
+    {
+      "title": "A relay saying 'live' does not mean each platform is live",
+      "detail": "Using Restream for the first time to simulcast to YouTube and Twitch, he finds YouTube streaming and chatting fine while his Twitch dashboard insists he is offline. The lesson: always check each platform's own dashboard and chat rather than trusting the relay's status page - and be ready to restart the stream or tweak outputs when they disagree.",
+      "time_hint": "00:55"
+    },
+    {
+      "title": "Bitrate warnings are the first diagnostic for a failing stream",
+      "detail": "Twitch flags his bitrate as below its recommended range and recommends setting it under 5000; he lowers his bitrates mid-stream as a fix attempt. When a stream will not connect or a platform drops it, output bitrate and the per-platform output settings in the relay are the first knobs to turn before deeper debugging.",
+      "time_hint": "01:37"
+    },
+    {
+      "title": "Test the full loop before announcing a new stream format",
+      "detail": "The whole point of this short broadcast was to validate the 'trucking plus TypeScript Q&A' format end to end - chat interaction, Twitch delivery, audio - before doing it for real. He explicitly says part of why he is testing is that Twitch was not working. Ten minutes of rehearsal caught a platform configuration issue that would have sunk the real stream.",
+      "time_hint": "00:30"
+    }
+  ],
+  "key_points": [
+    "Restream said live; Twitch said offline - trust the platform dashboards, not the relay.",
+    "Twitch wants bitrate under 5000; warnings are your first diagnostic.",
+    "Rehearse a new stream format end to end before promoting it.",
+    "Format previewed here: Euro Truck Simulator 2 plus live TypeScript Q&A."
+  ],
+  "mermaid": "flowchart TD\n  obs[\"OBS stream\"] --> restream[\"Restream relay\"]\n  restream -->|reports live| yt[\"YouTube - working chat and stream\"]\n  restream -->|reports live| twitch[\"Twitch - dashboard shows offline\"]\n  twitch --> diag[\"Diagnose - check bitrate warning\"]\n  diag --> fix[\"Lower bitrate below 5000\"]\n  fix --> restart[\"Cancel and restart stream\"]",
+  "generated": "2026-10-22"
+}

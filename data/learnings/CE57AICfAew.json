@@ -1,0 +1,54 @@
+{
+  "video_id": "CE57AICfAew",
+  "title": "A dictionary of AI Coding",
+  "summary": "Matt Pocock argues that AI coding is drowning in jargon - harness engineering, context engineering, prompt engineering - that makes genuinely simple concepts feel confusing. As a countermeasure he built the AI Coding Dictionary at aicodingdictionary.com: an interactive site where you can click any term (context window, harness, tool call) and jump between related definitions. The whole dictionary also lives in a public GitHub repository written in plain markdown, which makes it a perfect starting corpus for pointing an AI agent at so the agent can teach you the vocabulary of AI coding.",
+  "what_you_learn": "You get a mental map of the core vocabulary of AI coding - context window, harness, tool call - and a practical habit: when a field is jargon-heavy, build or use a plain-language dictionary and let your agent read it, instead of guessing at terms. It also shows that harness engineering, context engineering, and prompt engineering are just new names for concrete, learnable ideas.",
+  "skills": [
+    {"name": "Documentation", "description": "An interactive plain-English dictionary of AI coding terms, browsable on the web and as markdown in a GitHub repo."},
+    {"name": "Agent Harness Engineering", "description": "The term for designing and controlling the agent harness - the scaffold around the model - once you strip the jargon away."},
+    {"name": "Context Engineering", "description": "Managing what information lives in the model's context window, demystified as a dictionary term."},
+    {"name": "Context Window Management", "description": "The limited amount of text a model can attend to at once, one of the foundational dictionary terms."},
+    {"name": "Agent Onboarding", "description": "Pointing your AI agent at a plain-markdown knowledge repo so it can teach you a new domain."}
+  ],
+  "learnings": [
+    {
+      "title": "Jargon makes simple things feel confusing on purpose",
+      "detail": "Matt's opening rant: fields like finance, crypto, and now AI coding pile up terms - harness engineering, context engineering, prompt engineering - that make actually simple ideas feel confusing, often for the benefit of the people coining them. His response is not to ignore the field but to strip each term down to plain English. This is a useful reflex for any developer entering the AI-agent space.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "The AI Coding Dictionary is a clickable map of the field's terms",
+      "detail": "He built aicodingdictionary.com as an interactive dictionary: you click a term like context window, read its plain-English definition, and then jump directly to related terms like harness or tool call. The navigation between related concepts mirrors how the ideas actually connect, so you learn the vocabulary and the mental model at the same time.",
+      "time_hint": "00:20"
+    },
+    {
+      "title": "Core terms to know: context window, harness, and tool call",
+      "detail": "The video demos navigating to three foundational terms. The context window is how much text the model can see at once. The harness is everything wrapped around the model - tools, prompts, orchestration - that turns a model into a coding agent. A tool call is how the model reaches outside itself to read files, run commands, or search. These three form the skeleton of every AI coding discussion.",
+      "time_hint": "00:31"
+    },
+    {
+      "title": "The dictionary lives in a GitHub repo as plain markdown",
+      "detail": "All the definitions are in an open-source GitHub repository (github.com/mattpocock/dictionary-of-ai-coding) written in plain markdown - no proprietary format, no lock-in. Plain markdown means it is diffable, forkable, and directly readable by both humans and agents.",
+      "time_hint": "00:41"
+    },
+    {
+      "title": "Use the markdown repo as a starting corpus for your agent to teach you",
+      "detail": "Matt's closing point: if you want your agent to teach you about AI coding, this markdown repo is a great place to start. You can clone it, add it to your agent's context or skills directory, and ask the agent to explain terms as you hit them. It is a concrete example of onboarding an agent with curated reference material instead of relying on the model's fuzzy memory.",
+      "time_hint": "00:46"
+    },
+    {
+      "title": "Prompt engineering being partly BS means the underlying ideas are simple",
+      "detail": "Matt lumps prompt engineering in as BS 'to some extent' - not because prompting does not matter, but because the name inflates a set of concrete, learnable practices into mystique. The dictionary approach works because each buzzword resolves to a small, understandable mechanism you can reason about.",
+      "time_hint": "00:16"
+    }
+  ],
+  "key_points": [
+    "Jargon makes simple things feel confusing - usually for someone's benefit.",
+    "Harness, context window, and tool call are the skeleton terms of AI coding.",
+    "A dictionary you can click through teaches vocabulary and mental model together.",
+    "Keep learning material in plain markdown in a public repo - agents can read it too.",
+    "Point your agent at a curated markdown corpus when you want it to teach you a field."
+  ],
+  "mermaid": "flowchart TD\n  jargon[\"Buzzwords - harness engineering context engineering prompt engineering\"] --> motive[\"Jargon makes simple things feel confusing\"]\n  motive --> dict[\"AI Coding Dictionary website\"]\n  dict --> terms[\"Clickable terms - context window harness tool call\"]\n  dict --> repo[\"GitHub repo in plain markdown\"]\n  repo --> agent[\"Your AI agent reads the corpus\"]\n  agent --> learn[\"Agent teaches you AI coding vocabulary\"]",
+  "generated": "2026-10-22"
+}

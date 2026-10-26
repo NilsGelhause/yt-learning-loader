@@ -1,0 +1,99 @@
+{
+  "video_id": "DNDYYHsypZg",
+  "title": "Pi Durable PROACTIVE Agents: Jev Triggers My ON-CALL Pi Agent",
+  "summary": "Indie Dev Dan breaks down Pi Durable, the newly released feature of the open-source Pi coding agent (by Mario and Armin) that makes agents persistent across failures, client switches, and restarts. He demos two systems: a proactive on-call incident-response agent where the Jev classifier watches a live event stream, detects an incident, and triggers a detached durable agent that runs a detect-investigate-root-cause-fix-review workflow and waits for human approval before a non-replayable deploy; and a Durable Pi network playground spanning an M4 Mac mini, an M6 mini, an M5 MacBook Pro, and exe.dev cloud sandboxes. He walks the full feature set - background auto-compaction, shared persistent application state, durable tasks with phases and resumability, multi-client attach over a single agent API, tool-set changes mid-execution, extensions (including a Jev-based damage-control guard), and session forking - then argues why durable agents enable proactive, long-running, human-near-the-loop agents and why you should own this layer of your stack.",
+  "what_you_learn": "You get a feature-by-feature mental model of what a durable agent actually is (state, tasks, tools, clients, extensions) and how Pi Durable implements each, which is exactly the vocabulary you need to design long-running agent systems. The on-call demo is a complete reference architecture for event-driven agentic automation: cheap classifier on the stream, durable agent for the workflow, human approval gate on irreversible actions.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "Pi Durable persists agent work, conversations, and application state through failures, clients, and change."},
+    {"name": "Autonomous Agent Operations", "description": "Jev classifies streaming events and triggers a durable agent to run an incident workflow without human prompting."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Agents run autonomously but pause for human approval at critical steps like production deploys."},
+    {"name": "Multi-Agent Orchestration", "description": "One detached agent served over a single API to browser, TUI, CLI, curl, and product frontends."},
+    {"name": "Agent Memory & State", "description": "Repeatable phased jobs that can be resumed per-phase when something goes wrong."},
+    {"name": "Agent Guardrails", "description": "Ultra-cheap, reliable, fast zero-shot classification of events at pennies per thousand."}
+  ],
+  "learnings": [
+    {
+      "title": "A durable agent survives failures, client changes, and restarts",
+      "detail": "Dan's definition: Pi Durable lets the Pi coding agent persist ongoing work, conversations, and application state through failures, through different clients, and through change itself. Refreshing the browser, killing the process, or restarting the machine does not stop the agent - it resumes from its last checkpoint. This is different from /resume, which only restores a past session manually.",
+      "time_hint": "02:00"
+    },
+    {
+      "title": "Jev triggering an agent turns monitoring into proactive incident response",
+      "detail": "In the demo, a mock application streams live events; the Jev classifier evaluates every single event for pennies (6 cents for hundreds of messages, 16 cents for 6,000 rows). When Jev detects an incident, it triggers a detached durable Pi agent, passing the payload, location, and error. The agent then walks the standard on-call workflow: detect, investigate, root-cause, fix, present for review, deploy.",
+      "time_hint": "02:15"
+    },
+    {
+      "title": "The incident agent's root cause was a classic bad null check",
+      "detail": "The checkout API broke on apply loyalty discounts at checkout with 100% traffic because of a null customer loyalty tier. The cause: a bang operator (non-null assertion) instead of null coalescing. Dan's rule: never use a bang - always null coalesce or pull the value out with a safe if statement. He reviewed the summary and code diff, confirmed the classic issue, and approved.",
+      "time_hint": "04:10"
+    },
+    {
+      "title": "Guard irreversible operations with a human approval gate",
+      "detail": "The deploy-to-production step is deliberately a non-replayable, safe operation that can only be called once, and the agent waits for explicit human approval before running it. This is the human-near-the-loop pattern: the agent does 95% of the work, then blocks on a human for the irreversible step. Dan notes he added almost no value beyond a redundant safety check - and that is the point.",
+      "time_hint": "04:40"
+    },
+    {
+      "title": "Compaction runs in the background so long sessions never die on context limits",
+      "detail": "Pi Durable adds configurable compaction marks: once the agent crosses the mark, it forks the session and compacts in the background; when it hits the reserve threshold it stops. Because it happens in the background, other work (jobs, other sessions) continues while the context is compressed - critical when agents run for days.",
+      "time_hint": "06:55"
+    },
+    {
+      "title": "Durable application state is one shared JSON object per device",
+      "detail": "Every durable Pi agent gets tools like read state and update state over a persistent state object. Crucially, one session can write state (for example incident details) and a different agent session on the same device reads the exact same state back - shared application state across agents. This is how you debug one issue and coordinate many agents on a device.",
+      "time_hint": "08:00"
+    },
+    {
+      "title": "Durable tasks are repeatable, phased workflows you can resume",
+      "detail": "Tasks are repeat operations the agent runs - raw code or code plus sub-agents. They have phases, so if anything goes wrong inside a specific phase you can repeat just that phase. Example: a release-check job spawns a sub-agent that must ask the human a question (near-the-loop approval) before continuing. The agent can also list job statuses: completed, aborted, last phase.",
+      "time_hint": "10:10"
+    },
+    {
+      "title": "Attach any client to a detached agent over one API",
+      "detail": "Using just (his CLI organizer) Dan lists durable agent IDs on the network, then runs attach with an ID to connect a terminal client to an agent running on an exe.dev cloud sandbox. Creating a session in the terminal simultaneously appears in the browser - proving browser and TUI are clients, and the agents live in the cloud or on their own devices. The hierarchy is device, then workspace, then agent.",
+      "time_hint": "15:45"
+    },
+    {
+      "title": "Every harness execution is a task, so tool sets can change mid-run",
+      "detail": "Per the Pi Durable docs, everything the harness runs - a model call, a tool call - is a task, and that means it can be changed. Dan switches the client to read-only mode mid-session; the agent notices, says its earlier tool list was wrong, and adapts. Agents are not used to having tools stripped mid-execution, so this live reconfiguration is a powerful and novel capability.",
+      "time_hint": "18:15"
+    },
+    {
+      "title": "Extensions let you live-patch agent behavior like a Jev safety guard",
+      "detail": "Pi extensions carry over to Pi Durable and can be toggled at the drop of a button. Dan enables fix smartass Opus (system-prompt engineering against verbose models) and Jev damage control, which judges every bash command: an rm -rf is blocked at 0.99 irreversible confidence with harness blocked because deletion is irreversible. He then turns dangerous mode off and the same command executes - live-updating a running durable agent.",
+      "time_hint": "20:45"
+    },
+    {
+      "title": "Forking gives you parallel experiments from one context",
+      "detail": "The fork command clones an agent session with its full context on the same sandbox, so you can take one conversation in two directions - try an approach on the fork while keeping the root agent intact. You can fork with state, start fresh, or fork from any point in time; it is built into the fabric of Durable Pi.",
+      "time_hint": "22:30"
+    },
+    {
+      "title": "The reasons to go durable: proactive, multi-client, multiplayer, long-running, near-loop",
+      "detail": "Dan's summary of why durable agents matter: they enable proactive agents that start work before you show up; a single agent API serving browser, CLI, curl, mobile, and your product (for example a durable support chatbot that remembers a user's session and clears it after 6 hours); multiplayer agents where co-workers attach and review together; long-running agents that survive closing the laptop; and human-near-the-loop approval workflows.",
+      "time_hint": "25:50"
+    },
+    {
+      "title": "Own your agent harness because you already rent your intelligence",
+      "detail": "A recurring channel theme: outsourcing durable-agent technology to a big lab is a massive risk to your engineering organization - it can change at the drop of a hat, like Claude Code or Codex policies might. Since you must rent intelligence (the models), you should own everything else: the agent, the harness, and now your durable agents. Pi being open source and controllable is why Dan bets on it.",
+      "time_hint": "12:15"
+    },
+    {
+      "title": "Measure yourself by how many agents work for you right now",
+      "detail": "Dan's recommended KPI for every agentic engineer: how many agents are doing useful work for you at any point in time - not how many big jobs you kick off manually (the phase-two mindset). Durable agents raise that number because they run in, near, and out of the loop continuously. Zero-touch engineering (ZTE) is the end state: everything is already done when you show up.",
+      "time_hint": "34:10"
+    }
+  ],
+  "key_points": [
+    "The most valuable agent is the one that doesn't need you to ship.",
+    "Proactive agents don't wait for you to work; they work for you, then wait.",
+    "A bang operator instead of null coalescing took down 100% of checkout traffic.",
+    "Make irreversible operations non-replayable and gate them on human approval.",
+    "Everything the harness runs - model calls, tool calls - is a task you can change mid-flight.",
+    "Jev classified 6,000 streamed events for 16 cents and never went down.",
+    "Browser, TUI, CLI, curl, and your product can all be clients of one detached durable agent.",
+    "You already rent your intelligence - own your agents, your harness, and your durable agents.",
+    "KPI of agentic engineering: how many agents are doing useful work for you at any moment."
+  ],
+  "mermaid": "flowchart TD\n  stream[\"Live event stream\"] --> jev[\"Jev classifier - incident detection\"]\n  jev -->|incident detected| trig[\"Trigger detached durable Pi agent\"]\n  trig --> sop[\"Incident workflow - detect investigate root cause fix\"]\n  sop --> state[\"Shared durable application state\"]\n  sop --> review[\"Present fix for human review\"]\n  review -->|approved| deploy[\"Non replayable deploy to production\"]\n  review -->|declined| sop\n  subgraph device[\"Device workspace agent hierarchy\"]\n    agent[\"Durable Pi agent\"] --> tasks[\"Durable tasks with phases\"]\n    agent --> tools[\"Tools changeable mid execution\"]\n    agent --> ext[\"Extensions - Jev damage control\"]\n    agent --> fork[\"Fork sessions\"]\n  end\n  state --> agent\n  clients[\"Clients - browser TUI CLI curl product\"] -->|attach via API| agent",
+  "generated": "2026-10-21"
+}

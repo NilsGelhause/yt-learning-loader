@@ -1,0 +1,78 @@
+{
+  "video_id": "UzMNBN6xLLA",
+  "title": "9 Things People Get Wrong With My /grill-* skills",
+  "summary": "Matt Pocock responds to the most common complaint about his /grill-me and /grill-with-docs skills - 'Codex just asked me 200 questions' - by teaching the failure modes he sees people hit when using grilling sessions as a replacement for plan mode. He frames grilling as a conversation, not an interview, that relies on the human's own planning skill, then walks through the fixes: sort questions by fidelity (borrowing Ryan Singer's Shape Up vocabulary) and hand ungrillable high-fidelity questions off to a prototype session and back; size the scope small enough to stay in the model's 'smart zone' below roughly 120k tokens of context; stay active without being pigheaded; preserve the valuable design decisions in the context window via a handoff artifact instead of clearing context; use a big frontier model because grilling leans on parametric knowledge, while implementation mostly consumes contextual knowledge and can run on a cheaper model; and run two (occasionally three or four) grilling sessions in parallel to double planning throughput.",
+  "what_you_learn": "You learn to run agent planning sessions deliberately: how to classify questions by the fidelity needed to answer them, when to break out into a prototype instead of answering, how context-window limits (the ~120k dumb zone) should constrain the scope you grill, why model selection matters differently for planning versus implementation (parametric versus contextual knowledge), and practical throughput tactics like parallel sessions and preserving decisions as handoff artifacts.",
+  "skills": [
+    {"name": "Human-in-the-Loop Collaboration", "description": "Sorting questions into low fidelity answerable in conversation and high fidelity requiring a prototype, per Ryan Singer's Shape Up."},
+    {"name": "Iterative Prototyping", "description": "Using the handoff skill to jump to a prototype session for ungrillable questions and then back to the grilling session."},
+    {"name": "Task Management", "description": "Grilling small scopes individually rather than one huge scope that hides unanswerable high-fidelity questions."},
+    {"name": "Context Window Management", "description": "The model's trained-in knowledge, relied on for off-the-wall suggestions, versus knowledge passed in via context."},
+    {"name": "Model Selection & Routing", "description": "Using frontier models for planning that leans on parametric knowledge, cheaper models for implementation fed mostly by context."},
+    {"name": "Multi-Agent Orchestration", "description": "Running two or more grilling sessions in parallel, bouncing between them like Slack threads, to double throughput."},
+    {"name": "Agent Handoffs & Communication", "description": "Preserving design decisions from a grilling session as a PRD or implementing directly before context runs out."}
+  ],
+  "learnings": [
+    {
+      "title": "Grilling relies on the human's planning skill - the skill aids, it does not replace",
+      "detail": "The grill-me and grill-with-docs skills are used worldwide as a replacement for plan mode, but complaints like 'Codex just asked me 200 questions' are usually usage failures, not skill failures. The skills themselves are short and designed to aid the engineer, not replace them: the person answering the questions needs to be good at planning, understand scope, and know what fidelity each question requires to answer.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "Sort questions by fidelity: grillable versus ungrillable",
+      "detail": "Using Ryan Singer's Shape Up vocabulary: high-fidelity questions need a zoomed-in, detailed view to answer - 'how will this UI feel?', 'one enormous form or multiple pages?' - and can only truly be understood with a high-fidelity prototype or the built thing. Low-fidelity questions - 'what URL should this route live on?' - just need an answer. The first failure mode is trying to answer high-fidelity questions during a grilling session: some questions are grillable, others are not.",
+      "time_hint": "01:28"
+    },
+    {
+      "title": "Hand ungrillable questions off to a prototype session and back",
+      "detail": "When a grilling session hits a high-fidelity question, Matt uses the handoff skill to hand off to a prototyping session, spends a session seeing the thing at higher fidelity, then hands off back to the original grilling session with whatever was learned, continuing with the grillable questions. A typical pattern: grill with docs, handoff to prototype, handoff back to the original grill-with-docs session.",
+      "time_hint": "02:59"
+    },
+    {
+      "title": "Scope that is too large hides ungrillable questions",
+      "detail": "Grilling something too big causes two problems. First, a large scope hides high-fidelity questions that are hard to answer without seeing the full thing. Second, it is always easier to build on something known to work than to endlessly plan into the future - the same failure as scheduling days of tasks without an aligned foundation: you end up with crap. The fix is to pick a smaller scope and grill that first.",
+      "time_hint": "03:44"
+    },
+    {
+      "title": "The dumb zone starts around 120k tokens - grill inside the smart zone",
+      "detail": "A practical constraint: a long grilling session may start with a nearly empty context window, but a large scope means you hit the model's dumb zone before half the questions are answered. Matt estimates most state-of-the-art models enter the dumb zone at about 120k tokens, where attention relationships strain and decisions get stupider. Instead, ask the agent up front to break the large scope into smaller scopes, then grill each individually and comfortably inside the smart zone.",
+      "time_hint": "04:30"
+    },
+    {
+      "title": "Be active, not passive - it is a conversation, not an interview",
+      "detail": "Matt always leads the conversation when grilling: it is your job to figure out where you are going, set the scope, and keep things on track. Too passive and the agent does stupid things with the interview - 540 questions, scope explosion, questions that are way too low fidelity. But you can also be too active: grilling endlessly on low-fidelity questions when you actually need to build something to see it in action. Both ends of the axis are failure modes.",
+      "time_hint": "05:41"
+    },
+    {
+      "title": "Preserve the value of the session: implement or write a handoff artifact",
+      "detail": "The design decisions accumulated in the grilling session's context window - answers given, decisions taken - are incredibly valuable. If enough context budget remains, skip the handoff entirely and implement immediately based on the decisions already taken. If you do need to leave, create a handoff artifact: Matt's two-prd skill creates an engineering-tailored handoff document that works for multi-session or single-session work.",
+      "time_hint": "06:54"
+    },
+    {
+      "title": "Never clear context just to write the PRD",
+      "detail": "A failure mode that genuinely shocked Matt: people clear the context window, open a fresh one, and run two-prd there - throwing away perhaps 100,000 tokens of really good design decisions. Every decision made in a grilling session is valuable and should be recorded somewhere, turned into code or into a handoff document you can refer to later. This is fundamentally a context-management awareness problem: think carefully about clearing, compacting, and handing off.",
+      "time_hint": "07:37"
+    },
+    {
+      "title": "Use a smart model for grilling because planning leans on parametric knowledge",
+      "detail": "Models draw on two knowledge sources: contextual knowledge (files read, user prompts, tool results) and parametric knowledge (what they were trained to see and understand), which is less reliable but exactly what grilling relies on - the model's innate understanding of systems is what surfaces off-the-wall suggestions you had not considered (if you had, you would have passed them in as context). Relying on parametric knowledge requires a big frontier model with lots of parameters. Conversely, implementation can run on a dumber model because by then most information is contextual: a detailed plan and relevant files to copy.",
+      "time_hint": "08:40"
+    },
+    {
+      "title": "Run grilling sessions in parallel to double throughput",
+      "detail": "The simplest and most underused tactic: grill multiple sessions in parallel. Matt answers one session's question, switches to the other (usually finished by then), answers, and bounces back - like managing two Slack threads, not costly context switching. He caps at two sessions, going to three only when one runs a long task like research. It doubles planning throughput, feels good, and capacity grows with practice - you might even reach four.",
+      "time_hint": "10:24"
+    }
+  ],
+  "key_points": [
+    "Grilling is a conversation, not an interview - you steer the scope.",
+    "Some questions are grillable; others are ungrillable - prototype the ungrillable ones and come back.",
+    "The dumb zone starts around 120k tokens - grill small scopes inside the smart zone.",
+    "It is easier to build on something that works than to plan endlessly into the future.",
+    "Never clear a full context window of good design decisions just to write a PRD.",
+    "Planning leans on parametric knowledge - pay for a frontier model; implementation leans on context - a cheaper model will do.",
+    "Run two grilling sessions in parallel like two Slack threads and double your throughput."
+  ],
+  "mermaid": "flowchart TD\n  grill[\"Grilling session - Q and A with agent\"] --> fid{\"Question fidelity\"}\n  fid -->|low fidelity grillable| grill\n  fid -->|high fidelity ungrillable| proto[\"Prototype session via handoff skill\"]\n  proto -->|learnings| grill\n  grill --> scope[\"Small scope per session\"]\n  scope --> smart[\"Stay under 120k tokens in the smart zone\"]\n  grill --> steer[\"Active steering - conversation not interview\"]\n  grill --> save[\"Preserve decisions - implement or PRD handoff\"]\n  grill --> model[\"Frontier model for parametric knowledge\"]\n  grill --> par[\"Two parallel sessions double throughput\"]",
+  "generated": "2026-10-22"
+}

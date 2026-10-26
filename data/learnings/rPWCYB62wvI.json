@@ -1,0 +1,88 @@
+{
+  "video_id": "rPWCYB62wvI",
+  "title": "Agentic Engineering Operating Level: WHERE to FOCUS your AGENTS?",
+  "summary": "Dan introduces the 'agentic operating level' framework: the level of abstraction where you and your agents spend time and attention to produce valuable software outputs. He walks a ladder from the foundations (lines, blocks, functions, types, classes) up through code structure (files, modules, directories), data and execution (database tables, scripts, CLIs), delivery and intent (application, repository, plan, documentation), to the agentic system level (AI developer workflows and the software factory). The core argument: higher is not better. Moving up gains leverage and speed but loses control and understanding; moving down does the inverse. He gives concrete rules for when to choose each direction (domain understanding, repetition, risk, performance, out-of-distribution work), maps career archetypes (vibe coder, knowledge worker, data analyst, software engineer) onto the range, argues expertise must be built from the atoms up, and teases levels beyond the software factory: the dark factory and RSI.",
+  "what_you_learn": "You get a decision framework for a problem every agent-using developer faces: when to stay high-level and leveraged (plans, workflows, factories) versus when to drop down into files, types, tables, and functions to regain control. It shows why leverage without understanding fails, how to recognize when work is 'out of distribution' for a model, and why building deep low-level expertise in your domain is a prerequisite for scaling agents safely.",
+  "skills": [
+    {"name": "Agent Harness Engineering", "description": "A framework for choosing the abstraction level where you and your agents focus time, from lines of code to software factories."},
+    {"name": "Strategic Thinking", "description": "Trading abstraction for speed and leverage against direct control and understanding, in either direction as the problem demands."},
+    {"name": "AI Safety & Alignment", "description": "Operating dynamically across a range of levels instead of fixating on one, matching level to the problem at hand."},
+    {"name": "Task Management", "description": "Doing something a third time is the signal to automate it: start with a skill, then a reusable agent, then an AI developer workflow."},
+    {"name": "Hallucination Management", "description": "Recognizing when a model lacks knowledge or is trained against a task, and stepping in with expertise to expand its distribution."},
+    {"name": "Documentation", "description": "Writing plans and documentation for agents and humans with generated images, SVGs, audio, and video so state is understood quickly."}
+  ],
+  "learnings": [
+    {
+      "title": "The agentic operating level answers where your attention goes",
+      "detail": "The framework asks: where is your attention applied, you plus your agent, to generate valuable software outputs? At the top sits the software factory (maximum system leverage); at the bottom you are in full control. Most engineers spend their time at plan or application level and rarely drop below the file level.",
+      "time_hint": "1:10"
+    },
+    {
+      "title": "The five levels of the ladder",
+      "detail": "Level 1 foundations: lines, blocks, functions, types, classes. Level 2 code structure: files, modules, directories. Level 3 data and execution: databases and tables plus scripts and CLIs. Level 4 delivery and intent: application, repository, plan, documentation (level 13 is the vibe-coding level). Level 5 agentic systems: AI developer workflows and the software factory.",
+      "time_hint": "3:02"
+    },
+    {
+      "title": "Higher is not better, range is what matters",
+      "detail": "Gaining leverage without understanding ends badly: running software factories while not knowing your database tables, types, or product vision caps your success. What determines how far you can go is a range of capability across levels, operated dynamically, moving down when you need control and up when it is time to scale.",
+      "time_hint": "9:18"
+    },
+    {
+      "title": "Career archetypes map to ranges on the ladder",
+      "detail": "A vibe coder can only inspect the application artifact. A knowledge worker adds documentation, plan, product. A data analyst adds tables and scripts. A software engineer gets all code primitives and can move further up. Dan credits his senior/principal jump (around 2018-2019) to planning everything, documenting everything, and thinking through the lens of the product and its users.",
+      "time_hint": "11:06"
+    },
+    {
+      "title": "Moving up trades control for leverage, like becoming a manager",
+      "detail": "The higher you operate, the more leverage and speed you get, but the less direct understanding and control, exactly like a lead or CTO who impacts more through a team than through their own hands. Technology gives and takes; the question is which trade-off to make right now.",
+      "time_hint": "13:26"
+    },
+    {
+      "title": "Move down when you lack domain understanding or the stakes are high",
+      "detail": "Choose control when: you have little domain understanding (e.g. Dan building a hardware robot), the system is unfamiliar (new company, new codebase), the domain is high risk and high impact (rockets, housing, biomed), debugging evidence from your agents is weak, or performance and taste matter (e.g. a 5ms slowdown in HFT, vibe-slopped UIs).",
+      "time_hint": "22:20"
+    },
+    {
+      "title": "Move up when the work is understood, repeated, and automatable",
+      "detail": "Choose leverage when you understand the domain (you know right from wrong), the work is familiar and repeated, the output has many artifacts and steps, and evidence supports automation. The three-times rule applies: start with a skill, build a reusable agent, then move it to an AI developer workflow when you want to save money and scale.",
+      "time_hint": "21:00"
+    },
+    {
+      "title": "Out of distribution: when the model does not know or is told not to",
+      "detail": "In-distribution is what common, workhorse, and state-of-the-art models know (build an API, design Postgres). Out-of-distribution is what the model cannot do, does not know, or is actively trained against. You must go down the stack and apply engineering and domain expertise to increase the model's distribution, via context engineering, in-context learning, fine-tuning, or multi-model collaboration like the fusion harness.",
+      "time_hint": "25:59"
+    },
+    {
+      "title": "Expertise is built from the atoms up",
+      "detail": "There is no replacement for raw expertise: you have to bang your head against the domain from the atoms, which for software are lines, blocks, functions, types, classes, files, modules. Only then can you point agents at high levels and steer them at extreme leverage and speed.",
+      "time_hint": "27:53"
+    },
+    {
+      "title": "Concrete recommendation: where to spend time",
+      "detail": "Dan recommends: write media-rich documentation with and for your agents (images, SVGs, audio, video so state is grokked fast); live at the plan level; pay serious attention to database tables for any mid-to-long-term project (the product is the data and your relationship with users); know directory structure, types, and occasionally functions; rarely go to individual lines.",
+      "time_hint": "17:35"
+    },
+    {
+      "title": "Levels beyond the software factory: dark factory and RSI",
+      "detail": "Above the software factory sit the dark factory (software working without you, possible today) and RSI (recursive self-improvement, not possible today). You do not jump to these levels: you build low-level understanding, then scale and combine levels. The channel mission: build living software that runs while we sleep.",
+      "time_hint": "33:23"
+    },
+    {
+      "title": "Final takeaway: leverage without control and understanding is meaningless",
+      "detail": "Move up when you need leverage and speed, move down when you need control and understanding, and retain the ability to move both ways. The framework also requires raw agentic engineering skill (prompt, context, harness engineering, model selection) before the top levels are even reachable.",
+      "time_hint": "35:55"
+    }
+  ],
+  "key_points": [
+    "Higher is not better; a dynamic range of capability beats any single level.",
+    "Leverage without control and understanding is meaningless.",
+    "The third repetition of a task is your red blinking light to automate it.",
+    "If you cannot delineate good outcomes from bad, you have to go down a level.",
+    "Out of distribution means the model does not know or is trained against the task; your job is to expand its distribution.",
+    "The code is the source of truth but it is slow; media-rich documentation is the fast path to understanding.",
+    "You cannot scale something you do not understand.",
+    "Above the software factory wait the dark factory (possible now) and RSI (not yet)."
+  ],
+  "mermaid": "flowchart TD\n  L1[\"Lines Blocks Functions Types Classes\"] --> L2[\"Files Modules Directories\"]\n  L2 --> L3[\"Database Tables Scripts CLIs\"]\n  L3 --> L4[\"Application Repository Plan Docs\"]\n  L4 --> L5[\"AI Developer Workflows Software Factory\"]\n  L5 --> L6[\"Dark Factory then RSI\"]\n  UP[\"Up means Leverage and Speed\"] -.- L5\n  DOWN[\"Down means Control and Understanding\"] -.- L1\n  D{\"Decide by Domain Risk Performance Evidence\"} -.- L3",
+  "generated": "2026-10-21"
+}

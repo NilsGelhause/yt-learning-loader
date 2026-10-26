@@ -1,0 +1,79 @@
+{
+  "video_id": "D1BHGv4gB6c",
+  "title": "Claude Fable 5 BANNED: The First Model Agentic Engineers DON'T NEED",
+  "summary": "The video opens with the news that Anthropic's new top-tier models Claude Fable 5 and Mythos 5 were pulled from subscription plans on June 23rd and then suspended entirely by a federal export-control order after the government found a jailbreak (Anthropic claims the same jailbreaks work on GPT 5.5). Setting the drama aside, Dan builds a benchmark: a single Fable 5 instance orchestrates 15 agent sandboxes on e2b.dev - five Fable, five Opus, five Sonnet agents - each running the same five specs (an LLM price index clone, a Hacker News clone, a scikit-learn model generator, a Pi coding agent docs chat, and a multi-agent chat room app). All 15 loop until done and deploy to public URLs. Fable cost $200 vs $91 for Opus and $55 for Sonnet, used roughly 1M tokens vs 700k each, but finished about 20% faster. From the results he derives three observations - price per intelligent agent hour, Fable is an orchestrator not a worker, and most engineers do not need this model - and closes on how this changes his own workflow toward more planning, less reviewing, and zero-touch engineering.",
+  "what_you_learn": "You learn a practical framework for evaluating frontier models for agentic work: benchmark an orchestrator model against its cheaper siblings on identical specs in isolated sandboxes, then judge on price per intelligent agent hour rather than price per token. It also teaches when multi-agent orchestration is worth the cost and when a mid-tier model is the right economic choice.",
+  "skills": [
+    {"name": "Multi-Agent Orchestration", "description": "Using one strong model to spin up and coordinate many specialized agents in their own sandboxes to scale throughput."},
+    {"name": "Token Economics", "description": "Evaluating models by cost per unit of completed end-to-end work instead of raw price per token."},
+    {"name": "Spec-Driven Development", "description": "Writing long detailed specs with validation and review steps so an agent can execute without babysitting."},
+    {"name": "AI Benchmarking", "description": "Giving a model compute (agent sandboxes on e2b.dev) and identical specs, then comparing cost, tokens, and time across model tiers."},
+    {"name": "Model Selection & Routing", "description": "Routing work across state-of-the-art, workhorse, and lightweight models based on task complexity."},
+    {"name": "Software Factory", "description": "The goal of shipping to production from a single prompt because the agentic system plans, builds, tests, and reviews itself."}
+  ],
+  "learnings": [
+    {
+      "title": "Context: Fable 5 was banned by export controls, not just rug-pulled from plans",
+      "detail": "Beyond the June 23rd removal from Pro, Max, Team, and Seed plans, on June 12th a federal export-control order made Anthropic suspend both Fable 5 and Mythos 5 after the government found a jailbreak. Anthropic states the same jailbreaking techniques work on GPT 5.5, which is why the selective ban is controversial. Dan treats the suspension as temporary and focuses on what the model means for agentic engineers.",
+      "time_hint": "00:15"
+    },
+    {
+      "title": "The benchmark setup: one orchestrator, 15 sandboxes, five identical specs",
+      "detail": "A single Fable 5 instance orchestrated itself plus its two 'little brothers' Opus and Sonnet: five agents of each tier, each in its own agent sandbox on e2b.dev with full control of the instance. Every agent ran the exact same five specs, looped until the work was complete, then hosted the result on a public URL so results could be compared end-to-end. The five specs ranged from simple (LLM price index clone of Simon Willison's llm-prices.com, Hacker News clone) to hard (a multi-agent chat room with an embedded micro IDE where agents operate inside the UI).",
+      "time_hint": "01:55"
+    },
+    {
+      "title": "Observation 1: you are buying price per intelligent agent hour, not price per token",
+      "detail": "Fable lost on raw economics: $200 in tokens vs $91 for Opus and $55 for Sonnet, and about 1M tokens vs roughly 700k each. But it completed the work about 20% faster. The reframing: stop thinking task-by-task and start thinking 'feature shipped, work completed end-to-end' - time is the scarcest resource. Fable makes sense when missions are big; for centering a div it is a donation to Anthropic, but $10 per million tokens is nothing if the task is genuinely valuable.",
+      "time_hint": "04:15"
+    },
+    {
+      "title": "Observation 2: Fable 5 is not an intern, it is an orchestrator",
+      "detail": "Dan's model of an engineer's progression with agents: start with a base agent, learn prompting and context engineering, add more agents, customize and specialize them, and finally orchestrate all previous levels. Fable sits at that last level - like a principal engineer whose best skill is delegating. Anthropic's own system card confirms it: their multi-agent benchmarks scale the best model to 3, 5, 10, and unlimited async sub-agents and accuracy goes up - scale compute, scale impact, even though token usage across agents sometimes makes things slower and costlier.",
+      "time_hint": "09:12"
+    },
+    {
+      "title": "Delegation is what makes a 1M context window enough",
+      "detail": "The entire session - spinning up all 15 agents, running them, and building the presentation for the video - fit in 62% of Fable's one-million-token context window (about 600k tokens), with over a million input tokens across agents and around 100k outputs in total. Without delegation into separate agent sandboxes this work would be impossible; multi-agent orchestration is how you escape the context-window ceiling.",
+      "time_hint": "15:05"
+    },
+    {
+      "title": "The tradeoff triangle governs every agent deployment",
+      "detail": "Every agent trades off three things: performance, speed, and cost. As a north star Dan always sacrifices speed and cost for performance, but the equation flips fast depending on context - a product agent with per-token costs cannot run a Fable-level model, while a subscription with unlimited tokens can. Knowing which corner of the triangle your workload lives in decides which model tier you deploy.",
+      "time_hint": "11:20"
+    },
+    {
+      "title": "Observation 3: the first state-of-the-art model most engineers do not need",
+      "detail": "On roughly 80% of the benchmark tasks, Opus and Sonnet did the job at a fraction of the price and Dan could not tell the difference in the outputs. His checklist before upgrading: if you cannot write long detailed plans of 100-500 lines, HTML specs with images, or envision the solution end-to-end, you probably do not need Fable - Opus is enough. Build a model stack with state-of-the-art, workhorse, and lightweight tiers instead of paying to play everywhere.",
+      "time_hint": "18:30"
+    },
+    {
+      "title": "Frontier models raise the floor but catapult the ceiling",
+      "detail": "Dan rejects the fear that models make engineering obsolete: engineers who have been building systems that build systems (meta-agentic engineering) get a much higher ceiling with models like Fable. The gap between an engineer who can write great specs, set up closed-loop validation, and review results versus one who fires ad-hoc prompts widens with every model generation.",
+      "time_hint": "13:40"
+    },
+    {
+      "title": "New workflow: more planning, less reviewing",
+      "detail": "The two constraints of agentic engineering are planning and reviewing. Because Fable adheres closely to a well-written plan, Dan shifts effort upstream: invest heavily in detailed specs with validation, testing, and review steps, then let the agent execute and only judge results. This is the dividing line between vibe coding and agentic engineering - saying exactly what you want and verifying the agent can do it.",
+      "time_hint": "22:45"
+    },
+    {
+      "title": "The north star is zero-touch engineering: ship from a single prompt",
+      "detail": "ZTE means writing one prompt and having the agentic system plan, build, test, review, document, and deploy to production without you in the loop - different from vibe coding because the system underneath is engineered for trust. To close the gap on any model's weaknesses, scale compute inside your custom harness: add verifiers, add reviewers, add more agents. Every model can be improved by adding another model that covers what the first one misses.",
+      "time_hint": "28:55"
+    }
+  ],
+  "key_points": [
+    "Fable 5 and Mythos 5 were suspended by a federal export-control order after a government-found jailbreak - and Anthropic says the same jailbreak works on GPT 5.5.",
+    "15 agent sandboxes, 5 specs each: Fable cost $200, Opus $91, Sonnet $55 - but Fable finished the work about 20% faster.",
+    "Stop optimizing price per token; start optimizing price per intelligent agent hour.",
+    "A frontier model used for small changes is a donation to the vendor; used for hard missions, $10 per million tokens is nothing.",
+    "Fable 5 is not an intern or a worker - it is an orchestrator, a principal engineer whose superpower is delegation.",
+    "One Fable instance orchestrated 15 agents and built the video's presentation in 600k of its 1M context - impossible without delegation.",
+    "Anthropic's own system card: scaling to 3, 5, 10, and unlimited async sub-agents increases accuracy - scale compute, scale impact.",
+    "For about 80% of tasks Dan could not tell Opus output from Fable output - most engineers do not need the state-of-the-art tier.",
+    "The agentic engineering north star: zero-touch engineering - one prompt that plans, builds, tests, reviews, and ships to production."
+  ],
+  "mermaid": "flowchart TD\n  A[\"Fable 5 orchestrator single instance\"] --> B[\"Spawns 15 agents on e2b sandboxes\"]\n  B --> C[\"5 Fable agents\"]\n  B --> D[\"5 Opus agents\"]\n  B --> E[\"5 Sonnet agents\"]\n  C --> F[\"5 identical specs each\"]\n  D --> F\n  E --> F\n  F --> G[\"Loop until work complete\"]\n  G --> H[\"Host app on public URL\"]\n  H --> I[\"Compare cost tokens time\"]\n  I --> J[\"Price per intelligent agent hour\"]\n  J --> K[\"Hard tasks use Fable tier\"]\n  J --> L[\"Routine tasks use Opus or Sonnet tier\"]\n  K --> M[\"Zero touch engineering from one prompt\"]\n  L --> M",
+  "generated": "2026-10-21"
+}

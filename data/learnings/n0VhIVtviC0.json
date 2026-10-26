@@ -1,0 +1,76 @@
+{
+  "video_id": "n0VhIVtviC0",
+  "title": "Don't waste time on specs: /prototype instead",
+  "summary": "Matt Pocock argues that spec-driven development has made developers forget they can write code while working toward a spec, and reintroduces prototyping — throwaway code that answers a question — as a first-class agent skill. He explains fidelity: low-fidelity questions (like whether a modal needs a cancel button) resolve in discussion, but questions about how something should look or behave need a higher-fidelity artifact, and some questions can only be answered in semi-working code. He demos the prototype skill inside his Wayfinder planning flow on his TLDraw-based diagramming app: a search bar over a complicated diagrams-plus-snapshots data model, generated as three switchable options (A, B, C) that each encode design decisions he can react to. After dictating feedback (the search box of A, the layout of C), the agent produces version D built directly on the live route; the ~100k-token session is compacted to retain the design decisions, and the finished prototype is saved on a throwaway branch as a rich asset for an AFK implementer agent. He closes by showing prototyping beyond frontend — a tiny interactive terminal app that pushes a state machine through cases hard to reason about on paper — and credits Shape Up by Ryan Singer as the inspiration.",
+  "what_you_learn": "You learn a practical trigger for when discussion and specs stop being enough: whenever 'how should it look or how should it behave' becomes the key question, have your agent produce a throwaway prototype and iterate on it instead of writing more spec text. For a backend developer this also transfers to non-UI work — state machines and business-logic flows can be prototyped as small runnable programs so you feel the design before committing to it.",
+  "skills": [
+    {"name": "Iterative Prototyping", "description": "Matching the fidelity of the discussion artifact to the question: discussion for basics, working prototypes for look-and-feel."},
+    {"name": "Planning & Prioritization", "description": "Splitting a huge chunk of work into per-session planning tickets, including a prototype ticket type for high-fidelity questions."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "The agent interviews you with one question at a time until you reach a shared understanding of the scope."},
+    {"name": "Context Engineering", "description": "Compacting a long prototyping session at the right moment to keep the design decisions while freeing context."}
+  ],
+  "learnings": [
+    {
+      "title": "Spec obsession makes people forget they can write code",
+      "detail": "Pocock's opening rant: developers put enormous effort into detailed specs and plan mode, expecting AI outputs to match the spec perfectly, and forget that prototyping and spikes have existed since the Agile days. His definition: a prototype is throwaway code that answers a question. Because AI has driven the cost of producing code way down, producing quick throwaway spikes has never been cheaper or more effective.",
+      "time_hint": "0:00"
+    },
+    {
+      "title": "Match the fidelity of the artifact to the question",
+      "detail": "Fidelity is the resolution at which you resolve design questions. Basic questions — should the modal have a cancel and a confirm button — resolve in plain discussion. Questions like how to display data under certain circumstances need higher fidelity, because it is hard to figure out in a spec how things should look and behave. Some questions really can only be answered by prototyping, so Pocock wants more of his discussions at higher fidelity, with the agent asking questions through a grilling session first and a prototype as soon as he needs to see or feel the thing working.",
+      "time_hint": "1:29"
+    },
+    {
+      "title": "Wayfinder's prototype ticket type and its trigger criterion",
+      "detail": "Wayfinder is Pocock's skill for planning a huge chunk of work: it splits the work into planning sessions, and each session gets its own ticket with a type. The default type is grilling (chatting with the agent to figure out scope); the second type is prototype. The clear trigger criterion: use a prototype ticket when how should it look or how should it behave is the key question — the agent then makes a cheap, rough, concrete artifact (an outline or rough UI logic code) and links it as an asset.",
+      "time_hint": "2:55"
+    },
+    {
+      "title": "Demo: three search-bar options, each encoding design decisions",
+      "detail": "Pocock uses Wayfinder to extend his diagramming app (built on TLDraw) with search over old diagrams; the data model is complicated because diagrams have snapshots through time. Running the prototype skill produces a small picker with three options: A groups results in rows by diagram name, B adds a filter on the left, and C shows everything inline with no filters. Crucially, each option encodes a few design decisions he can react to and iterate on — for example he likes A's search box placement but not its grouping, and dislikes C's 'search diagrams' header but likes its inline layout.",
+      "time_hint": "3:57"
+    },
+    {
+      "title": "Iterate by mixing preferred elements, not by picking a winner",
+      "detail": "The session is about iterating on the prototype rather than choosing the best of A, B, C. He dictates feedback — really like the search box of A, really like the layout of C — and the agent encodes the accumulated design decisions into a super rich asset. The idea is that the prototype is saved on a throwaway branch, so when the work goes to implementation the agent has not only a spec but real frontend code it can usually copy and paste from.",
+      "time_hint": "6:15"
+    },
+    {
+      "title": "A prototyping session costs about 100k tokens: compact deliberately",
+      "detail": "Higher fidelity means higher token cost: this prototyping session took about 100,000 tokens. Pocock compacts at this point because they need to retain all the information about the prototype and all the design decisions that went into it, while only needing to continue the conversation in the same place in the codebase to do more QA on it. Compaction timing is itself a design decision.",
+      "time_hint": "5:46"
+    },
+    {
+      "title": "Prototype on the live route for an honest representation",
+      "detail": "The prototype is integrated with the live page instead of a throwaway route (which is also possible). Pocock prefers seeing it plugged into the real route because it gives much more flexibility and is a more honest representation of how the code will actually work. The iterated version D combines the box from A with the layout of C, and clicking through it actually works — loads of functionality looks just done.",
+      "time_hint": "7:15"
+    },
+    {
+      "title": "Hand off to an AFK agent to productionize the prototype",
+      "detail": "Once the prototype is complete, Pocock passes it to an AFK (away-from-keyboard) agent to plug in everything, delete the old prototype code, and make sure it is compliant with the original spec. The results are strong because the discussion happened at such high fidelity: the feedback is invaluable and already baked into a throwaway branch the implementer can reference. When people complain 'I wrote a big beautiful spec and it did something totally weird', the cause is usually that the discussion was not at high enough fidelity.",
+      "time_hint": "8:05"
+    },
+    {
+      "title": "Prototyping is not just for frontend: logic prototypes",
+      "detail": "Frontend benefits most because what should it look like is hard to answer in discussion, but backend work has analogous questions: does this logic feel right, does this state model feel right. The prototype skill's answer is a pure logic prototype — for example a tiny interactive terminal app that pushes a state machine through cases that are hard to reason about on paper. The skill ships separate reference docs for building a logic prototype versus a UI prototype.",
+      "time_hint": "8:53"
+    },
+    {
+      "title": "The leap from spec to production is big; from prototype it is small",
+      "detail": "The closing argument: the leap from discussion and spec directly to production-ready code is really big, whereas turning a working prototype into production code is pretty simple. Pocock predicts wireframes will make a comeback as agents get better at working with canvases and design tools. He credits Shape Up by Ryan Singer (free online) as the extremely influential book that changed how he builds applications.",
+      "time_hint": "10:15"
+    }
+  ],
+  "key_points": [
+    "A prototype is throwaway code that answers a question.",
+    "Some design questions can only be answered in semi-working code — no spec will settle them.",
+    "When how should it look or how should it behave is the key question, reach for a prototype.",
+    "Generate multiple options so each encodes design decisions you can mix and react to.",
+    "A prototyping session cost about 100k tokens — compact deliberately to keep the design decisions.",
+    "Build the prototype into the live route; it is a more honest representation than a sandbox.",
+    "Backend deserves prototypes too: push the state machine through its hard cases in a terminal app.",
+    "The leap from spec to production-ready code is big; from working prototype to production is small."
+  ],
+  "mermaid": "flowchart TD\n  idea[\"Loose idea from grilling session\"] --> q{\"Is look or behavior the key question\"}\n  q -->|no| discuss[\"Resolve in discussion - low fidelity\"]\n  q -->|yes| proto[\"Run prototype skill\"]\n  proto --> opts[\"Generate options A B C - each encodes design decisions\"]\n  opts --> react[\"Human reacts - likes box of A and layout of C\"]\n  react --> iterate[\"Iterate to version D with dictated feedback\"]\n  iterate --> live[\"Built on the live route - honest representation\"]\n  live --> compact[\"Compact session - keep design decisions - about 100k tokens\"]\n  compact --> branch[\"Save as asset on throwaway branch\"]\n  branch --> afk[\"AFK agent plugs in and deletes prototype code\"]\n  afk --> prod[\"Production implementation matches spec\"]",
+  "generated": "2026-10-22"
+}

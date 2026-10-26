@@ -1,0 +1,67 @@
+{
+  "video_id": "9VNG0h4pLh0",
+  "title": "Never Trust An LLM",
+  "summary": "Matt Pocock makes the case that LLMs hallucinate constantly - factual errors, fabricated entities, and contextual inconsistencies - and that developers and anyone relying on extrinsic (training-data) knowledge should never trust them implicitly. He walks a taxonomy from an academic paper, with famous examples: Google's Bard advert confidently claiming the JWST took the first pictures of an exoplanet (Alphabet shares dropped 8%), LLMs inventing npm packages that open the door to supply-chain malware attacks, and the Air Canada chatbot that invented a bereavement-refund policy the airline was then liable for. He then explains why hallucination is structural rather than fixable: training is a lossy compression of the internet into GPU-sized weights, so the model holds only a blurry low-res version of knowledge, and - per an OpenAI paper - training and benchmark evaluation reward guessing over admitting uncertainty, because you miss all the shots you do not take. His practical defense: feed the model intrinsic information (documents, your codebase), and for anything you do not know, use the four-word prompt 'Use your search tool' so answers are grounded in fetched articles with citations - and still verify critical facts yourself.",
+  "what_you_learn": "You get a working mental model of why LLMs hallucinate (lossy compression plus reward structures that favor confident guessing) and a concrete operating procedure: never rely on a model's training-data memory for facts, push information into its context or make it search and cite sources, and keep a human verification loop for anything critical. This is directly applicable to designing reliable AI-agent systems where hallucinated APIs, packages, or config values can silently break a build or worse.",
+  "skills": [
+    {"name": "Hallucination Management", "description": "Naming the distinct failure modes - factual errors, fabricated entities, contextual inconsistency - so you can spot and discuss them."},
+    {"name": "System Prompt Design", "description": "LLMs are far more reliable on information you send them in the conversation than on knowledge from their training data."},
+    {"name": "Context Engineering", "description": "Training compresses the internet lossily into weights, so models hold only a blurry low resolution copy of facts."},
+    {"name": "AI Benchmarking", "description": "Benchmarks and training reward guessing over refusing, so models are tuned to take shots rather than admit uncertainty."},
+    {"name": "AI Output Verification", "description": "For critical, legal, or health-related facts, read the source documents yourself even when the model searched."}
+  ],
+  "learnings": [
+    {
+      "title": "Hallucinations come in distinct types, and developers get the worst one",
+      "detail": "Matt references a comprehensive taxonomy of hallucinations in LLMs (arXiv 2508.01781). The first type is factual errors, present since the beginning: Google's Bard advert claimed the James Webb Space Telescope took the very first pictures of a planet outside our solar system - wrong, and Alphabet's share price dropped roughly 8% after posting. The developer-relevant type is fabricated entities: ask 'does a package exist for this purpose' and the LLM will very likely say yes, inventing packages that have burned Matt dozens of times and opening developers to supply-chain malware attacks via false recommendations. Models also invent government departments and laws.",
+      "time_hint": "01:33"
+    },
+    {
+      "title": "Distinguish intrinsic from extrinsic information",
+      "detail": "The paper's key distinction: intrinsic information is what you have sent the model in this conversation (tell it your cat is called Bandit, and it should answer from that); extrinsic information is everything in its training data (ask for your cat's name in a fresh chat and it should say it does not know). Hallucinating against provided context is an intrinsic hallucination; guessing from training data is extrinsic. Matt's experience: models are much, much more reliable when you send them the information first, and relying on extrinsic knowledge is where you get disappointed.",
+      "time_hint": "02:34"
+    },
+    {
+      "title": "Contextual inconsistency: models can ignore what you explicitly gave them",
+      "detail": "The third type is ignoring or contradicting context you explicitly provided. His example is the 2024 Air Canada case: Jake Moffatt asked the airline's chatbot about bereavement fares; even though the real policy was in the model's context, it invented a 90-day refund window. Air Canada was found liable for the chatbot's misleading advice. The takeaway is uncomfortable: even intrinsic, explicitly provided information can be overridden - which is why critical facts still need verification.",
+      "time_hint": "04:04"
+    },
+    {
+      "title": "Training is lossy compression - that is the root cause",
+      "detail": "Training takes a massive scraped training set and compresses it into weights small enough to fit on a GPU; the output is much smaller than the input, so information is lost. Matt's analogy: compress a photo of him step by step until he is a blobby person you can barely recognize. You can still answer coarse questions (what color is the microphone cap) but not precise ones (who is this, how old). A model's memory of anything outside its training data - or anything rare - is that blobby, hyper-compressed version of the original information.",
+      "time_hint": "05:24"
+    },
+    {
+      "title": "Models guess because guessing is rewarded",
+      "detail": "Per OpenAI's paper 'Why Language Models Hallucinate' (arXiv 2509.04664): like students facing hard exam questions, models guess when uncertain because training and evaluation procedures reward guessing over acknowledging uncertainty. Benchmarks such as LiveBench score models out of 100, and a model tuned to say 'I don't know' scores worse than one that guesses - you miss all the shots you don't take. Matt frames the design tension in human terms: very smart people are rarely humble about it, and the people who train and grade LLMs must pick a point on that confidence line - he is not sure it is solvable.",
+      "time_hint": "07:08"
+    },
+    {
+      "title": "The four-word prompt: Use your search tool",
+      "detail": "For questions where you cannot supply the information, Matt's fix is the prompt 'Use your search tool'. Most agent harnesses - Claude included, via the web search connector he always keeps on - give the model a web search tool. Saying this forces the model to pull articles into its context and answer from those (ideally with citations, as in his Arsenal injury-list demo), converting an extrinsic question into an intrinsic one. The catch: a confident model may skip searching because it thinks it already knows, which is exactly the failure mode this prompt works around.",
+      "time_hint": "10:55"
+    },
+    {
+      "title": "Grounded context is why AI coding works so well",
+      "detail": "Matt is still strongly pro-LLM because when coding you naturally pass intrinsic information: the codebase, big files, documents. The model explores the code and gives genuinely good insights, far more accurate than recall-based answers. The general principle for agent systems: always make sure you are providing the information the model needs to succeed, rather than asking it to know things.",
+      "time_hint": "10:01"
+    },
+    {
+      "title": "Verify the sources yourself for anything critical",
+      "detail": "Even the search-tool fix has a hole: contextual inconsistency means even fetched or provided documents can be misread or ignored - the Air Canada chatbot is the extreme case. So for life-or-death, health, or especially legal questions, have the model search, then actually read the documents yourself. The same happens constantly in coding: an LLM misreads code and answers confidently, and you must correct it. Trust is a loop you keep closed, not a property of the model.",
+      "time_hint": "12:45"
+    }
+  ],
+  "key_points": [
+    "LLMs hallucinate constantly, and their confident delivery hides it - never trust them implicitly.",
+    "Intrinsic beats extrinsic: send the model the information and it becomes far more reliable.",
+    "An LLM's training-data memory is a blurry, over-compressed photo of the internet.",
+    "Benchmarks reward guessing over refusing, so models are trained to take every shot.",
+    "Never let an LLM recommend a package without verifying it exists - supply-chain malware is real.",
+    "The four-word prompt 'Use your search tool' converts recall questions into grounded ones.",
+    "Air Canada was legally liable for its chatbot's invented refund policy.",
+    "For critical facts, search is not enough - a human must read the sources."
+  ],
+  "mermaid": "flowchart TD\n  internet[\"Massive training data from the internet\"] --> train[\"Training - lossy compression into GPU sized weights\"]\n  train --> blobby[\"Blurry low resolution model memory\"]\n  prompt[\"User question\"] -->|extrinsic - from memory| guess{\"Model confident enough to guess\"}\n  guess -->|yes - rewarded by benchmarks| halluc[\"Hallucination - factual error fabricated entity contextual inconsistency\"]\n  guess -->|no| refuse[\"I do not know\"]\n  prompt -->|intrinsic - provided in context| grounded[\"Answer from context window - far more reliable\"]\n  prompt -->|use your search tool| search[\"Web search fetches articles\"]\n  search --> cite[\"Answer with citations\"]\n  cite --> verify[\"Human reads sources for critical legal health facts\"]\n  halluc --> verify",
+  "generated": "2026-10-22"
+}

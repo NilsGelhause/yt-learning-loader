@@ -1,0 +1,89 @@
+{
+  "video_id": "8BD6w5wELRo",
+  "title": "OpenRouter State Of Models: Jev, Open-Weights, and Tokenomics",
+  "summary": "Indie Dev Dan uses OpenRouter's public usage dashboards to break down the state of AI models entering Q4 2026. Headline: weekly token throughput went from 4.5 trillion a year ago to 146 trillion (an ~80x rise), which he reads as strong evidence there is no AI bubble - though he stress-tests the counter-narrative around Anthropic's rumored $2 trillion IPO while it loses ~$50 billion. He then analyzes market share (DeepSeek, OpenAI, and Google trading the top-3 spots all year, with Gemini Flash models as the workhorse tier), explains why OpenRouter numbers undercount big labs' direct enterprise traffic via napkin math, introduces the Jev classifier from TypeSafe as a new species of decision model (2.68 trillion tokens, up 257% week-over-week, with near-perfect uptime and ~20% token savings when embedded in his Pi coding agent), warns about free models training on your prompts, compares Pi vs Claude Code usage on the top-apps chart, and closes with practical tokenomics advice: combine compute, route to the right model tier, and scale down from frontier models once a problem is solved repeatedly.",
+  "what_you_learn": "You learn how to read OpenRouter's rankings, token-volume, and app-usage data with the right caveats (it skews toward price-sensitive individual engineers, not enterprise), and how to reason about model economics: tokenomics as the discipline of tying token spend to useful work. It also gives a concrete playbook for mixing model tiers and adding a cheap classifier like Jev in front of agent loops to cut costs ~20% without losing capability.",
+  "skills": [
+    {"name": "Token Economics", "description": "Managing token spend so every token produces useful work - more tokens is not more value."},
+    {"name": "AI Vendor Management", "description": "Reading OpenRouter token, market-share, and app-ranking dashboards with correct caveats."},
+    {"name": "Agent Guardrails", "description": "TypeSafe's zero-shot decision classifier - near-perfect uptime, sub-second latency, dirt cheap."},
+    {"name": "Model Selection & Routing", "description": "Frontier labs distill state-of-the-art models into cheaper ones - a circular optimization benefiting engineers."},
+    {"name": "Local Model Deployment", "description": "Chinese open-weights models like DeepSeek dominating usage by driving cost down."},
+    {"name": "Agent Harness Engineering", "description": "Owning your agent harness to embed tools like Jev and save ~20% token spend on every run."}
+  ],
+  "learnings": [
+    {
+      "title": "Token throughput went from 4.5T to 146T per week in one year",
+      "detail": "OpenRouter's weekly token chart shows roughly 4.5 trillion tokens a year ago versus 146 trillion last week - close to exponential, about an 80x rise. Dan's bubble test: if usage keeps climbing, the bulls win; if it stalls, the bear case for Anthropic's IPO (and then OpenAI) starts to look real. He lands optimistic because demand for cheap, capable tokens keeps generating new use cases.",
+      "time_hint": "01:05"
+    },
+    {
+      "title": "The tokenomics question: is your spend buying useful work",
+      "detail": "The key question every engineer should ask: is your token spend going up because you are getting more useful work done, or because you cannot use tokens efficiently? Scale your compute to scale your impact, but burning tokens to feel productive is not progress - generating code is the easiest part of software engineering. Aim for a steady rise in compute usage, not an astronomical dump of tokens.",
+      "time_hint": "03:30"
+    },
+    {
+      "title": "OpenRouter rankings show DeepSeek, OpenAI, and Google trading the top three spots",
+      "detail": "Hovering over the weekly market-share breakdown, the top three is DeepSeek, OpenAI, Google repeating almost the entire year, with others occasionally in third. Google is far from out of the race: the Gemini Flash series is one of the most effective workhorse models - Dan's default inside his Pi coding agent because it has the best performance-speed-cost trade-off and can do 90% of what you ask of an LLM.",
+      "time_hint": "05:12"
+    },
+    {
+      "title": "Napkin math shows big labs process multiples of OpenRouter volume directly",
+      "detail": "OpenRouter does ~140-146 trillion tokens per week. Assume Anthropic's rumored $60B annualized run rate were all Opus 5.5 tokens at Opus pricing: that alone implies ~65 trillion tokens per day (~450T/week). Even halving twice for cheaper models, you get ~228T/week - still 1.5x all of OpenRouter. Lesson: OpenRouter's market share mostly represents individual engineers and SMBs; enterprise buys direct from Anthropic, OpenAI, and Google.",
+      "time_hint": "07:30"
+    },
+    {
+      "title": "Everyone is winning through a circular optimization",
+      "detail": "Frontier labs pave the way, Chinese open-weights models make capability affordable, and those cheaper models are largely trained via distillation from the frontier state of the art. The result from an engineer's perspective: cost going down while intelligence goes up. There is no single winner - the pie is growing across the board.",
+      "time_hint": "09:50"
+    },
+    {
+      "title": "Jev is a new species of model - a zero-shot decision classifier",
+      "detail": "Jev from TypeSafe is an old model class made new and highly optimized: a generic zero-shot classifier usable across many scenarios. It processed 2.68 trillion tokens, up 257% week-over-week, while using a fraction of the tokens an LLM would inside an agent. Its uptime chart barely dips - a reliability bar Dan says leading model labs should match - and it hits sub-second decision times at pennies per volume.",
+      "time_hint": "10:33"
+    },
+    {
+      "title": "Jev is not easy to replace across many use cases",
+      "detail": "A fine-tuned small model can beat Jev on a single task with enough training data, but not across many use cases at once. Dan's challenge to the wave of Jev clones: try replacing the spend (6-16 cents for thousands of classifications), the speed, and the reliability simultaneously. TypeSafe also nailed the null-choice score, with more types and models coming.",
+      "time_hint": "12:20"
+    },
+    {
+      "title": "Embedding Jev in the agent harness saves about 20 percent of tokens",
+      "detail": "Dan is actively rolling Jev into his Pi coding agent as a default tool so the agent can make quick routing decisions. On a relatively simple 400-500K input prompt he saves about 5 cents - roughly 20% - per run, which compounds across every agent execution, day after day. OpenRouter even added a Decisions category for models like this.",
+      "time_hint": "12:50"
+    },
+    {
+      "title": "Combine compute, don't select compute",
+      "detail": "Dan's framing: it is not this model versus that provider - it is using models together. DeepSeek V4.1 Flash and Jev; Claude Opus 5.5 and GPT-6 Astra. Use all available models at the right time in the right combination, and put classifiers and decision models into your agents, not just into your code.",
+      "time_hint": "13:35"
+    },
+    {
+      "title": "Free models come with a hidden data cost",
+      "detail": "On free models like the rumored Space Bunny Alpha (a stealth MiniMax model that jumped to second place): if it is free, you are the product. Providers almost certainly retain, read, and train on your prompts despite claims otherwise. The bigger valid trend is that cheaper effective models drive more usage - but for proprietary work, Dan would rather pay than leak data.",
+      "time_hint": "15:30"
+    },
+    {
+      "title": "Pi is closing on Claude Code in OpenRouter app usage",
+      "detail": "On OpenRouter's top-apps chart, Pi has trailed Claude Code in 5th-7th place for a long time but is steadily catching up - which Dan reads as engineers valuing ownership and customization of their agentic coding tool. Caveat: Claude Code's real numbers are far higher once Anthropic subscriptions are included. He predicts Pi overtakes Claude Code on OpenRouter for the first time within the year.",
+      "time_hint": "19:20"
+    },
+    {
+      "title": "Throw frontier models at new problems, then scale down to workhorses",
+      "detail": "Dan's model-stack practice for tokenomics: solve a new problem first with a state-of-the-art model, then, once the problem repeats, scale it down to cheaper, faster, more performant models. Combined with owning your harness - where embedding Jev saves ~20% per run - this is how you increase token spend in the most useful way and manage tokenomics for in-loop and out-loop agentic work.",
+      "time_hint": "23:55"
+    }
+  ],
+  "key_points": [
+    "146 trillion tokens in one week on OpenRouter, up from 4.5 trillion a year ago - nearly exponential growth.",
+    "More tokens does not equal more value; burning tokens to feel productive is not progress.",
+    "DeepSeek, OpenAI, and Google have traded the OpenRouter top three spots almost the entire year.",
+    "If it's free, you're the product - free-model providers are keeping and training on your prompts.",
+    "Jev: 2.68T tokens up 257% weekly, near-perfect uptime, and ~20% token savings inside agents.",
+    "Combine compute, don't select compute - use models together at the right time in the right combination.",
+    "OpenRouter numbers skew to price-sensitive engineers; enterprise volume flows direct to the big labs.",
+    "Everyone is winning: frontier labs distill, open-weights models cut cost, and engineers get more for less.",
+    "Solve new problems with frontier models, then scale repeated work down to workhorse tiers."
+  ],
+  "mermaid": "flowchart TD\n  orw[\"OpenRouter weekly data - 146T tokens\"] --> trend1[\"Trend 1 - tokens go up\"]\n  orw --> share[\"Market share - DeepSeek OpenAI Google\"]\n  orw --> apps[\"Top apps - Pi catching Claude Code\"]\n  trend1 --> tok[\"Tokenomics - spend must buy useful work\"]\n  share --> caveats[\"Caveats - enterprise buys direct\"]\n  share --> workhorse[\"Workhorse tier - Gemini 3.8 Flash DeepSeek V4.1\"]\n  jev[\"Jev zero shot decision classifier\"] --> decisions[\"OpenRouter Decisions category\"]\n  jev --> savings[\"About 20 percent token savings in Pi harness\"]\n  workhorse --> combine[\"Combine compute not select compute\"]\n  savings --> combine\n  combine --> stack[\"Model stack - frontier first then scale down\"]\n  free[\"Free models - data is the price\"] --> stack",
+  "generated": "2026-10-21"
+}

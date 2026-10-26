@@ -1,0 +1,86 @@
+{
+  "video_id": "AQl5Q-0l7FQ",
+  "title": "Engineers... STOP Picking GPT-5.6 Sol OR Claude Fable 5… FUSE THEM",
+  "summary": "Dan Eisler argues that picking one frontier model (GPT 5.6 Sol or Claude Fable 5) is the mistake; the winning pattern is combining compute through 'model fusion', the rebranded architect-editor / prompt-chaining / agent-chaining pattern. He demonstrates a custom Fusion Harness built on the Pi coding agent with three slash commands: /opinion runs two models in parallel on the same prompt, /fusion has a fusion agent merge both answers into a table.md showing consensus and divergence, and /autovalidate has a validator agent write a validation gate script before a builder agent does the work, with failures looping back. He first demos with workhorse models (Claude Sonnet 5, GPT 5.6 Terra) on a scikit-learn question, then scales to SOTA models (Fable 5 and GPT 5.6 Sol at high effort) designing a real SQLite 1-million-row bulk-insert benchmark, ending with a fused set-based CTE solution reporting a 560x speedup.",
+  "what_you_learn": "You learn a practical multi-agent orchestration pattern you can reproduce: parallel opinion, consensus fusion, and validation-before-build loops, plus how to read token cost, latency, and behavior differences between frontier models to make better engineering decisions. It also shows why owning a customizable agent harness matters more than any out-of-the-box coding tool.",
+  "skills": [
+    {"name": "Model Selection & Routing", "description": "Combining the intelligence and context windows of two or more frontier models on the same problem instead of picking one."},
+    {"name": "Agent Harness Engineering", "description": "Dan's customizable agent harness of choice, paid per-token via API, designed to be extended with custom workflows."},
+    {"name": "AI Output Verification", "description": "Validator agent writes a gate script before the builder starts; failures feed back into the builder agent."},
+    {"name": "AI Benchmarking", "description": "Having competing models design one benchmark script to settle an engineering question on speed and RAM axes."},
+    {"name": "Multi-Agent Orchestration", "description": "The older name for model fusion: an architect model plans and merges while builder models execute."}
+  ],
+  "learnings": [
+    {
+      "title": "AND not OR: combine compute instead of selecting it",
+      "detail": "The industry's model rivalry is a trap; the winning mindset is combining models. The pattern is old (architect-editor, prompt chaining, agent chaining) and now rebranded by Devin, OpenRouter, and others as model fusion. Picking one model, provider, or coding tool is the mistake.",
+      "time_hint": "0:00"
+    },
+    {
+      "title": "Three commands orchestrate the fusion team",
+      "detail": "The Fusion Harness exposes three slash commands: /opinion gets parallel perspectives from two agents, /fusion combines and consolidates their best results, and /autovalidate applies intelligent validation before work begins to attack the review constraint of agentic engineering.",
+      "time_hint": "1:15"
+    },
+    {
+      "title": "/opinion gives side-by-side model telemetry",
+      "detail": "Demo one asks for the top three scikit-learn models with pros and cons using Claude Sonnet 5 and GPT 5.6 Terra. Both agents answer in parallel, and the harness shows latency, tokens in/out, and cost side by side: Terra finished in 4.5 seconds (9K tokens in, 300 out, ~3 cents) while Sonnet 5 took roughly double with more tokens. Relativity, he says, is the best benchmark.",
+      "time_hint": "1:50"
+    },
+    {
+      "title": "/fusion consolidates consensus, divergence, and discards",
+      "detail": "After both agents write their results, a dedicated fusion agent (same model as the architect) merges them into table.md. The output shows what both models agreed on (random forest, gradient boosting, logistic regression), where they diverged complementarily, and what was discarded. That consensus/divergence map is the ultra-valuable part for strategic decisions.",
+      "time_hint": "2:55"
+    },
+    {
+      "title": "/autovalidate: write the proof of done before the work",
+      "detail": "Typing /autovalidate kicks off a workflow where the builder agent waits while a validator agent writes a raw validation script that proves the work is done, complete with fail statements that become feedback for the builder. Only then does the builder implement. This is validation-first engineering built into the harness fabric.",
+      "time_hint": "4:45"
+    },
+    {
+      "title": "Gate scripts are executable review",
+      "detail": "The validator's script checks concrete things (e.g., with regex) and runs against the builder's output; pass means done, fail loops back into the builder with the failure message. This pushes past the review constraint of agentic coding because the harness, not a human, does the first review pass.",
+      "time_hint": "6:20"
+    },
+    {
+      "title": "Own your harness or your tools limit your thinking",
+      "detail": "Your tools directly limit what you believe is possible. Customizable, extensible harnesses like the Pi coding agent remove those false limits; you are not waiting for Claude Code, Codex, or OpenCode to ship a feature. The fusion harness is just one node inside a larger AI developer workflow (ADW).",
+      "time_hint": "8:30"
+    },
+    {
+      "title": "Scaling to SOTA: the SQLite million-row bulk insert",
+      "detail": "The harder demo uses Claude Fable 5 and GPT 5.6 Sol both at high effort to answer: what is the fastest, most memory-efficient way to insert over a million rows into SQLite across user devices? Fable finished in about 90 seconds while Sol kept thinking and testing for about 8 minutes, using 3x the tokens.",
+      "time_hint": "10:00"
+    },
+    {
+      "title": "Let the models design one benchmark to settle the question",
+      "detail": "The /fusion prompt asks the models to design a single benchmark script (an Astral UV single-file script, standard library only, 1M rows, identical schema, measuring peak RAM) that settles the bulk-insert question on speed and RAM axes. Both models independently chose subprocess-per-strategy isolation and deterministic datasets, then diverged usefully.",
+      "time_hint": "14:45"
+    },
+    {
+      "title": "Tokenomics and model personalities matter",
+      "detail": "Fable 5 ended up about 10x more expensive than Sol during the run but ships with fewer tokens, acting like a principal engineer that knows when not to work. Sol at high effort overthinks, burning thinking tokens (analysis paralysis). State-of-the-art models also self-validate by running scripts, compilers, and linters; the harness just moves validation before execution.",
+      "time_hint": "18:30"
+    },
+    {
+      "title": "Fuse beats two, and divergence is the value",
+      "detail": "The fused result took the speed winner (set-based CTE, 560x over naive autocommits) and the memory winner (wall-tuned generation), pulling individual ideas from each model. Like a team of diverse engineers rather than ten clones, the range of perspectives is what creates value. Two SOTA models fused beat two used separately.",
+      "time_hint": "22:00"
+    },
+    {
+      "title": "The fusion harness is one node in a software factory",
+      "detail": "The recommended workflow loop is opinion, fuse, then autovalidate, forming a micro software development life cycle inside one agent node of your ADW. Dan sketches more commands to build: /debate (agents argue N rounds), /parallel (execute both agents vs opinion's response-only mode), and /coordinate (agents discuss then build together).",
+      "time_hint": "24:30"
+    }
+  ],
+  "key_points": [
+    "Don't select compute, combine compute; the winning mindset is AND, not OR.",
+    "/opinion, /fusion, /autovalidate turn two agents into a coordinated team, not sub-agent delegation.",
+    "Write the validation gate before the builder starts, and don't let the builder edit the gate.",
+    "Two state-of-the-art models fused beats two state-of-the-art models used standalone.",
+    "Relativity is the best benchmark: run models side by side and read tokens, latency, and cost.",
+    "Whoever owns your agent harness owns your results; customization is the differentiator.",
+    "The range of model perspectives, like diverse teammates, is where the value comes from."
+  ],
+  "mermaid": "flowchart TD\n  L[\"Pi coding agent fusion harness\"] --> A[\"Engineer runs a slash command\"]\n  A --> B[\"Opinion step two agents in parallel\"]\n  B --> C[\"Fable 5 answer\"]\n  B --> D[\"GPT 5.6 Sol answer\"]\n  C --> E[\"Fusion agent combines results\"]\n  D --> E\n  E --> F[\"table.md with consensus and divergence\"]\n  F --> G[\"Autovalidate workflow\"]\n  G --> H[\"Validator writes gate script first\"]\n  H --> I[\"Builder agent implements work\"]\n  I --> J[\"Gate script runs pass or fail\"]\n  J -->|\"fail\"| I\n  J -->|\"pass\"| K[\"Ship deliverable\"]",
+  "generated": "2026-10-21"
+}

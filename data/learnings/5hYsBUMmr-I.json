@@ -1,0 +1,48 @@
+{
+  "video_id": "5hYsBUMmr-I",
+  "title": "Using /grill-me for interviews?!",
+  "summary": "Matt Pocock shares a listener's use of his /grill-me skill (loaded into a candidate's Claude instance) as a technical interview tool. During a video call, the candidate uses /grill-me to add a feature to a codebase while the interviewer observes. Because /grill-me demands that you clearly describe where you are going and grills you with questions about your instincts and whether the thing you are building needs to exist, it doubles as an assessment of how a person thinks with AI and thinks strategically. Matt notes this matches his design philosophy: skills should empower the user while demanding real skill from the user in order to work best.",
+  "what_you_learn": "A concrete technique for assessing AI-era engineering candidates: put a challenging agent skill like /grill-me in their Claude instance and watch how they communicate intent, handle pushback, and reason about whether a feature should exist at all. It reframes what 'good with AI' means - clear communication and strategic judgment, not prompt tricks.",
+  "skills": [
+    {"name": "Human-in-the-Loop Collaboration", "description": "Using the /grill-me skill that relentlessly questions a plan to test instincts and whether the work needs to exist."},
+    {"name": "Strategic Thinking", "description": "The strategic, future-oriented thinking required to direct AI tools toward work that actually matters."},
+    {"name": "Agent Skill Design", "description": "Designing skills that empower the user but demand significant skill from the user to work best."}
+  ],
+  "learnings": [
+    {
+      "title": "/grill-me works as a live technical interview tool",
+      "detail": "A listener told Matt they run interviews on a video call where the candidate loads /grill-me into their own Claude instance and uses it to add a feature to a codebase. The interviewer watches the whole interaction in real time, which reveals far more than a whiteboard or take-home exercise.",
+      "time_hint": "0:01"
+    },
+    {
+      "title": "Grilling exposes instincts and necessity",
+      "detail": "/grill-me asks a lot of the user: it asks you to clearly describe where you are going, then grills you with questions to probe whether you have the right instincts and whether the thing you are building actually needs to exist. In an interview, those answers are exactly what you want to assess.",
+      "time_hint": "0:18"
+    },
+    {
+      "title": "It tests strategic thinking plus AI collaboration at once",
+      "detail": "The tool makes a good interview instrument because you get to assess two things simultaneously: how someone thinks with and works with AI, and how they think strategically about the product. That pairing mirrors the actual demands of AI-era engineering work.",
+      "time_hint": "0:50"
+    },
+    {
+      "title": "Good skills demand skill from the user",
+      "detail": "Matt states his design philosophy for skills: they should empower the user, and they should demand a lot of skill from the user in order to work best. /grill-me is the example - it does not do the thinking for you, it forces you to do the thinking out loud.",
+      "time_hint": "0:42"
+    },
+    {
+      "title": "Simplicity makes it accessible as an assessment",
+      "detail": "/grill-me is simple enough that anyone can pick it up, which makes it practical as an interview tool with candidates of varying backgrounds - and handy for your own practice if you want to get better at working with AI.",
+      "time_hint": "0:58"
+    }
+  ],
+  "key_points": [
+    "Interview candidates by watching them use /grill-me in their own Claude instance on a live call.",
+    "A grill-me session reveals instincts and whether the feature should exist at all.",
+    "Assess how someone thinks with AI and thinks strategically at the same time.",
+    "Good skills empower the user but demand a lot of skill from the user.",
+    "Clear communication of intent is the core skill AI work exposes.",
+    "Simple enough for anyone - useful for interviews and for self-practice."
+  ],
+  "mermaid": "flowchart TD\n  call[\"Video call interview\"] --> cand[\"Candidate uses /grill-me in their Claude instance\"]\n  cand --> feat[\"Add a feature to a codebase\"]\n  feat --> grill[\"Grill-me asks questions\"]\n  grill --> intent[\"Can you clearly describe where you are going\"]\n  grill --> instincts[\"Do you have the right instincts\"]\n  grill --> exists[\"Does this feature need to exist\"]\n  intent --> assess[\"Assess AI collaboration and strategic thinking\"]\n  instincts --> assess\n  exists --> assess\n  assess --> philo[\"Skills empower the user and demand skill from the user\"]",
+  "generated": "2026-10-22"
+}

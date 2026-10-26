@@ -1,0 +1,91 @@
+{
+  "video_id": "hX7yG1KVYhI",
+  "title": "Building a REAL feature with Claude Code: every step explained",
+  "summary": "Matt Pocock builds a real feature in his course-video-manager app (React Router, TypeScript, Drizzle ORM, Postgres, Effect, Vitest) entirely on camera. The feature: removing friction around ghost lessons (being forced to create a ghost before a real lesson, and convert-to-ghost before delete) and adding ghost courses (courses with no file path on disk). He starts with a /grill-me session where Claude interviews him for ~22 minutes, updating his ubiquitous-language glossary along the way; turns the conversation into a PRD and then into four right-sized GitHub issues; and launches a Ralph AFK loop (pnpm ralph) that runs Claude inside a Docker sandbox called Sandcastle, committing and closing issues. While the agent implements, he walks the dog; afterwards he generates a QA plan, files feedback as issues via an in-app feedback button, marks some issues as human-only, and runs further Ralph rounds in parallel with his own QA, ending at ~14 commits with the feature working.",
+  "what_you_learn": "You see a complete, realistic agent-driven development loop end to end: human-in-the-loop ideation first, then autonomous implementation, then human QA feeding new issues back into the loop. It shows concretely how much specification work happens before any code is written, how to keep an LLM aligned via a shared glossary, and how to sandbox and supervise an AFK coding agent without reading every line it writes.",
+  "skills": [
+    {"name": "Workflow Design", "description": "Encoding your engineering process as versioned Claude Code skills so agents follow a strict path every time."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Invoking a skill that makes the LLM interview you relentlessly until a shared understanding of the feature is reached."},
+    {"name": "Domain Modeling", "description": "Maintaining a DDD-style glossary file shared with the LLM so precise terms like materialize replace woolly descriptions."},
+    {"name": "API & Module Design", "description": "Keeping business logic behind one clear interface (like courseWriteService) so agents and tests interact only with the boundary."},
+    {"name": "Task Management", "description": "Breaking a PRD into issues that are neither too big nor too small for an autonomous loop to pick up sequentially."},
+    {"name": "Agent Guardrails", "description": "Running the AFK agent inside a Docker container (Sandcastle) and pulling its commits out as patches onto the local repo."},
+    {"name": "Autonomous Agent Operations", "description": "Parallelizing human ideation and specification with background agent implementation so neither waits on the other."},
+    {"name": "Token Economics", "description": "Spending context deliberately: explore sub-agents, side questions, and 40K-token context after half an hour of work."}
+  ],
+  "learnings": [
+    {
+      "title": "Explain the why, not just the what, before building",
+      "detail": "When dictating requirements into the grill-me session, Matt explicitly explains why the feature should exist (planning courses freely without committing to a repo shape), not merely what it should do. An LLM that only knows the what can build the requested thing; an LLM that knows the why can challenge your framing and suggest better alternatives, which is exactly what happened when Claude pointed out the delete flow already existed in the service and the gap was only in the UI.",
+      "time_hint": "5:40"
+    },
+    {
+      "title": "Explore is a sub-agent, and that is why it is token efficient",
+      "detail": "When Claude Code's explore phase runs, it spawns a sub-agent that reads tons of files inside its own context window and hands only a summary back to the parent agent. This lets exploration go deep without bloating the main conversation. Matt notes explore is needed in every session, sometimes multiple times, and wishes it were faster.",
+      "time_hint": "7:04"
+    },
+    {
+      "title": "Ubiquitous language bridges you and the LLM like DDD bridges devs and domain experts",
+      "detail": "Inspired by Domain-Driven Design, Matt keeps a glossary file of agreed terms: a ghost lesson exists in the database but not on the file system, materialize is the transition of a ghost entity to a real entity, and the materialization cascade is the chain reaction when a lesson is created inside a ghost course. After the grilling session he has Claude update the glossary and commits it himself, so later he can say there is a bug in the materialization cascade and Claude knows exactly what he means.",
+      "time_hint": "8:15"
+    },
+    {
+      "title": "A deep, well-tested service module is the ideal agent collaboration surface",
+      "detail": "The courseWriteService is the main business-logic layer for mutating course data, coordinating the database, the file system, and numbering logic behind one clear interface (addGhostLesson, materializeGhost, deleteLesson). Its e2e tests spin up a temporary Git repo and test database, made pleasant by Effect TS. Matt cares about the interface, not the implementation, because that is what he reviews and what future agents must understand.",
+      "time_hint": "10:00"
+    },
+    {
+      "title": "Let the LLM interview you and model trade-offs out loud",
+      "detail": "During grilling, Claude asks smart questions at the right moments (would direct-create apply inside ghost courses too?) and Matt answers in terms of trade-offs, sometimes asking Claude to lay out the trade-offs of both approaches first. Instead of thinking silently, he thinks with the LLM. He also notices the balance of who drives can shift: sometimes the AI drives the questions, sometimes he drives the answers.",
+      "time_hint": "16:45"
+    },
+    {
+      "title": "Design the cascade and nail the irreversible edge cases in spec, not in code",
+      "detail": "The group settles on a one-way rule: once a course has a file path it stays real forever, even if all its lessons become ghosts, because the on-disk thing does not disappear. The schema change is minimal (courses.file_path becomes nullable). Claude surfaces this edge case as a question during grilling, and Matt is glad it is spelled out in context before implementation begins.",
+      "time_hint": "20:55"
+    },
+    {
+      "title": "Q and A co-location and module-first planning make PRDs the LLM actually uses",
+      "detail": "Matt loves question-and-answer format because attention mechanisms treat nearby text as hotspots, so a document that co-locates each question with its answer is rich fodder for the LLM. His write-a-PRD skill first sketches the major modules that will change, so he can veto interface decisions (a new materializeCourseAndLesson method) without caring about implementation. When Claude claimed no test harness existed for the service, a single Look harder prompted it to find the whole suite.",
+      "time_hint": "25:00"
+    },
+    {
+      "title": "Size issues for the loop, and do not review what the LLM summarizes",
+      "detail": "PRD-to-issues produces six issues with blocking relationships; Matt merges two tiny UI ones so four slices remain, each big enough to justify spinning up an agent but small enough to verify. He deliberately does not review the PRD or the issues, trusting that LLMs are excellent summarizers and the conversation already was the review.",
+      "time_hint": "29:40"
+    },
+    {
+      "title": "Sandcastle: sandbox the AFK agent in Docker and extract commits as patches",
+      "detail": "The AFK setup, provisionally called Sandcastle, uses a Dockerfile that spins up a container, mounts the working directory, and runs Claude inside it. Commits made inside the container are pulled out as patches and applied to the local repo. Combined with a prompt file and pnpm ralph (max 100 iterations), the loop pulls GitHub issues and works until it runs out of them, closing each issue as it commits.",
+      "time_hint": "32:10"
+    },
+    {
+      "title": "Day shift and night shift: the slow part is extracting ideas from your brain",
+      "detail": "Matt quotes Jaman's framing: the human works the day shift (grilling ideas, writing PRDs, turning them into issues) while Claude works the night shift implementing AFK. The process feels slow precisely because the bottleneck is human ideation, not typing; while one agent implements yesterday's spec, he can already be in the next grilling session. He went for a walk and came back an hour and a half later to six commits.",
+      "time_hint": "33:45"
+    },
+    {
+      "title": "QA means a generated QA plan, a feedback button, and labels the loop must respect",
+      "detail": "After the AFK run he opens a fresh Claude session and asks it to turn the last five commits into a step-by-step QA plan saved as a GitHub issue. Testing the app, he files feedback through an in-app feedback button that creates issues (with AI-generated titles) for Ralph to pick up, and renames anything human-only so the loop skips it because his prompt tells the agent not to touch human tasks. He created six or seven issues in eight minutes while Ralph fixed earlier ones in the background.",
+      "time_hint": "35:10"
+    },
+    {
+      "title": "QA surfaces what specs cannot, so specs-to-code will never work",
+      "detail": "QA found a showstopper nobody planned for: if the course directory is not a Git repo, creation fails and leaves the database and file system out of sync. Matt's takeaway: iterating in a QA loop always surfaces weird edge cases that are nearly impossible to anticipate in a spec, which is why generating code straight from specs fails. Crucially, the Ralph loop runs tests and types on every commit and adds tests as it goes, so each commit is green.",
+      "time_hint": "39:40"
+    }
+  ],
+  "key_points": [
+    "Treat Claude Code like a junior developer you delegate to: architecture and feedback loops are still your job.",
+    "Explain the why to the LLM, not just the what, so it can challenge your framing.",
+    "A three-sentence skill can produce a 22-minute interview that de-risks the entire build.",
+    "Agree a ubiquitous language with your agent, then commit the glossary to the repo.",
+    "The human does the day shift (ideas, PRDs, issues); the agent does the night shift (implementation).",
+    "Do not review LLM summaries of conversations you were part of.",
+    "QA will always find edge cases specs miss; that is why specs-to-code fails.",
+    "Run tests and types on every AFK commit so the loop stays green.",
+    "Review inputs and outputs and interfaces, not every line of generated code."
+  ],
+  "mermaid": "flowchart TD\n  IDEA[\"Vague feature ideas in real repo\"] --> GRILL[\"Grill Me interview - 22 minutes of questions\"]\n  GRILL --> GLOSS[\"Ubiquitous language glossary updated and committed\"]\n  GLOSS --> PRD[\"Write PRD skill - GitHub issue\"]\n  PRD --> ISSUES[\"PRD to issues - four right-sized slices with blocking\"]\n  ISSUES --> RALPH[\"Ralph AFK loop in Sandcastle Docker sandbox\"]\n  RALPH -->|\"tests and types on every commit\"| DONE[\"Commits and closed issues\"]\n  DONE --> QAPLAN[\"Fresh session writes QA plan issue\"]\n  QAPLAN --> HQA[\"Human QA day shift with feedback button\"]\n  HQA -->|\"new issues, human-only labeled\"| ISSUES\n  HQA --> SHIP[\"Feature shipped\"]",
+  "generated": "2026-10-22"
+}

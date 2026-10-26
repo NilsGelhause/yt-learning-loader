@@ -1,0 +1,52 @@
+{
+  "video_id": "glaIO6OYh74",
+  "title": "My /teach skill is still insane",
+  "summary": "Matt Pocock shows off his /teach skill with a real-life example: he wants to build a garden office on an irregularly shaped plot, and a professional site survey is too expensive, so he decides to measure the land himself. A plain AI-printed guide did not work for him, so he opened a teach workspace and had the skill teach him land surveying directly. The core technique it taught: measure all sides of the plot, split it into triangles, measure the diagonals, and you know exactly what shape the land is. The skill adds quiz questions, understands where he is when he asks follow-ups, and he has since used it for everything from Rubik's Cube to senior development techniques.",
+  "what_you_learn": "You learn the pattern behind the /teach skill: when a generated answer is not enough, convert the goal into a learning objective and let an interactive AI tutor walk you through it with tailored explanations, embedded quiz questions, and context-aware follow-ups - useful for leveling up on any topic, including senior-level development techniques.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "A teach workspace skill that explains topics interactively, tailored to your specific mission."},
+    {"name": "Learning & Teaching", "description": "Using an agent skill to genuinely learn a topic yourself rather than just consuming generated answers."}
+  ],
+  "learnings": [
+    {
+      "title": "The /teach skill converts vague goals into structured lessons",
+      "detail": "Matt's scenario: he wants a garden office on a plot that is not quite regular, so he considered a professional site survey - which turned out expensive - and resolved to measure the land himself. When a plain AI-generated guide failed to stick, he opened a teach workspace, and the skill did an amazing job explaining the domain to him step by step.",
+      "time_hint": "0:00"
+    },
+    {
+      "title": "A generated guide is not the same as learning",
+      "detail": "He first had the AI print out a guide, and it just was not doing it for him - the information was there but not understood. The realization: he needed to actually learn about the topic, not just obtain text about it. That distinction - output versus understanding - is what the teach skill is designed to bridge.",
+      "time_hint": "0:22"
+    },
+    {
+      "title": "Survey an irregular plot by triangulating it",
+      "detail": "The concrete surveying technique the skill taught: measure all the sides of the plot, split the shape up into triangles, then measure the diagonal of each triangle. With the diagonals known, you understand exactly what shape the land is. This is a real land-surveying trick delivered inside a personalized lesson.",
+      "time_hint": "0:34"
+    },
+    {
+      "title": "Quiz questions plus follow-ups make the lesson interactive",
+      "detail": "The teach workspace includes little quiz questions along the way to check understanding. When Matt is confused about anything, he can ask follow-up questions and the skill understands exactly where he is in the lesson, so he can continue with teach from that point instead of restarting or re-explaining context.",
+      "time_hint": "0:52"
+    },
+    {
+      "title": "The skill generalizes from surveying to senior dev techniques",
+      "detail": "Matt has used teach for all sorts of things - Rubik's Cube, but also senior development techniques. The pattern applies to any knowledge gap a developer hits: when you do not understand something, the answer is not another search result, it is a teach session that meets you at your current level.",
+      "time_hint": "1:00"
+    },
+    {
+      "title": "The takeaway rule: if you do not understand something, use teach",
+      "detail": "Matt's closing recommendation: teach keeps coming up clutch and he recommends trying it. The decision rule is simple - the moment you realize a generated answer is not landing, switch from asking for output to running a teach workspace, and let the skill walk you to actual understanding.",
+      "time_hint": "1:05"
+    }
+  ],
+  "key_points": [
+    "A printed AI guide was not enough - the insight was that he needed to actually learn the topic.",
+    "Survey an irregular plot by measuring all sides, splitting it into triangles, and measuring the diagonals.",
+    "Quiz questions plus context-aware follow-ups make the lesson stick.",
+    "The skill knows where you are, so follow-ups continue from your exact point of confusion.",
+    "Used for everything from Rubik's Cube to senior development techniques.",
+    "If you do not understand something, use teach."
+  ],
+  "mermaid": "flowchart TD\n  goal[\"Garden office on irregular plot\"] --> cost[\"Professional site survey too expensive\"]\n  cost --> diy[\"Decide to measure it himself\"]\n  guide[\"Printed AI guide not enough\"] --> realize[\"Realized he needs to actually learn\"]\n  realize --> teach[\"Open teach workspace\"]\n  teach --> tri[\"Measure all sides split plot into triangles\"]\n  tri --> diag[\"Measure diagonals to know exact shape\"]\n  diag --> quiz[\"Quiz questions and follow ups\"]\n  quiz --> more[\"Also Rubiks Cube and senior dev techniques\"]\n  more --> rule[\"If you do not understand something use teach\"]",
+  "generated": "2026-10-22"
+}

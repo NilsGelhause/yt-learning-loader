@@ -1,0 +1,90 @@
+{
+  "video_id": "251hsWgoTPM",
+  "title": "LIVE: The /wayfinder Demo",
+  "summary": "Matt Pocock live-demos Wayfinder, his evolution of the Grill Me skill, whose job is the pre-spec stage: charting the way from a vague, dictated feature idea to a complete, decision-complete specification. The demo target is a TikTok creator feature inside his own course video manager app (CVM): he dictates the idea with Whisper Flow, Wayfinder explores the codebase and grills him, then produces a GitHub issue 'map' decomposed into nine typed decision tickets (grilling, prototype, research) with blocking relationships. Research tickets fan out to sub-agents that commit findings back; Matt runs four parallel Claude Code sessions (in worktrees, via the Claude agents view) grilling on different tickets; prototype tickets use the prototype skill to render variant A/B UIs he can click through instead of arguing about words. Decisions get recorded on tickets as he goes - enum over boolean for the video format attribute, TikTok as standalone videos with no pitch link, a dedicated sidebar section - until the TikTok API's un-audited-app audit gate blocks direct posting, and the session pivots to a Buffer-via-Dropbox-and-Zapier fallback. He finishes by showing the downstream flow: Wayfinder map, then to-spec, then to-tickets, then AFK implementation agents working each ticket in its own context window, then code review and human review.",
+  "what_you_learn": "You see a complete, repeatable workflow for the fuzzy front end of agent-driven development: how to decompose a vague idea into a tracked decision map, parallelize grilling and research across agents, raise UI discussions to clickable prototypes, and record every decision so the eventual spec links back to its reasoning. It is a practical recipe for staying in control while dozens of agent sessions explore the fog.",
+  "skills": [
+    {"name": "Planning & Prioritization", "description": "An orchestrator skill over grilling sessions that charts a decision map from vague intent to a spec-ready destination."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Interactive agent Q&A that extracts decisions from the human by asking sharp, domain-grounded questions."},
+    {"name": "Spec-Driven Development", "description": "Typed, linked tickets - grilling, prototype, research - that track unresolved decisions and their blocking order."},
+    {"name": "Iterative Prototyping", "description": "Raising the fidelity of a discussion with clickable variant prototypes instead of describing UI in words."},
+    {"name": "Context Engineering", "description": "Organizing context as a chain of pointers - map to ticket to research doc - so agents fetch depth on demand."},
+    {"name": "Agent Harness Engineering", "description": "The three layers around the model - model, harness, environment - and why harness and environment are free wins."},
+    {"name": "Token Economics", "description": "Tuning effort level as a quality-versus-latency-and-token tradeoff, medium often being the sweet spot."}
+  ],
+  "learnings": [
+    {
+      "title": "Wayfinder is an orchestrator over grilling sessions for the pre-spec stage",
+      "detail": "Wayfinder is an evolution of Matt's Grill Me skill, built for figuring out huge chunks of work in one piece before anything is implemented. The destination is a locked set of decisions - a spec - that can be handed to an implementation agent, not working code. The map's job is to find the way and resolve open decisions, not to build the thing. If Wayfinder senses the scope is small, it degrades gracefully to a normal single grilling session - so you use Wayfinder for everything and let it decide the shape.",
+      "time_hint": "02:30"
+    },
+    {
+      "title": "The map is a GitHub issue decomposed into typed decision tickets",
+      "detail": "After an initial exploration and grilling about the destination, Wayfinder proposes a map - in the demo, a destination ('decision-complete spec for a TikTok creator in CVM') plus a 9-ticket breakdown - and materializes it as a real GitHub issue with sub-issues on a public repo. Tickets are typed: grilling sessions (need a conversation), prototypes (need to play with code), and research tasks. Blocking relationships between tickets are captured automatically, and anything Wayfinder cannot resolve alone is parked as an explicitly 'not yet specified' backlog item.",
+      "time_hint": "13:10"
+    },
+    {
+      "title": "Research tickets fan out to agents that commit findings back",
+      "detail": "The four research tickets (TikTok API capabilities, YouTube Shorts API, vertical caption rendering with Remotion, what is cheap to fan out to) were spawned as sub-agents automatically, and each came back with findings committed to its ticket plus a local file on a separate worktree branch. When all four closed, the map thread showed every research item resolved with links to the written-up docs - the human never did that reading; it was delegated and summarized back.",
+      "time_hint": "17:50"
+    },
+    {
+      "title": "Run parallel grilling sessions and manage them as the lead",
+      "detail": "Matt opened four concurrent Claude Code sessions (using the Claude agents view for a top-level overview of all workers), each pointed at one decision ticket, and hopped between them answering questions as they arose. When decisions in one session affect another, he points the sessions at each other, orders them, and hands off - a bit of inter-agent communication. His rule for this phase: you are the lead, the agents are juniors; do not be passive, drive them, and keep every daily session under roughly 150k tokens, the 'smart zone' of the context window.",
+      "time_hint": "19:15"
+    },
+    {
+      "title": "Prototype tickets raise fidelity - decide UI with variants, not words",
+      "detail": "When he 'could not picture' a proposed editing-panel layout from its description, he declared it a prototype ticket: the prototype skill spins up a real dev server on a worktree and renders multiple variants (A, B, C) of the UI that he clicks through and reacts to - rejecting three layout options quickly, choosing variant B for the TikTok list, and mixing 'post actions above the video' from one variant with the full-screen player of another. He calls this vibe coding inside prototypes only: the throwaway prototype feeds the spec, and the spec is what gets shipped. Note the cost - prototyping reads and writes many files, so sessions easily burn 200k tokens.",
+      "time_hint": "28:30"
+    },
+    {
+      "title": "Progressive disclosure: the map is a chain of context pointers",
+      "detail": "The finished map is 'progressive disclosure at its best': the map itself is terse and points at decision tickets, each ticket records the decision and links to the research doc (or the branch with the findings), and the agent walking the chain fetches depth only where needed. His earlier specs show the same pattern in reverse - a spec linking out to dozens of Wayfinder grilling and research tickets, then to implementation subtasks, then to a 5,000-line PR produced by a GitHub action working each ticket in a separate session.",
+      "time_hint": "34:30"
+    },
+    {
+      "title": "Enums over booleans is how experience shows up in a spec",
+      "detail": "Asked whether 'is short' should be a boolean on the videos table, Matt insisted on an enum (named 'format', values 'standard' vs 'short') because categories expand: three booleans for three video kinds would yield six combinatorial states, while one enum yields exactly the three real ones. He flags this as the kind of call a junior might miss by agreeing with the model's first suggestion - and the repo already states the enum-over-boolean convention, which Wayfinder surfaced during grilling.",
+      "time_hint": "23:30"
+    },
+    {
+      "title": "The model-harness-environment picture: improve what is free",
+      "detail": "Matt draws his worldview: the model (Opus, GPT) sits inside the harness (Claude Code, Codex, ChatGPT), which sits inside the environment (file system, codebase). Everyone talks about swapping the model, but that is a small part of the picture - you can also, for free, improve the harness or improve the environment the agent acts in, and he would split the gains roughly 50/50. Code review is a case where the harness matters more than the model.",
+      "time_hint": "14:10"
+    },
+    {
+      "title": "Effort levels are a quality-latency-token tradeoff",
+      "detail": "On why he runs Opus 4.8 on medium effort for essentially every step including grilling: higher effort spends more tokens and adds latency for diminishing quality returns, and medium fits his working style - the model is smart enough, and he provides the direction. He similarly does not chase flagship models for planning: Opus 4.8 is perfectly fine for grilling, no need for the newest frontier model. Related tip from the chat: a second review pass that compares implementation against the spec is a great cheap bug-catcher.",
+      "time_hint": "59:40"
+    },
+    {
+      "title": "External platform policy can be the real blocker - pivot to a bridge",
+      "detail": "Deep in the map, research revealed TikTok's posting API treats every app as un-audited until TikTok reviews and approves it - and approval requires building TikTok's full mandated content-sharing-guidelines UX (privacy dropdowns with no default, grayed-out states) before they will even review you. Blocked, Matt opens a decision ticket to pivot to Buffer: his previous implementation uploaded rendered videos to Dropbox, let Zapier detect them, and pushed them to Buffer, whose API is easy - a paid Buffer subscription is a small price versus TikTok's onerous requirements. Wayfinder's ticket structure made the blocker visible and the pivot a tracked decision instead of a stalled thread.",
+      "time_hint": "64:00"
+    },
+    {
+      "title": "Decision tickets are not implementation tickets",
+      "detail": "Wayfinder's decision tickets can only be resolved by making the decision - they are questions to answer, not work to do. After the map completes, to-spec turns the map into a detailed spec in a fresh session, then closes the map; to-tickets then creates implementation tickets that reify those decisions in code. Mixing the two types is a common failure; keeping them separate is what lets a decision map hand off cleanly to autonomous implementation.",
+      "time_hint": "73:40"
+    },
+    {
+      "title": "After the map: to-spec, to-tickets, AFK implementation, review",
+      "detail": "Matt's end-to-end pipeline: complete every Wayfinder ticket so the map holds all decisions; hand the map to to-spec (a fresh session explores the map and writes the big linked spec); hand the spec to to-tickets for implementation subtasks; implement each subtask in its own context window, usually with an AFK agent since he is not needed; then run a code review skill over the whole diff, fix problems, and send to human review. Sandcastle drives his implementation, and a GitHub action previously worked each ticket of a spec in its own session to produce a 5,000-line PR.",
+      "time_hint": "72:30"
+    }
+  ],
+  "key_points": [
+    "Wayfinder charts the way; it does not build the thing - execution is out of scope.",
+    "The map turns fog into typed tickets: grilling, prototype, research, and blocked.",
+    "When you cannot picture it from words, raise the fidelity - prototype variants beat debates.",
+    "Three booleans make six states; one enum makes three.",
+    "The harness and the environment are free - stop only swapping the model.",
+    "You are the lead in the planning phase; the agents are the juniors.",
+    "Vibe coding is fine inside throwaway prototypes - the spec is what ships.",
+    "TikTok's audit gate blocked the API, so the pivot was Dropbox, Zapier and Buffer.",
+    "Decision tickets resolve decisions; implementation tickets reify them in code."
+  ],
+  "mermaid": "flowchart TD\n  idea[\"Dictated feature idea - Whisper Flow\"] --> wayfinder[\"Wayfinder - orchestrator over grilling\"]\n  wayfinder --> map[\"GitHub issue map - nine decision tickets\"]\n  map --> research[\"Research tickets - spawned agents\"]\n  research -->|findings committed| map\n  map --> grill[\"Grilling sessions - parallel worktrees\"]\n  grill --> proto[\"Prototype skill - variant A and B UI\"]\n  proto -->|decision recorded| map\n  map --> tospec[\"To Spec - detailed linked specification\"]\n  tospec --> totickets[\"To Tickets - implementation tickets\"]\n  totickets --> implement[\"AFK agents - separate context windows\"]\n  implement --> review[\"Code review then human review\"]",
+  "generated": "2026-10-22"
+}

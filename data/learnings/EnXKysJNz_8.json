@@ -1,0 +1,89 @@
+{
+  "video_id": "EnXKysJNz_8",
+  "title": "GPT-5.5 VERIFIED Opus 4.7: A Pi Coding Agent That REVIEWS Like YOU",
+  "summary": "Dan demonstrates a two-agent multi-agent system built on customized Pi coding agent harnesses: an Opus 4.7 'builder' agent and a GPT 5.5 'verifier' agent. Whenever the builder finishes any prompt, a stop hook fires an event through a Unix socket and the verifier kicks off completely unprompted, reads the builder's session file, breaks the work into atomic claims, validates each claim, and re-prompts the builder only when a rule was violated. He demonstrates it twice: generating an architecture diagram with GPT Image 2 (where the verifier flags a readability-contract violation of more than 10 text blocks and forces a regen) and verifying a SQLite database report with a cheap GLM 5.1 model. The outcome is a compounding system that increases trust and scale while forcing the engineer to template their review criteria into the agent's system prompt instead of hand-reviewing every output.",
+  "what_you_learn": "You learn the verifier agent pattern: how to make one agent validate another agent's work automatically via stop hooks and a Unix socket, using atomic claim validation instead of vibes. This is the foundational multi-agent orchestration pattern for anyone building AI-agent systems who wants to spend tokens to save human review time.",
+  "skills": [
+    {"name": "AI Output Verification", "description": "A second agent that watches a builder agent's session and validates its output automatically after every run."},
+    {"name": "Autonomous Agent Operations", "description": "Using stop hooks and Unix socket events so agents kick off other agents without any human prompt."},
+    {"name": "Agent Harness Engineering", "description": "Running a fully customizable Pi agent harness so you control context, model, prompt, and tools instead of a vendor-controlled tool."},
+    {"name": "Agent Guardrails", "description": "Restricting an agent's bash tool to a single allow-listed script to prevent runaway or hallucinated commands."},
+    {"name": "Continuous Improvement", "description": "A verifier report section listing what it could not verify so the engineer can encode new rules into the system prompt each run."},
+    {"name": "Token Economics", "description": "Deliberately spending 2-5x tokens on verification compute to buy back human review time."},
+    {"name": "Multi-Agent Orchestration", "description": "Coordinating teams of different models (Opus 4.7 plus GPT 5.5, GLM 5.1) that outperform any single model alone."}
+  ],
+  "learnings": [
+    {
+      "title": "Every benchmark runs one model in isolation and misses the real opportunity",
+      "detail": "Dan argues the April 2026 release wave (Opus 4.7, GPT 5.5, DeepSeek V4, GLM 5.1, Kimi K 2.6, Qwen series) made single-model performance a non-bottleneck. Every benchmark tests models alone, but maximum intelligence comes from combining models: GPT 5.5 AND Opus 4.7, not OR. The move from 'which model' to 'which system of models' is what he calls multi-agent orchestration.",
+      "time_hint": "0:38"
+    },
+    {
+      "title": "The verifier fires on a stop hook through a Unix socket, fully unprompted",
+      "detail": "The two-agent system needs no input: on completion of any prompt, the builder agent's stop hook sends an event through a local Unix socket and the verifier agent takes over with hands off the keyboard. The verifier reads the builder's session file (the Pi agent harness gives full access to everything the builder did) and only re-prompts the builder if a rule was violated.",
+      "time_hint": "3:10"
+    },
+    {
+      "title": "The verifier validates individual claims and checks the output against the original ask",
+      "detail": "The verifier does two things: it walks through every claim the builder agent made (did the script run, does the file exist, is it the right format and size) and it makes sure what was asked for is what was built (visually reading a generated image with GPT 5.5, one of the best image-reading models, to confirm it describes the verifier two-agent system).",
+      "time_hint": "3:38"
+    },
+    {
+      "title": "The verifier can prompt the builder back in feedback mode",
+      "detail": "When the verifier found the architecture diagram violated a readability rule, it wrote a report with status failed and confidence feedback, then fired a prompt back into the builder agent. One agent prompting another agent is the core mechanism: the human never writes the correction prompt.",
+      "time_hint": "4:05"
+    },
+    {
+      "title": "Encode domain rules as hard constraints in the verifier system prompt",
+      "detail": "The image-generation verifier has a templated rule: never more than 10 distinct text blocks in any image, because people do not like noisy text-heavy images. The verifier caught 9 vs 10 blocks and failed the run on that contract alone. Rules like this are written into the customized system prompt front matter, which is possible because Dan owns the agent harness.",
+      "time_hint": "5:48"
+    },
+    {
+      "title": "Use a consistent structured report format so results are machine-readable",
+      "detail": "Every verification ends in the same report shape: status, confidence, what was verified (turn index, total atomic claims, claims verified, claims failed, claims unverified — e.g. 7 out of 7), what could not be verified, and what the verifier needs from the human to verify next time. Prompt-engineering the output format makes the feedback loop automatable.",
+      "time_hint": "6:40"
+    },
+    {
+      "title": "'What could you not verify' is a flywheel that compounds the system",
+      "detail": "The verifier always reports what it failed to verify. The engineer takes those items, templates them as new rules or verification steps into the system prompt, and the next run is stronger. This is a built-in positive feedback loop: every prompt you write improves the verifier, so the system compounds instead of plateauing.",
+      "time_hint": "13:05"
+    },
+    {
+      "title": "Spend tokens to save time: 2-5x verification compute buys back review hours",
+      "detail": "In the SQLite example, Opus 4.7 spent roughly 10K tokens doing the work while GLM 5.1 (a cheap 200K-context model) spent about 20K tokens verifying it — 2x compute on validation. In the image example the split was 4% of context on Opus versus 23% on GPT 5.5, about 5x. Dan frames this as a deliberate trade: your time is worth more than the tokens, and verification directly attacks the review constraint.",
+      "time_hint": "10:14"
+    },
+    {
+      "title": "Verifier agents attack the review constraint of agentic coding",
+      "detail": "Agentic engineering has two constraints on human time: planning and reviewing. The verifier agent breaks the review constraint by teaching an agent exactly how you verify: the files you read, the rules you check, the format you expect. Reviewing sets of things (every image, every DB report) is exactly where a cheap second agent earns its tokens.",
+      "time_hint": "11:04"
+    },
+    {
+      "title": "Restrict the verifier's bash tool to one allow-listed script",
+      "detail": "Security vulnerabilities and runaway agents are rising, and the bash tool is called the most dangerous tool you can give an agent. Dan's verifier is restricted via a bash policy to running exactly one script — any other bash call is fully blocked. This is the highest level of tool control and matters doubly for verifiers that touch data manipulation or databases.",
+      "time_hint": "20:13"
+    },
+    {
+      "title": "The verifier is independent of the builder, so it layers onto any primary agent",
+      "detail": "The verifier is an extension on top of whatever Pi agent harness you run as your primary agent — swap the SQLite agent for a Postgres, MongoDB, or MySQL verifier. It works because the two agents communicate through the socket and session file, not through shared state, so you can stack multiple verifiers each focused on one thing.",
+      "time_hint": "18:14"
+    },
+    {
+      "title": "Owning the harness forces you to template engineering instead of vibe coding",
+      "detail": "Because the harness blocks one-off interaction with the verifier, Dan cannot fire ad-hoc prompts when something goes wrong — he is forced to improve one of the 'core four': context, model, prompt, or tools. He argues this is the real gap between engineers stuck prompting back and forth and engineers building AI developer workflows that scale.",
+      "time_hint": "14:40"
+    }
+  ],
+  "key_points": [
+    "Agents validating agents: the verifier kicks off unprompted on every builder stop hook via a Unix socket event.",
+    "Break all agent work into atomic claims — small units that can be proven true or false.",
+    "Spend tokens to save time: 2x-5x verification compute is a good trade for human review hours.",
+    "The report field 'what could you not verify' is a flywheel that compounds the system every run.",
+    "One agent, one prompt, one purpose — a focused verifier per concern beats a general critic.",
+    "The bash tool is the most dangerous tool you can give an agent; allow-list it to one script.",
+    "Every benchmark runs models in isolation; real capability is GPT 5.5 AND Opus 4.7, not OR.",
+    "Owning your agent harness forces you to template engineering instead of vibe coding."
+  ],
+  "mermaid": "flowchart TD\n  H[\"Human engineers the system\"] --> B[\"Builder Agent - Opus 4.7\"]\n  B -->|\"prompt completes\"| SH[\"Stop Hook\"]\n  SH -->|\"event over unix socket\"| V[\"Verifier Agent - GPT 5.5 or GLM 5.1\"]\n  V --> SF[\"Builder session file\"]\n  SF --> AC[\"Atomic claims - true or false units\"]\n  AC --> CK[\"Validate each claim plus original ask\"]\n  CK --> R{Rule violated?}\n  R -->|\"yes\"| FB[\"Feedback report - status failed\"]\n  FB -->|\"re-prompt\"| B\n  R -->|\"no\"| OK[\"Clean report - claims verified\"]\n  OK --> NV[\"What could not verify section\"]\n  NV -->|\"new rules templated\"| SP[\"Verifier system prompt\"]\n  SP --> V",
+  "generated": "2026-10-21"
+}

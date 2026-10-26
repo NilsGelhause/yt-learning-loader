@@ -1,0 +1,54 @@
+{
+  "video_id": "r8FYE2ZOj0E",
+  "title": "The secret to building robust frontend apps with agents",
+  "summary": "Matt Pocock explains why reducers and state machines are the most agent-friendly pattern in frontend development. A reducer holds some persistent state and a set of actions (open camera, close camera, photo captured) representing events that can happen in the UI - user actions or failures. The reducer takes an action and returns a new state, which cleanly separates the user interface from the logic controlling it. That separation means the state logic can be tested independently of the browser with very fast tests, while the React code stays dumb - a button's onClick simply dispatches an action. Concentrating frontend logic in one pure, inspectable place makes agent-edited pages feel far more robust with most edge cases handled, to the point that Matt is going back through old projects and adding more reducers.",
+  "what_you_learn": "You learn a concrete architectural pattern that makes agent-generated frontend code dramatically more reliable: push all state-transition logic into pure reducer functions with explicit action types, and keep UI components as thin dispatchers. Because a reducer is a pure, self-contained function, an agent can understand, modify, and verify the whole logic in one place - which is exactly how agents work best.",
+  "skills": [
+    {"name": "Frontend State Management", "description": "Modeling UI behavior as explicit states and actions instead of scattered boolean flags."},
+    {"name": "Frontend Development", "description": "Keeping user interface components dumb while all control logic lives in testable functions."},
+    {"name": "Agent Onboarding", "description": "Structuring code so agents can see, test, and modify the whole logic in one place."},
+    {"name": "Testing Strategy", "description": "Testing state logic independently of the browser for very fast, focused tests."}
+  ],
+  "learnings": [
+    {
+      "title": "A reducer is persistent state plus actions",
+      "detail": "Matt sketches the shape of a reducer: it holds some persistent state and defines a bunch of actions - in his example open camera, close camera, photo captured. Each action is something that can happen based on the frontend UI, including events from user actions or from things failing.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "The reducer contract: action in, new state out",
+      "detail": "All the reducer does is take in an action and return a new state. On a basic level: the open camera action returns openCamera true, and the close camera action returns openCamera false. This simple contract is what makes the whole pattern so easy for both humans and agents to reason about.",
+      "time_hint": "00:27"
+    },
+    {
+      "title": "Reducers separate the UI from the logic controlling it",
+      "detail": "The important consequence of the action-in-state-out contract is separation: the user interface is decoupled from the logic that controls it. The React layer becomes very dumb - in his thumbnails page, a button's onClick simply dispatches open camera - while the rules of what state means live elsewhere.",
+      "time_hint": "00:41"
+    },
+    {
+      "title": "Separated logic is testable outside the browser",
+      "detail": "Because the reducer is separated from the UI, the state logic - like his thumbnail state reducer - can be tested independently outside the browser, making the tests very, very fast. No DOM, no rendering, no browser automation: just a function, an action, and an assertion on the returned state.",
+      "time_hint": "00:50"
+    },
+    {
+      "title": "Concentrate frontend logic in one inspectable place",
+      "detail": "The architectural payoff: most of the logic for the frontend code lives in a single place that is easy to test, easy to modify, and easy to see in its entirety - you can read the whole system of actions and state transitions at once instead of reconstructing it from scattered components.",
+      "time_hint": "01:08"
+    },
+    {
+      "title": "Agent-edited pages with reducers feel more robust",
+      "detail": "Matt reports he can feel the difference when an agent edits a page that contains a reducer: the result feels much more robust, with most edge cases handled. He is actively going back over old projects and cranking up the number of reducers - the pattern makes agent output safer, so it is worth retrofitting.",
+      "time_hint": "01:19"
+    }
+  ],
+  "key_points": [
+    "A reducer takes an action and returns a new state - nothing more, nothing less.",
+    "Actions model everything that can happen: user clicks, failures, async completions.",
+    "Reducers separate the UI from the logic, so the React code stays dumb.",
+    "Reducer logic tests run outside the browser and are extremely fast.",
+    "One inspectable place for all state logic is where agents do their best work.",
+    "Pages with reducers survive agent edits with edge cases handled - retrofit old projects."
+  ],
+  "mermaid": "flowchart TD\n  ui[\"UI events - clicks and failures\"] --> actions[\"Actions - open camera close camera photo captured\"]\n  actions -->|\"dispatched from dumb components\"| reducer[\"Reducer - action in new state out\"]\n  state[\"Persistent state\"] --> reducer\n  reducer -->|returns| newstate[\"New state\"]\n  newstate --> ui\n  reducer --> tests[\"Fast tests outside the browser\"]\n  subgraph result[\"Agent edited pages feel robust\"]\n    robust[\"Most edge cases handled\"]\n  end\n  reducer --> result",
+  "generated": "2026-10-22"
+}

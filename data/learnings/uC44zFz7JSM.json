@@ -1,0 +1,78 @@
+{
+  "video_id": "uC44zFz7JSM",
+  "title": "Your codebase is NOT ready for AI (here's how to fix it)",
+  "summary": "Matt Pocock argues that your codebase - way more than your prompts or your AGENTS.md file - is the biggest influence on AI output quality, and most codebases are not ready. Using a visual map of modules, he shows that humans hold a mental grouping of features (thumbnail editor, video editor, auth, CRUD forms) that is not reflected in the jumbled file system, so an AI entering the repo sees an incomprehensible web of shallow modules. His fix is deep modules from John Ousterhout's 'A Philosophy of Software Design': big chunks of implementation behind a simple, carefully designed interface, turning each module into a gray-box where the AI owns the interior and tests lock down the behavior. He explains the three payoffs (navigability via progressive disclosure of complexity, reduced cognitive burnout for the human, and 20-year-old best practices that still hold), notes Effect makes module boundaries easy in TypeScript, and concludes you must design module boundaries and tests from the PRD/planning stage onward.",
+  "what_you_learn": "You learn a concrete architecture strategy for making a codebase agent-friendly: consolidate shallow modules into deep gray-box modules with well-documented interfaces, so an AI can navigate by types and safely own implementations behind tests. It reframes AI not as a superpowered developer but as a forgetful new starter you will spawn dozens of times a day - and shows that classic software design is the mechanism for managing it.",
+  "skills": [
+    {"name": "API & Module Design", "description": "Modules with lots of implementation behind a simple, carefully designed interface, per Ousterhout's Philosophy of Software Design."},
+    {"name": "Context Engineering", "description": "Designing a codebase so interfaces explain modules first and complexity is revealed only when you look inside."},
+    {"name": "Agent Onboarding", "description": "Restructuring the file system to match the mental map of features so agents can navigate and reason about the code."},
+    {"name": "Testing Strategy", "description": "Writing tests that lock down module behavior so AI can freely change implementation without breaking the contract."},
+    {"name": "Learning & Teaching", "description": "Designing the codebase for a forgetful new joiner who has zero memory and must explore from scratch every session."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Holding seven or eight module lumps in your head instead of a web of interrelations that exhausts the maintainer."}
+  ],
+  "learnings": [
+    {
+      "title": "Your codebase influences AI output more than your prompts",
+      "detail": "Matt's thesis: the codebase - way more than the prompts or the agents.md file - is the biggest influence on what the AI produces. A badly designed codebase means the AI does not receive feedback fast enough to know if its change did what it intended, cannot find files or work out how to test things, and burns out the human trying to hold it all together. Software quality and 20-year-old best practices matter more than ever.",
+      "time_hint": "0:00"
+    },
+    {
+      "title": "The AI has no memory - it is the guy from Memento",
+      "detail": "A human holds a mental map of feature groupings (thumbnail editor, video editor, auth, CRUD forms), but the file system usually jumbles them together, so any module can import any other. The AI entering your repo sees only the jumble - it has no memory of previous sessions, like the guy from Memento stepping in asking 'what am I doing?'. The fix is to make the file system match your internal map so the AI can find things you describe in a prompt.",
+      "time_hint": "1:30"
+    },
+    {
+      "title": "Deep modules come from A Philosophy of Software Design",
+      "detail": "The recommended structure is deep modules from John Ousterhout's book 'A Philosophy of Software Design': a lot of implementation controlled by a simple interface. On the module graph this means fewer, bigger chunks instead of many tiny modules, and every export must come through the interface. Deep modules make the system easily navigable, easy to change, and easy to test.",
+      "time_hint": "3:00"
+    },
+    {
+      "title": "Deep modules become gray-box modules under AI control",
+      "detail": "Reading about deep modules, Matt immediately thought of putting AI in control of the module interior: the interface is the publicly accessible API you design with your taste, and the implementation inside you delegate to the AI. You only look inside when you need to apply taste, improve performance, or influence the outcome - as long as the tests are good, you do not need to care what happens inside.",
+      "time_hint": "3:40"
+    },
+    {
+      "title": "Benefit one - navigability through progressive disclosure of complexity",
+      "detail": "Treat each deep module as a service (thumbnail service, video editor service), document it inside its own folder, and make the exported types obvious in a types section. The AI can then see all services on the file system, read and understand the exported types before ever looking at implementation, and say 'I've seen the interface, I can trust what it returns'. The interface sits at the top explaining the module; complexity is disclosed only when needed.",
+      "time_hint": "4:40"
+    },
+    {
+      "title": "Benefit two - reducing cognitive burnout for the human",
+      "detail": "Instead of tracking interrelationships between dozens of tiny shallow modules, the developer holds about seven or eight lumps of stuff in their head: the AI manages the interiors, and the human only worries about designing the interfaces and how they fit together. This is a million miles from vibe coding - you must apply real taste at the module boundaries, deciding what goes in which module.",
+      "time_hint": "5:20"
+    },
+    {
+      "title": "Avoid lots of little shallow modules",
+      "detail": "The anti-pattern is many tiny shallow modules - each interrelated and grouped, but individually small, testable in tiny units, and really hard to keep in your head. This is the web-of-modules picture most codebases actually have, and it is exactly what makes them hard to navigate for both humans and AI.",
+      "time_hint": "6:00"
+    },
+    {
+      "title": "AI is a new starter - you will spawn twenty a day",
+      "detail": "Stop thinking of AI as a superpowered developer heading to AGI; it has weird limitations, and the key one is that it is a new starter in your codebase with no prior experience. Since you will be spawning 20 or more new starters every day to look at and change the code, the codebase must be friendly and ready for new starters - navigable, with boundaries enforced by modules.",
+      "time_hint": "6:45"
+    },
+    {
+      "title": "Effect makes module boundaries practical in TypeScript",
+      "detail": "Some languages make service-style module boundaries easier than others; in TypeScript and JavaScript it is not easy out of the box. Matt gives a shout-out to Effect (he uses it far more than when he posted his earlier Effect video) because it makes this kind of modularizing and seam-creation in a codebase really simple.",
+      "time_hint": "7:15"
+    },
+    {
+      "title": "Design modules and tests from the planning stage of every session",
+      "detail": "You must think about affected modules and interface design in every coding session, starting at the early planning stage - writing PRDs, turning PRDs into implementation issues. Tests and feedback loops are essential for AI for the same reason they are essential for a new starter: a well-tested codebase lets them see what their changes do as they ripple out.",
+      "time_hint": "7:35"
+    }
+  ],
+  "key_points": [
+    "Your codebase matters more to AI output than your prompts or your AGENTS.md.",
+    "The AI has no memory - it is the guy from Memento joining your repo fresh every session.",
+    "Deep modules: lots of implementation behind a simple interface you design with taste.",
+    "Delegate module interiors to the AI - gray-box modules, with tests locking down behavior.",
+    "Progressive disclosure: exported types let the AI navigate without reading implementations.",
+    "You will spawn 20 new starters a day - design the codebase for forgetful joiners.",
+    "Shallow modules are the enemy: hard to navigate, hard to test, hard to hold in your head.",
+    "Design module boundaries and tests from the PRD stage, not after the code exists."
+  ],
+  "mermaid": "flowchart TD\n  cb[\"Mental map of features\"] -->|\"mismatch\"| jumble[\"Jumbled file system - shallow module web\"]\n  jumble --> memento[\"AI enters with no memory - new starter\"]\n  cb -->|\"enforce\"| dm[\"Deep Modules - simple interface rich implementation\"]\n  dm --> gb[\"Gray Box Modules - AI owns the interior\"]\n  gb --> tests[\"Tests lock down module behavior\"]\n  dm --> pdc[\"Progressive Disclosure of Complexity\"]\n  pdc --> types[\"Exported types documented per service folder\"]\n  types --> nav[\"AI navigates without reading implementation\"]\n  dm --> head[\"Human holds 7 or 8 lumps - less burnout\"]\n  dm --> plan[\"Designed at PRD and issue planning stage\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,53 @@
+{
+  "video_id": "U832hShMVnc",
+  "title": "I'm thinking about changing my most popular skill",
+  "summary": "Matt Pocock debates modifying his popular /grill-me skill, which by default asks one question at a time as a replacement for plan mode. He has locally changed it to ask all its questions at once, which pairs well with his dictation workflow: he speaks one long answer covering everything, the agent processes it, then pushes the 'frontier of questions' forward to the next level of design decisions. He admits the one-at-a-time mode felt natural and kept a measurable pace, while the batch mode feels intense but is a lot faster. He ends by asking viewers whether he should change the skill's default behavior or ship a separate new skill, jokingly called 'Batch Me'.",
+  "what_you_learn": "You learn a real design decision in agent-skill UX: the interaction pattern of a skill (sequential questions vs batched questions) changes how humans collaborate with it, and the right default depends on the user's input workflow (typing vs dictation). It also shows the iterative 'question frontier' technique for driving a design conversation with an agent to shared understanding.",
+  "skills": [
+    {"name": "Agent Skill Design", "description": "Designing the interaction pattern of a skill - how and when it asks the human questions."},
+    {"name": "Human-in-the-Loop Collaboration", "description": "Using a questioning skill instead of plan mode to reach shared understanding of a design before building."},
+    {"name": "Personal Automation", "description": "Answering a whole batch of agent questions by speaking one long dictated reply."}
+  ],
+  "learnings": [
+    {
+      "title": "Grill Me by default replaces plan mode with one question at a time",
+      "detail": "The default behavior of the /grill-me skill: you use it instead of plan mode, and the agent asks you a single question, waits for your answer, asks the next, and so on. The goal is to build shared understanding about what you want to build before any code is written.",
+      "time_hint": "00:08"
+    },
+    {
+      "title": "The local mod: ask every question the agent has in one batch",
+      "detail": "Pocock modified his local copy so the agent asks all the questions it has at once instead of sequentially. The human then answers them all in one go, and the agent carries on with the full picture instead of ping-ponging.",
+      "time_hint": "00:15"
+    },
+    {
+      "title": "Dictation makes batch mode dramatically faster",
+      "detail": "He uses dictation, so he can just say one long answer - 'blah blah blah answer all the questions and we're good to go' - and whack through a bunch of text really fast. Batch questioning pairs naturally with voice input, where typing effort is the bottleneck.",
+      "time_hint": "00:21"
+    },
+    {
+      "title": "The question frontier: reveal everything known, then push it forward",
+      "detail": "His metaphor: the batched mode gives you the frontier of questions - everything the agent knows it needs to ask - you blast out the answers, and the agent pushes the frontier forward to the next level of design decisions. Each round exposes a new, deeper layer of unknowns.",
+      "time_hint": "00:42"
+    },
+    {
+      "title": "Sequential mode trades speed for a natural, measurable pace",
+      "detail": "The counter-argument he still feels: one question at a time felt really natural, like working things through at a measurable pace, and avoids the annoying feeling that it takes ages to reach shared understanding. Batch mode, by contrast, feels intense - like you are doing a lot of work at once - but it is a lot faster, and speed is the priority these days.",
+      "time_hint": "00:55"
+    },
+    {
+      "title": "Open design question: change the default or ship a new skill",
+      "detail": "He explicitly asks the audience for advice: should he change /grill-me to match his new recommendation, or ship a separate skill (he suggests the name 'Batch Me')? It is a real product decision about backwards compatibility with users who love the current behavior.",
+      "time_hint": "01:14"
+    }
+  ],
+  "key_points": [
+    "A skill's question pattern is a UX decision, not an implementation detail.",
+    "Batch questioning plus dictation lets you answer everything in one spoken burst.",
+    "Each answer round pushes the frontier of questions to the next level of design decisions.",
+    "One-at-a-time feels natural and paced; all-at-once feels intense but is faster.",
+    "Changing a popular skill's default risks breaking what users love - consider a variant skill instead.",
+    "Use grilling instead of plan mode to reach shared understanding before building."
+  ],
+  "mermaid": "flowchart TD\n  goal[\"Design a feature with an agent\"] --> choice{\"Question pattern\"}\n  choice -->|default| seq[\"One question at a time - natural paced\"]\n  choice -->|local mod| batch[\"All questions in one batch\"]\n  batch --> dict[\"Answer via dictation in one burst\"]\n  dict --> frontier[\"Agent pushes question frontier forward\"]\n  frontier --> next[\"Next level of design decisions\"]\n  next -->|more unknowns| batch\n  seq --> shared[\"Shared understanding then build\"]\n  decision{\"Change default or ship Batch Me\"} -.- choice",
+  "generated": "2026-10-22"
+}

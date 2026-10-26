@@ -1,0 +1,80 @@
+{
+  "video_id": "mh5XZ-L5SFQ",
+  "title": "Can Cursor's HARDCORE Review Skill Stop The Slop?",
+  "summary": "Matt Pocock tests the Cursor team's thermonuclear-code-quality-review skill - a single skill.md from the cursor/plugins repo - against his open-source software factory Sandcastle, asking it to review the last five PRs that made it to main. While it runs in auto mode he dissects the prompt line by line: a baseline ordering a deep audit of the branch's changes, an explicit ambition mandate that breaks the usual trap of agents treating a diff as their bounds, non-negotiables like the 1K-lines-per-file rule and treating weird if-statements as design problems, type boundary checks, 'code judo' review questions, escalation guidance, and a prioritized approve/reject output. He then scores the real findings against his own knowledge of the code: roughly five of seven land, including a 1,000-line init service that needed splitting, a generic makeRegistry that would delete 20 lines of boilerplate, and swallowed execSync errors, plus findings he rejects as false positives or bad advice. He concludes that ambition is worth the false positives, that the skill should be shorter and DRY-er, and that it wrongly ignores tests and seams entirely.",
+  "what_you_learn": "You learn how to write and evaluate an agentic code-review prompt: why agents default to treating the diff as their bounds and which wording breaks that, concrete review rules that hold up in practice (file-size limits, file names as context pointers, optionality checks, prioritized findings), and how to judge a review skill by weighing its false-positive rate against the cost of missed opportunities.",
+  "skills": [
+    {"name": "Code Review", "description": "Filtering agent findings: easy-to-reject false positives are cheap, missed opportunities are the real danger."},
+    {"name": "Context Engineering", "description": "Keeping files small so agents can navigate them, using the file name as the context pointer."},
+    {"name": "TypeScript Type System", "description": "Questioning unnecessary optionality, any, unknown, and cast-heavy code at review time."}
+  ],
+  "learnings": [
+    {
+      "title": "Automated review is the highest-leverage quality gate for agent output",
+      "detail": "Matt opens by stating that automated code review is one of the most impactful ways to improve the code quality coming out of your agent. His own review skill in the mattpocock/skills repo (then at 109,000 stars) is marked in progress and he is not happy with it, so he went looking for inspiration to copy from - which is the whole premise of the video.",
+      "time_hint": "00:00"
+    },
+    {
+      "title": "The thermonuclear skill is one ambitious skill.md from the Cursor team",
+      "detail": "The skill comes from the Cursor team in the cursor/plugins repo: 'thermonuclear code quality review', used for an unusually strict review focused on implementation quality, maintainability, abstraction quality, and codebase health. What makes it notable is how ambitious it asks the reviewer to be - explicitly hunting 'code judo moves' throughout the review. The entire skill is a single skill.md file.",
+      "time_hint": "00:39"
+    },
+    {
+      "title": "Testing it against real code: the last five PRs to main on Sandcastle",
+      "description": "Matt copies the skill locally and runs it in auto mode against Sandcastle, his open-source software factory, with a deliberately loose prompt: 'thermonuclear code quality review, review the last five PRs that made it to main'. While the agent works, he reads the skill file to understand what it was told to do.",
+      "time_hint": "01:12"
+    },
+    {
+      "title": "The baseline and the ambition trap of diff-bounded reviews",
+      "detail": "The baseline orders a deep audit of the current branch's changes and to rethink structure to meaningfully improve quality without impacting behavior - with instructions like 'be ambitious' and 'measure twice, cut once'. Matt's key observation: if you pass an agent a diff, it will usually treat that diff as the bounds within which it can work. This prompt breaks that by saying, in effect, 'look throughout the entire code base for opportunities, but starting from this branch's changes'.",
+      "time_hint": "01:36"
+    },
+    {
+      "title": "The 1K-lines non-negotiable and why large files hurt agents",
+      "detail": "A non-negotiable: no PR should push a file from under 1,000 lines to over 1,000 lines without a very strong reason. Matt reached the same conclusion independently - large files are hard for agents because they must ingest the entire file into their context window to find the one useful thing in it. A much better structure splits them into multiple files where the file name itself acts as the context pointer; Matt splits his own files once they pass about 5K tokens.",
+      "time_hint": "02:34"
+    },
+    {
+      "title": "Weird if-statements are design problems, not stylistic nits",
+      "detail": "The skill bans 'random spaghetti growth': if a change adds weird if statements in random places, treat that as a design problem and push the logic into a dedicated abstraction, helper, state machine, policy object, or separate module instead of tangling an existing path. It also biases toward cleaning the design rather than accepting working code, and prefers direct, boring, maintainable code over hacky and magical code - an idea Matt traces to the /simplify philosophy in Claude Code.",
+      "time_hint": "03:17"
+    },
+    {
+      "title": "Type boundary checks: question unnecessary optionality",
+      "detail": "The skill pushes hard on type and boundary cleanliness: question unnecessary optionality, unknown, any, or cast-heavy code when a clearer type boundary could exist. The optionality rule especially resonates with Matt - whenever an agent adds a prop to a React component it adds it as optional, even when it is always required, apparently to lessen the blast radius of the change. The skill also requires keeping logic in the canonical layer and reusing existing helpers over bespoke one-offs.",
+      "time_hint": "04:12"
+    },
+    {
+      "title": "Review questions give the agent a way into talking about the code",
+      "detail": "For every meaningful change the skill asks: is there a code judo move that would make this dramatically simpler? Can this be reframed so that fewer concepts, branches, or helper layers are needed? Does this improve or worsen the local architecture? Matt's caveat on the last one: you have to say exactly what good and bad looks like to an agent for 'improve or worsen' to mean anything. Together with the rules, these questions give the agent a vocabulary for the review.",
+      "time_hint": "05:50"
+    },
+    {
+      "title": "The skill has real gaps: no tests, no seams, too much repetition",
+      "detail": "Matt's criticisms: there is no mention of testing, no mention of seams, and nothing about improving feedback loops - which in his view is the entire point of a codebase that is easy to change, modular, and easy to navigate. The prompt is also a 'huge ball of mud' for the agent to read: lots of repetition, some 'word salad' ('unnecessary sequential orchestration and non-atomic updates' means nothing to him), and a review-tone section ('be direct, serious, demanding, not rude') he finds bizarre - though it does punch the language the agent should use. The output-expectations section is good: prioritize findings with structural regressions at the top and legibility concerns at the bottom, then approve or reject the PR.",
+      "time_hint": "08:09"
+    },
+    {
+      "title": "Scoring the findings: five out of seven land",
+      "detail": "Against the last five Sandcastle PRs the skill found blocker-class structural issues, and Matt scores them with his own knowledge of the code. Good: the init service ballooned past 1,000 lines mixing concerns and should have been preceded by a split (proposed I-split); a makeRegistry generic would delete 20 lines of duplicated boilerplate; the feature-specific if for the custom issue tracker scattered across three layers should be pushed into a type; a hardcoded Zod path despite templates declaring dependencies; swallowed errors in execSync inside an effect just returning false; a half-finished decomposition of a large file. Rejected: widening contract template args to a discriminated union (false positive from an inaccurate understanding of the system - acceptable) and merging two bite-identical prompt sections (prompts should stay independently changeable). Its verdict - a couple of the PRs should not have landed - was correct: the codebase is meaningfully messier than a week ago.",
+      "time_hint": "08:39"
+    },
+    {
+      "title": "Ambition trades false positives for fewer missed opportunities",
+      "detail": "Matt's main lesson: getting a review to be super ambitious and push many options gives you more false positives, but those are easy to say no to. The dangerous findings are the ones you miss - the opportunities for improvement you never see. He would rewrite the skill to be DRY-er and much more focused on tests and seams (like his improved codebase architecture skill does), but overall it is worth pulling down and experimenting with.",
+      "time_hint": "12:05"
+    }
+  ],
+  "key_points": [
+    "Pass an agent a diff and it treats the diff as its bounds - ambitious prompts break that.",
+    "No PR should push a file from under 1K lines to over 1K without a very strong reason.",
+    "Large files hurt agents: they must ingest the whole file to find the one useful thing in it.",
+    "Weird if statements are a design problem, not a stylistic nit.",
+    "Agents always add new React props as optional, even when they are always required.",
+    "If the reviewer cannot define good and bad for the codebase, improve or worsen means nothing.",
+    "Ambition buys false positives you can reject; the dangerous findings are the ones you never see.",
+    "The skill never mentions tests or seams - the entire point of a good codebase."
+  ],
+  "mermaid": "flowchart TD\n  prs[\"Last five PRs to main\"] --> skill[\"Thermonuclear review skill md\"]\n  skill --> audit[\"Deep audit of branch changes\"]\n  audit --> ambit[\"Ambition mandate - search whole codebase\"]\n  ambit --> rules[\"Non negotiables - file limits design smells types\"]\n  rules --> questions[\"Code judo questions per change\"]\n  questions --> esc[\"Escalate findings that delete complexity\"]\n  esc --> prio[\"Findings prioritized structural first\"]\n  prio --> verdict{\"Approve or reject the PR\"}\n  verdict --> human[\"Human filters false positives\"]\n  human -->|accepted| apply[\"Structural fixes land\"]\n  human -->|rejected| skip[\"Easy to say no\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,65 @@
+{
+  "video_id": "tLyfDIt9wHg",
+  "title": "This change makes /grill-me SO MUCH BETTER",
+  "summary": "Matt Pocock announces a significant redesign of his Grill Me skill: instead of grilling the user one question at a time, it will grill in batches - rounds of questions. He explains the failure mode that motivated this: near the end of a grilling session the skill would ask a long series of yes/no confirmation questions (do you agree with this recommendation?) that each required a full round-trip to the model provider, wasting time and preventing users from batch-answering. Asking all questions at once fails too, because questions have dependencies - the answer to one can change the next. The solution is rounds: round one asks Q1-Q4 together, the user answers all at once (great for dictation users), and round two takes those answers and asks the follow-ups. The trade-off is slightly more reading per round, but less waiting, fewer context switches, and the ability to run multiple grilling sessions in parallel.",
+  "what_you_learn": "You learn how to design interactive LLM workflows as batched rounds rather than sequential single questions: a concrete pattern for minimizing model round-trips while respecting dependencies between questions. Directly applicable to building interview, requirements-gathering, or clarification agents.",
+  "skills": [
+    {"name": "Human-in-the-Loop Collaboration", "description": "The human stays the driver of the grilling session, answering rounds while the skill orchestrates the questions."},
+    {"name": "Prompt Engineering", "description": "Reducing wasted model provider round-trips, especially for low-value yes/no confirmation questions."},
+    {"name": "Context Engineering", "description": "Batching answers so users - especially dictation users - answer multiple questions in one flow with less waiting."},
+    {"name": "Agent Skill Design", "description": "Iterating on agent skills based on observed failure modes and user modifications, and letting users override via global config."}
+  ],
+  "learnings": [
+    {
+      "title": "Grill Me is changing from one-question-at-a-time to batched rounds",
+      "detail": "Matt previews the next version of his Grill Me skill: instead of grilling one question at a time, it grills in batches. Round one might ask Q1, Q2, Q3, Q4 together, the user replies to all of them, and round two takes those answers and asks the follow-up questions. He calls this about as concurrent as the interaction can get.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "The failure mode: end-of-session streaks of yes/no questions",
+      "detail": "Grill Me had a weird failure mode where, at the end of a grilling session, it would ask a bunch of questions in a row that were all effectively yeses - yes, I agree with your recommendation. Each of these still cost a full model-provider round-trip: send the request, wait for the response, only then ask the next question. Pure wasted time for zero information gain.",
+      "time_hint": "00:11"
+    },
+    {
+      "title": "Dictation makes batch answering strictly better",
+      "detail": "Matt uses dictation constantly, so if he can see several questions on screen at once he can just dictate out answers to all of them. A single-question-at-a-time design forces him to wait and dictate one short answer per round-trip - especially stupid, as he puts it, given how dictation works.",
+      "time_hint": "00:33"
+    },
+    {
+      "title": "Users were already hacking around it by asking for all questions at once",
+      "detail": "Loads of people were modifying Grill Me themselves to say ask me all the questions at once instead of one by one to get around the round-trip waste. But asking all questions at once fails for a real reason: questions have dependencies between them - the answer to one question might change what the next question should be.",
+      "time_hint": "00:40"
+    },
+    {
+      "title": "One-by-one questioning only exists to serialize dependencies",
+      "detail": "Asking questions one by one gets around the dependency problem by forcing a sequence - it becomes a discussion where each answer shapes the next question. That correctness comes at the cost of latency and context switching, which is why the rounds design is a middle ground rather than a return to full batching.",
+      "time_hint": "00:54"
+    },
+    {
+      "title": "Rounds of questions: independent questions share a round, follow-ups land in the next",
+      "detail": "The design: round one asks Q1-Q4, the user replies to all, and round two takes the answers from the previous round and asks the next follow-ups (Q4, Q5, Q6, for example). Intra-round questions must be independent; dependency chains are expressed across round boundaries. This preserves the discussion-like correctness of sequential grilling while batching the round-trips.",
+      "time_hint": "01:03"
+    },
+    {
+      "title": "The trade-off: more reading, but faster and parallelizable",
+      "detail": "Batch rounds mean the user does a little more reading to understand each question in turn, but it is faster overall and means less context switching - particularly valuable when you run multiple grilling sessions in parallel. Matt had been trying the rounds version all week and found it solves a big issue with Grill Me.",
+      "time_hint": "01:33"
+    },
+    {
+      "title": "Skills are user-owned: override via global config or edit the skill",
+      "detail": "Matt notes that if you do not like the change you can modify your global CLAUDE.md (captioned as claw.md) or modify the skill itself to use the old one-question-at-a-time version. The takeaway for skill authors: ship the better default, but leave users a supported escape hatch since skills live in user-controlled config.",
+      "time_hint": "01:55"
+    }
+  ],
+  "key_points": [
+    "Sequential questioning burns a model round-trip per question - even for yes/no confirmations.",
+    "All-at-once questioning breaks because answers create dependencies between questions.",
+    "Rounds are the middle ground: independent questions in one round, follow-ups in the next.",
+    "Batch rounds are a gift for dictation users - answer everything on screen in one flow.",
+    "Slightly more reading per round buys you speed and parallel grilling sessions.",
+    "Users were already patching Grill Me themselves - good skill authors notice and ship the fix.",
+    "Do not like the new default? Edit your global CLAUDE.md or the skill itself."
+  ],
+  "mermaid": "flowchart TD\n  old[\"Grill Me v1 - one question at a time\"] --> pain1[\"Endless yes no round trips\"]\n  pain1 --> pain2[\"Dictation users blocked - one short answer per wait\"]\n  hack[\"User hack - ask all questions at once\"] --> depfail[\"Breaks - questions have dependencies\"]\n  new[\"Grill Me v2 - rounds of questions\"] --> r1[\"Round 1 - Q1 Q2 Q3 Q4 together\"]\n  r1 --> ans[\"User answers all at once - dictation friendly\"]\n  ans --> r2[\"Round 2 - follow ups based on round 1 answers\"]\n  r2 --> more{\"More follow ups\"}\n  more -->|yes| r2\n  more -->|no| done[\"Grilling complete - aligned plan\"]\n  trade[\"Tradeoff - more reading per round for fewer round trips\"] -.-> new",
+  "generated": "2026-10-22"
+}

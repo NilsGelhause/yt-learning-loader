@@ -1,0 +1,77 @@
+{
+  "video_id": "dtAJ2dOd3ko",
+  "title": "/handoff is my new favourite skill",
+  "summary": "Matt Pocock deep-dives the /handoff skill he recently added to his open-source skills repo: it compresses the context of the current coding session into a markdown document that a fresh agent session can pick up and continue the work. He first explains context windows - the smart zone early in the window versus the dumb zone near the limit - and how /compact works as a single-session recovery tool that leaves layers of sediment. He then shows why handoff is different: it lets you slice an out-of-scope task out of your current session, keep that session pure, and continue the task in a parallel session. He demos two patterns - handing off a task discovered mid-grilling-session, and a round-trip where a grilling session hands off to a prototype session that grows to 169K tokens and then hands its learnings back - and finishes by walking through the skill's design decisions: a suggested-skills section, pointer-not-duplication, saving to the OS temp directory, redacting secrets, and treating user arguments as the next session's focus.",
+  "what_you_learn": "You learn a concrete, vendor-agnostic technique for multi-session agent workflows: markdown handoff documents as the transport layer between sessions (even across different agent products), which is the DIY version of sub-agents. You also get a clear mental model of context-window degradation (smart vs dumb zone) and when to compact versus when to hand off.",
+  "skills": [
+    {"name": "Agent Handoffs & Communication", "description": "A markdown summary of the current session, written so a fresh agent can continue the work without the full history."},
+    {"name": "Context Engineering", "description": "Compact summarizes a conversation in place inside one session; handoff exports a slice of it to another session."},
+    {"name": "Context Window Management", "description": "Treat ~120k tokens as the practical smart zone of even a 1M-token context window and budget accordingly."},
+    {"name": "Task Management", "description": "Extracting an out-of-scope task from a session into its own session so the original session stays pure and focused."},
+    {"name": "Multi-Agent Orchestration", "description": "Plain markdown handoffs let you move work between Claude Code, Codex, Copilot CLI, or use them for adversarial review."},
+    {"name": "Agent Skill Design", "description": "Packaging an instinctive workflow (write a handoff doc) into a reusable, opinionated skill with explicit rules."}
+  ],
+  "learnings": [
+    {
+      "title": "Context windows have a smart zone and a dumb zone",
+      "detail": "Even though Claude Code advertises a 1M-token context window, early tokens perform better: fewer attention relationships means the agent focuses better. As the conversation grows, responses get dumber, and by roughly the 120k-token mark Matt says he can feel he is in the dumb zone. Practical implication: you only have about 120k tokens of quality context, so you must budget it and stay aware of your window at all times.",
+      "time_hint": "01:36"
+    },
+    {
+      "title": "/compact recovers a session by summarizing it in place",
+      "detail": "Compact summarizes a large conversation so you jump from near the dumb zone back into the smart zone, and an auto-compact buffer can trigger it automatically. The summary (files referenced, what you said, tone of the conversation) is injected at the start of a new session, and repeated compacts leave sediment layers of older summaries. It is excellent for barreling on one problem - compacting away options you already tried - but it only ever extends a single session and clobbers your current progress to do so.",
+      "time_hint": "03:22"
+    },
+    {
+      "title": "Handoff solves what compact cannot: continuing work in another session",
+      "detail": "When Matt noticed an out-of-scope refactoring opportunity mid-session, his choices were bad: extend the session (diluted context, hits the dumb zone) or compact (clobbers current progress). What he wanted was to slice out just the part of the context pertaining to the side task, hand it to a separate session, and let both run independently with the original session kept pure. That is the job of the /handoff skill.",
+      "time_hint": "04:49"
+    },
+    {
+      "title": "The handoff skill writes a disposable markdown doc to the OS temp directory",
+      "detail": "The skill instructs the agent to write a document summarizing the current conversation so a fresh agent can continue the work, and to save it to the operating system's temporary directory - not the workspace. It lives in his skills repo under productivity/handoff. Matt added it as an experiment and found he used it so often that it earned a permanent place in the toolkit.",
+      "time_hint": "00:24"
+    },
+    {
+      "title": "Handing off mid-grilling sharpens the current session",
+      "detail": "Demo: during a grilling session planning features for Sandcastle (his software factory), Matt says at Q2: let's move iterations and the completion signal to a separate API - in fact, hand off that task to a separate agent. Naming the reason and the desired document content does two things: it declares the topic out of scope, so the grilling session's Q2 collapses and sharpens, and it produces a focused markdown doc that another agent later turns into a GitHub issue.",
+      "time_hint": "06:14"
+    },
+    {
+      "title": "Hand off to a prototype when you need to see code, not answer questions",
+      "detail": "During grilling, questions split into known unknowns the agent can ask about, and things you can only resolve by seeing them in code or a UI prototype. Matt's pattern: hand off the difficult bits (window communication, a draw SDK integration) to a prototype session. That session grew to 169K tokens - far bigger than would have fit inside the grilling session - after which he asked it to write a handoff document of the non-obvious learnings to pass back to the planner session.",
+      "time_hint": "07:20"
+    },
+    {
+      "title": "The round-trip handoff is a DIY sub-agent",
+      "detail": "The recurring pattern: the initial session does work and hands off to a second session, which produces its own handoff document and passes it back to the original session - Matt finished the grilling and produced PRDs and issues incorporating the prototype. It is like a DIY sub-agent: you spend an entire clean context window on one task, compress the learnings, and return them to the parent, all without any native sub-agent support from the harness.",
+      "time_hint": "08:45"
+    },
+    {
+      "title": "Markdown handoffs make cross-agent and adversarial workflows trivial",
+      "detail": "Because the transport is a plain markdown file rather than a native harness feature, session A can be Claude Code and session B can be Codex or Copilot CLI. If you want adversarial review or any interaction between different coding agents, you can simply hand the same document to each and compare or iterate on their outputs.",
+      "time_hint": "09:23"
+    },
+    {
+      "title": "Good handoff docs suggest skills, point at artifacts, and redact secrets",
+      "detail": "Design decisions in the skill: include a suggested-skills section (grill-with-docs, diagnose, prototype) so pasting the doc into a new session auto-invokes the right flavor; do not duplicate content already captured in other artifacts - use pointers to markdown files or GitHub issues instead, because handoff docs bloat fast; save to the temp directory because the files are disposable and must not rot in your docs; redact API keys, passwords, and PII; and treat user-passed arguments as the description of what the next session will focus on, tailoring the doc accordingly.",
+      "time_hint": "09:50"
+    },
+    {
+      "title": "Always state the reason and focus when invoking handoff",
+      "detail": "Matt's strongest opinion: every time he calls handoff he describes the purpose and reason for handing off, because he cannot see how the agent would write a decent document otherwise - the writer needs to know what the next session will focus on. Dictation (blasting out a sentence of intent) makes this frictionless, which is part of why the pattern gets used so much.",
+      "time_hint": "11:32"
+    }
+  ],
+  "key_points": [
+    "A 1M-token context window has only ~120k tokens of smart zone - budget accordingly.",
+    "Compact extends one session; handoff lets two sessions run in parallel from one context.",
+    "A handoff doc is a disposable temp file, not documentation - use pointers, not duplications.",
+    "The round-trip handoff is a DIY sub-agent: spend a clean context window, compress the learnings, return them.",
+    "Markdown as the transport makes handoffs work across Claude Code, Codex, and Copilot CLI - and enables adversarial review.",
+    "Always say WHY you are handing off - the writer agent cannot summarize what it cannot aim at.",
+    "Include a suggested-skills section so the receiving session knows which skills to invoke."
+  ],
+  "mermaid": "flowchart TD\n  s[\"Coding session in smart zone\"] -->|\"context grows past 120k tokens\"| d[\"Dumb zone - diffuse attention\"]\n  d -->|\"recover in place\"| c[\"Compact - single session sediment layers\"]\n  s -->|\"out of scope opportunity appears\"| h[\"Invoke handoff skill\"]\n  h --> doc[\"Markdown handoff doc in OS temp dir\"]\n  doc -->|\"paste into fresh session\"| s2[\"Session B - prototype or side task\"]\n  s2 -->|\"work exceeds 169k tokens\"| learn[\"Compress non obvious learnings\"]\n  learn -->|\"handoff back\"| s\n  doc -->|\"any vendor\"| x[\"Codex or Copilot CLI - adversarial review\"]\n  doc --> sk[\"Suggested skills section sets session flavor\"]",
+  "generated": "2026-10-22"
+}

@@ -1,0 +1,54 @@
+{
+  "video_id": "Vo33extKAeA",
+  "title": "Your agent is a tactical tornado",
+  "summary": "Matt Pocock borrows John Ousterhout's term from A Philosophy of Software Design: the 'tactical tornado', a prolific programmer who ships code far faster than everyone else but works in a totally tactical fashion, leaving a wake of destruction that some organizations mistake for heroism. Tactical programming is just getting the thing working - the short-term day-to-day work - while strategic programming is investing in design to keep the codebase healthy and make the next change easier. AI agents act exactly like tactical tornadoes, and they are effectively reinforcement-learned to be that way: trained on benchmarks, they optimize only for the current task, and adding strategic concerns would probably make their benchmark scores worse. The conclusion for anyone working with agents: you have to be the strategist, hold the long-term view, and explicitly tell the agent what to care about, or it will plow through your codebase.",
+  "what_you_learn": "You learn the single most important steering insight for working with coding agents: agents are structurally incentivized to be tactical (make it work now) and will not invest in your codebase's long-term health on their own. That responsibility is non-delegable - you must supply the strategy, the design values, and the long-term concerns through your prompts and reviews.",
+  "skills": [
+    {"name": "Strategic Thinking", "description": "Investing in design and codebase health so the next change is easier, not just making code work."},
+    {"name": "System Prompt Design", "description": "Explicitly telling the agent what to care about so its short-term optimizations serve long-term goals."},
+    {"name": "Codebase Navigation", "description": "Keeping working code well-designed as the asset that makes every future change cheaper."},
+    {"name": "AI Benchmarking", "description": "Understanding that agents are trained on benchmarks, which rewards only current-task success and punishes strategy."}
+  ],
+  "learnings": [
+    {
+      "title": "The tactical tornado ships fast and leaves destruction",
+      "detail": "John Ousterhout (author of A Philosophy of Software Design) coined 'tactical tornado' for the developer every team has: one who pumps out code far faster than others but works in a totally tactical fashion. Some organizations treat these developers as heroes, but they leave behind a wake of destruction in the codebase.",
+      "time_hint": "00:05"
+    },
+    {
+      "title": "Tactical programming is just getting the thing working",
+      "detail": "Ousterhout's definition of tactical programming: the day-to-day work of getting the thing working - the short-term view of software engineering. It is not laziness; it is a legitimate mode of working, but an incomplete one when it is the only mode.",
+      "time_hint": "00:25"
+    },
+    {
+      "title": "Strategic programming invests in design for the next change",
+      "detail": "Strategic programming is working to make the codebase healthy: working code is not enough, you invest in the design so that the next change becomes easier. Every tactical fix that works but degrades the design borrows against the cost of all future changes.",
+      "time_hint": "00:35"
+    },
+    {
+      "title": "AI agents are tactical tornadoes by training, not by accident",
+      "detail": "AI agents act like tactical tornadoes, and they are effectively reinforcement-learned to think that way. When an agent works on a benchmark task it is not trying to think about the next benchmark - only the current task. Attempting to add strategic behavior would probably make its scores worse, because benchmarks reward finished, working tasks.",
+      "time_hint": "00:45"
+    },
+    {
+      "title": "You must be the strategist because the agent cannot be",
+      "detail": "If the agent is the tactical tornado, then you have to be the strategist and hold the long-term view. You have to be the one to tell the agent what to care about - design values, conventions, invariants - because it will not derive them from a benchmark-style objective.",
+      "time_hint": "01:02"
+    },
+    {
+      "title": "Codebase health is a steering input, not an emergent property",
+      "detail": "Matt's closing warning: if you do not actively care about the long-term health of your codebase and communicate that to the agent, the tactical tornado will plow through your code and leave the wake of destruction. Long-term health only shows up in agent output if you put it into prompts, reviews, and feedback loops.",
+      "time_hint": "01:15"
+    }
+  ],
+  "key_points": [
+    "Every team has a tactical tornado: fast shipper, huge mess.",
+    "Tactical is getting it working; strategic is making the next change easier.",
+    "Agents are trained on benchmarks, so they optimize only for the current task.",
+    "Adding strategy would probably lower an agent's benchmark scores - it has to be tactical.",
+    "The agent is the tactical tornado; you are the strategist. That job is not delegable.",
+    "Tell the agent what to care about, or it will plow through your codebase."
+  ],
+  "mermaid": "flowchart TD\n  bench[\"Benchmark training\"] -->|\"rewards only\"| current[\"Current task success\"]\n  current --> tornado[\"Agent as tactical tornado - just make it work\"]\n  tactical[\"Tactical programming - short term view\"] --> tornado\n  strategic[\"Strategic programming - invest in design\"] --> health[\"Codebase health - next change easier\"]\n  you[\"You the strategist\"] -->|\"tells agent what to care about\"| steer[\"Steering input - values and constraints\"]\n  steer --> tornado\n  tornado -->|without steering| mess[\"Wake of destruction in the codebase\"]\n  tornado -->|with steering| health",
+  "generated": "2026-10-22"
+}
