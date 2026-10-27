@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -27,6 +28,9 @@ def port_alive(port: int) -> bool:
     try:
         urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state", timeout=2)
         return True
+    except urllib.error.HTTPError as e:
+        # a LAN-token-gated server answers 401 token_required — still alive
+        return e.code == 401
     except Exception:
         return False
 
