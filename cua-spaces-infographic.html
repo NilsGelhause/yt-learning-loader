@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUA Spaces — what it is &amp; how this project uses it</title>
+<style>
+  :root {
+    --bg: #0b1020; --panel: #131a2e; --panel2: #182238; --line: #263150;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #7c5cff; --pink: #f472b6;
+    --cyan: #22d3ee; --green: #34d399; --amber: #fbbf24; --red: #fb7185;
+    --teal: #2dd4bf;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #14203c 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.55; padding: 40px 24px 60px;
+  }
+  .sheet { max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 30px; }
+  h1 .cua { color: var(--teal); }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 15px; }
+  .chip {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    font-size: 12px; color: var(--muted); margin-left: 8px; vertical-align: middle;
+  }
+  section { margin-top: 34px; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--teal); margin-bottom: 14px;
+  }
+  .panel {
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+    border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  }
+  .bigquote { font-size: 17px; }
+  .bigquote em { color: var(--amber); font-style: normal; }
+  .analogy { margin-top: 12px; font-size: 13.5px; color: var(--muted); }
+  .analogy b { color: var(--text); }
+
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); }
+  .card .ico { font-size: 20px; }
+  .card b { display: block; margin: 6px 0 4px; font-size: 14px; }
+  .card p { font-size: 12px; color: var(--muted); }
+  .card.teal { border-top: 3px solid var(--teal); }
+
+  .pipe { display: grid; grid-template-columns: 1fr 26px 1fr 26px 1fr; gap: 8px; align-items: stretch; }
+  .node { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); }
+  .node b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .node .port { font-size: 11px; color: var(--cyan); font-family: Consolas, monospace; }
+  .node p { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .arrow { align-self: center; text-align: center; color: var(--teal); font-size: 20px; }
+  .tagrow { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #14243c; color: var(--muted); border: 1px solid var(--line); }
+
+  .steps { counter-reset: s; }
+  .step { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .step:last-child { border-bottom: none; }
+  .num {
+    flex: none; width: 24px; height: 24px; border-radius: 50%; margin-top: 2px;
+    background: var(--teal); color: #06281f; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step b { color: var(--text); }
+  code {
+    font-family: Consolas, monospace; font-size: 12px; background: #14243c;
+    padding: 1px 6px; border-radius: 5px; color: var(--cyan);
+  }
+  .install {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px;
+  }
+  .instbox { border: 1px solid var(--line); border-radius: 10px; background: #0e1628; padding: 12px; }
+  .instbox .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .instbox code { display: block; padding: 8px 10px; word-break: break-all; }
+  .honest {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    background: #23200f; border: 1px solid #5b532b; font-size: 13.5px;
+  }
+  .honest b { color: var(--amber); }
+  footer { margin-top: 40px; color: #64748b; font-size: 12px; text-align: center; }
+  @media print {
+    body { background: #fff; color: #111; }
+    .panel, .node, .card { background: #fff; border-color: #ccc; }
+    .node p, .card p, .sub, .analogy, .step { color: #444; }
+    h2 { color: #0d9488; }
+    .honest { background: #fffbe6; border-color: #ca8; }
+  }
+  @media (max-width: 860px) {
+    .duo, .grid3, .grid4, .pipe, .install { grid-template-columns: 1fr; }
+    .arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>CUA Spaces <span class="cua">— computers for AI agents</span></h1>
+    <p class="sub">What it is, what the pieces do, and how your yt learning app uses it
+      <span class="chip">trycua/cua · open source</span> <span class="chip">free for individuals</span></p>
+  </header>
+
+  <section>
+    <h2>1 · The one-liner</h2>
+    <div class="panel">
+      <p class="bigquote">CUA gives AI agents <em>real computers</em> to work on — full desktops and Linux sandboxes they can see, click, type in, and run code on. <em>You</em> decide which agent drives which machine.</p>
+      <p class="analogy">Made by <b>Cua AI (trycua)</b>. The pitch: “Give AI agents computers they can use.” Instead of an agent only chatting, it gets an actual desktop — screenshot in, keyboard &amp; mouse out — plus terminals, files and code execution. <b>Computer-Use 2.0</b>: one agent moving between code, APIs and graphical apps inside a single task.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · The toolbox — the pieces and what each does</h2>
+    <div class="grid4">
+      <div class="card teal"><span class="ico">🖥️</span><b>Cua Spaces</b><p>The desktop app. Each <b>Space</b> is a full desktop: a macOS VM on your Mac, or a Linux / Omarchy image. Menu-bar app, live screen streams, “teleport” signed-in apps into a Space.</p></div>
+      <div class="card"><span class="ico">💠</span><b>cua CLI &amp; SDK</b><p>One <code>cua</code> command + SDKs (Python, TypeScript, Rust) for VMs, containers and any machine running the daemon. <code>cua sb create ubuntu --name dev</code> spins up an Ubuntu sandbox.</p></div>
+      <div class="card"><span class="ico">🧊</span><b>Lume</b><p>Local VM manager for Apple Silicon (macOS &amp; Linux VMs via Apple’s Virtualization framework). SSH-ready, prebuilt images.</p></div>
+      <div class="card"><span class="ico">🕹️</span><b>Cua Driver</b><p>Drives native desktop apps &amp; browsers on <b>macOS, Windows and Linux</b> — for the machine you are sitting at. CLI, MCP or typed SDKs.</p></div>
+      <div class="card"><span class="ico">📡</span><b>cua-spacesd</b><p>The in-Space daemon (port 3211). Gives agents processes, files, screenshots, input and low-latency video/audio streaming as soon as a Space starts.</p></div>
+      <div class="card"><span class="ico">🔑</span><b>Cua Keyvault</b><p>Your sessions (e.g. a teleported Chrome, logged in) stay encrypted on <b>your</b> machine and reach a Space only after you approve.</p></div>
+      <div class="card"><span class="ico">🧠</span><b>CUA-S1 models</b><p>Small specialized “System 1” decision models for computer use (e.g. which value belongs in a form field). Optional — bring any model.</p></div>
+      <div class="card"><span class="ico">📊</span><b>Cua Bench</b><p>Build computer-use tasks, evaluate agents, export trajectories for training. Ships a no-VM simulated starter task.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Multiplayer &amp; teleport — the magic bits</h2>
+    <div class="duo">
+      <div class="panel">
+        <p class="bigquote">🖱️ <em>Multiplayer desktops.</em></p>
+        <p class="analogy">You and your agent share the same desktop, <b>each with your own cursor</b>. Step in to make a choice, then hand the desktop back. Like the Network tab idea — several actors, one machine.</p>
+      </div>
+      <div class="panel">
+        <p class="bigquote">🚀 <em>Teleport.</em></p>
+        <p class="analogy">Move a signed-in app (Chrome, Slack…) into a Space and it opens there, <b>still signed in</b>. Credentials live in the encrypted Keyvault on your Mac and only cross over after your explicit approval.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · How YOUR app uses it</h2>
+    <div class="panel">
+      <div class="pipe">
+        <div class="node"><b>🧑‍💻 Your PC — the master</b><span class="port">server.py :8471 · agentd :8472</span>
+          <p>Runs the webapp + the Pi Durable harness. In LAN mode it accepts clients from your network.</p></div>
+        <div class="arrow">⇆</div>
+        <div class="node"><b>💠 CUA Ubuntu sandbox</b><span class="port">cua sb create ubuntu</span>
+          <p>A fresh, isolated Ubuntu machine created from the “CUA Spaces” tab. Disposable, scriptable, repeatable.</p></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>🌐 The sandbox's browser</b><span class="port">http://&lt;your-LAN-IP&gt;:8471</span>
+          <p>Inside the sandbox, open the webapp → it becomes a <b>client</b>: chat in Teach, watch the Network tab, consult the Console agent.</p></div>
+      </div>
+      <div class="tagrow">
+        <span class="tag">1 · Create sandbox in the CUA tab</span>
+        <span class="tag">2 · It appears in the Network tab as a VM node</span>
+        <span class="tag">3 · Open the app URL inside it</span>
+        <span class="tag">4 · Use it like any client · delete when done</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · Install &amp; first sandbox</h2>
+    <div class="panel">
+      <div class="install">
+        <div class="instbox"><div class="lbl">Windows (PowerShell)</div><code>irm https://cua.ai/install.ps1 | iex</code></div>
+        <div class="instbox"><div class="lbl">macOS / Linux</div><code>curl -fsSL https://cua.ai/install.sh | sh</code></div>
+      </div>
+      <div class="steps" style="margin-top:14px">
+        <div class="step"><span class="num">1</span><span><b>Install the <code>cua</code> CLI.</b> The installer explains itself; the CLI is always installed, the Spaces desktop app is optional (macOS default).</span></div>
+        <div class="step"><span class="num">2</span><span><b>Create an Ubuntu sandbox:</b> <code>cua sb create ubuntu --name ytl-1</code> · run commands with <code>cua sb exec ytl-1 uname -a</code> · screenshot with <code>cua sb screenshot ytl-1</code>.</span></div>
+        <div class="step"><span class="num">3</span><span><b>Clean up:</b> <code>cua sb rm ytl-1</code>. Nothing persists unless you want it to.</span></div>
+      </div>
+      <div class="honest"><b>Honest platform notes.</b> The polished Spaces desktops are a <b>macOS</b> story today (VMs via Apple’s hypervisor). On <b>Windows</b>, the scriptable path is the <code>cua</code> CLI with Ubuntu <b>sandboxes</b> (gVisor-isolated containers — WSL2 required). Windows/Linux builds of the full Spaces app exist (Tauri) but are newer. In this project we use the CLI path: your VMs are Ubuntu sandboxes that join the webapp as clients.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>6 · Licenses in one breath</h2>
+    <div class="panel" style="font-size:13.5px;color:var(--muted)">
+      Most of the repo is <b style="color:var(--text)">MIT</b> (SDK, CLI, Lume, Driver, Bench). <b style="color:var(--text)">Cua Spaces</b> (the app, daemon, Keyvault, teleport, streaming) is source-available under <b style="color:var(--text)">FSL-1.1-MIT</b> — free to use and self-host, and each release becomes MIT two years after it ships. Free for individuals; Pro/Teams are paid tiers. Not affiliated with Apple, Canonical or Microsoft.
+    </div>
+  </section>
+
+  <footer>
+    sources: github.com/trycua/cua · cua.ai &nbsp;·&nbsp; made for the yt-learning-loader “CUA Spaces” tab<br>
+    to keep as PDF: open in a browser → Ctrl+P → “Save as PDF”
+  </footer>
+
+</div>
+</body>
+</html>
