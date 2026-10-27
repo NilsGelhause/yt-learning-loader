@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import agentd_client
+import cua_client
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
@@ -81,8 +82,10 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-skills.js": "Tab 8 — My Skills: skills you know (from learned videos) vs skills you can still learn, with teach-me jumps.",
     "static/js/tab-tests.js": "Tab 9 — the test suite: run tests live, searchable/sortable/groupable results with plain-language descriptions.",
     "static/js/tab-console.js": "Tab 11 — a standalone agent console with one persistent conversation for the whole app (no workspace): ask anything, the agent reads the app's files to answer.",
-    "static/js/tab-network.js": "Tab 12 — the agent network view: one node per machine (local only for now) with its durable-agent sessions, busy/idle/error status and working directory.",
+    "static/js/tab-network.js": "Tab 12 — the agent network view: one node per machine (this one, plus cua sandboxes as VM nodes when the cua CLI is installed) with its durable-agent sessions, busy/idle/error status and working directory.",
+    "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, and link to the cua infographic.",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
+    "cua_client.py": "The cua (trycua/cua) CLI client: locate the CLI, report its version, list sandboxes — tolerant of CLI drift, stdlib only. Sandboxes live outside the repo; nothing here installs or vendors cua.",
     "static/vendor/mermaid.min.js": "Vendored copy of mermaid v11 (diagram rendering) so the app works fully offline.",
     "tests/test_all.py": "The test suite — server endpoints, scraper helpers, workspace/agent flows, the skill taxonomy guard, file-preview API — against temp data dirs.",
     "tests/test_agentd.py": "The agentd integration tests — a stub sidecar (stdlib http.server on an ephemeral port) verifies the client, the durable/CLI backend selection, job streaming, cancel proxying, and the run_analysis durable branches.",
@@ -265,6 +268,7 @@ DEFAULT_SETTINGS = {
         {"id": "settings", "label": "Settings", "color": "#94a3b8", "order": 10, "visible": True},
         {"id": "console", "label": "Console", "color": "#c084fc", "order": 11, "visible": True},
         {"id": "network", "label": "Network", "color": "#facc15", "order": 12, "visible": True},
+        {"id": "cua", "label": "CUA Spaces", "color": "#2dd4bf", "order": 13, "visible": True},
     ],
 }
 
@@ -1217,6 +1221,54 @@ def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: boo
             job["ended"] = int(time.time())
 
 
+def run_cua_job(job_id: str, argv: list[str]) -> None:
+    """Run a cua CLI command (`sb create …`, `sb rm …`) in a thread, streaming
+    output lines into the job record like an agent job — image downloads take
+    minutes, so the CUA Spaces tab polls /api/agent/job/<id> for progress."""
+    job = AGENT_JOBS[job_id]
+    job["cmd_preview"] = "cua " + " ".join(argv)
+    try:
+        proc = subprocess.Popen(
+            ["cua", *argv], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", errors="replace",
+        )
+        job["pid"] = proc.pid
+        with AGENT_JOBS_LOCK:
+            job["status"] = "running"
+        import queue
+
+        q: queue.Queue = queue.Queue()
+
+        def reader(stream, tag):
+            for line in stream:
+                q.put((tag, line.rstrip("\n")))
+            q.put((None, None))
+
+        threading.Thread(target=reader, args=(proc.stdout, "out"), daemon=True).start()
+        threading.Thread(target=reader, args=(proc.stderr, "err"), daemon=True).start()
+        open_streams = 2
+        while open_streams:
+            tag, line = q.get()
+            if tag is None:
+                open_streams -= 1
+                continue
+            with AGENT_JOBS_LOCK:
+                job["lines"].append({"t": tag, "x": line[:1000]})
+                if len(job["lines"]) > AGENT_MAX_LINES:
+                    del job["lines"][: len(job["lines"]) - AGENT_MAX_LINES]
+        proc.wait()
+        with AGENT_JOBS_LOCK:
+            job["exit_code"] = proc.returncode
+            job["status"] = "done" if proc.returncode == 0 else "error"
+    except Exception as e:  # noqa: BLE001
+        with AGENT_JOBS_LOCK:
+            job["status"] = "error"
+            job["lines"].append({"t": "err", "x": f"{type(e).__name__}: {e}"})
+    finally:
+        with AGENT_JOBS_LOCK:
+            job["ended"] = int(time.time())
+
+
 def agentd_run_to_end(key: str, message: str, cwd: Path = ROOT) -> str:
     """Submit an agentd job and block until it settles. Returns the final
     status ("done" | "error" | "cancelled"); raises BusyError on 409."""
@@ -1229,9 +1281,10 @@ def agentd_run_to_end(key: str, message: str, cwd: Path = ROOT) -> str:
 
 
 # ---------------------------------------------------------------- network view
-# One node per machine (local only for now), its durable-agent conversations
-# listed beneath. Session data comes from the sidecar when it answers; the
-# conversations.json fallback keeps the view useful while it is down.
+# One node per machine — the local one plus a VM node per cua sandbox when the
+# cua CLI is installed — its durable-agent conversations listed beneath.
+# Session data comes from the sidecar when it answers; the conversations.json
+# fallback keeps the view useful while it is down.
 
 def session_type_title(key: str) -> tuple[str, str]:
     """Split a conversation key into (type, title): "teach:my-ws" ->
@@ -1298,8 +1351,25 @@ def build_network() -> dict:
             "busy": False, "status": None,
             "cwd": file_sessions[key]["cwd"],
         })
-    return {"nodes": [{"id": "local", "name": "local", "kind": "local",
-                       "online": online, "sessions": sessions}]}
+    nodes = [{"id": "local", "name": "local", "kind": "local",
+              "online": online, "sessions": sessions}]
+    # cua sandboxes double as LAN clients: surface them as VM nodes so the
+    # network view answers "which machines can use the app right now". Fully
+    # best-effort — no cua CLI, or a listing hiccup, just means no VM nodes.
+    try:
+        sandboxes = cua_client.list_sandboxes() if cua_client.find_cua() else []
+    except Exception:  # noqa: BLE001
+        sandboxes = []
+    for sb in sandboxes[:10]:
+        try:
+            name, status = str(sb.get("name") or ""), str(sb.get("status") or "")
+        except AttributeError:
+            continue
+        if not name:
+            continue
+        nodes.append({"id": f"vm-{name}", "name": name, "kind": "vm",
+                      "online": status == "running", "sessions": []})
+    return {"nodes": nodes}
 
 
 
@@ -1502,6 +1572,8 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET":
             if path == "/" or path == "/index.html":
                 return self.serve_static("index.html")
+            if path == "/cua-spaces-infographic.html":
+                return self.serve_file(ROOT / "cua-spaces-infographic.html", "text/html")
             if path.startswith("/static/"):
                 return self.serve_static(path[len("/static/"):])
             if path == "/api/state":
@@ -1537,6 +1609,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_agent_status()
             if path == "/api/network":
                 return self.send_json(build_network())
+            if path == "/api/cua/status":
+                return self.api_cua_status()
             m = re.fullmatch(r"/api/teach/([^/]+)/state", path)
             if m:
                 return self.api_get_ws_state(m.group(1))
@@ -1592,6 +1666,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_agent_run()
             if path == "/api/agent/console/run":
                 return self.api_agent_console_run()
+            if path == "/api/cua/sandboxes":
+                return self.api_cua_create()
+            if path == "/api/cua/sandboxes/remove":
+                return self.api_cua_remove()
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -2017,6 +2095,77 @@ class Handler(BaseHTTPRequestHandler):
             daemon=True,
         ).start()
         self.send_json({"job_id": job_id})
+
+    # -- cua (CUA Spaces tab): create/remove LAN-client VMs via the cua CLI.
+    # Sandboxes live on the machine, outside the repo — cua_client only
+    # locates/parses; long-running commands stream as agent-style jobs.
+
+    def api_cua_status(self):
+        exe = cua_client.find_cua()
+        installed = bool(exe)
+        note = ""
+        if not installed:
+            if sys.platform.startswith("win"):
+                note = ("cua is not installed. On Windows, sandboxes (gVisor "
+                        "containers) need WSL2 — install both with: "
+                        "irm https://cua.ai/install.ps1 | iex")
+            else:
+                note = ("cua is not installed — install it with: "
+                        "curl -fsSL https://cua.ai/install.sh | bash")
+        self.send_json({
+            "installed": installed,
+            "version": cua_client.version(exe) if installed else None,
+            "sandboxes": cua_client.list_sandboxes(exe) if installed else [],
+            "note": note,
+        })
+
+    def spawn_cua_job(self, name: str, argv: list[str]):
+        """Record + thread for one cua create/remove. Returns job_id, or a
+        (status, message) tuple when a job for this sandbox is still running."""
+        key = f"cua:{name}"
+        with AGENT_JOBS_LOCK:
+            for existing in AGENT_JOBS.values():
+                if (existing.get("key") == key
+                        and existing.get("status") in ("starting", "running")):
+                    return 409, (f"a create/remove for {name} is still running — "
+                                 "wait for it to finish")
+            job_id = uuid.uuid4().hex[:12]
+            AGENT_JOBS[job_id] = {
+                "id": job_id, "workspace": None, "key": key,
+                "status": "starting", "backend": "cli-style",
+                "lines": [], "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        threading.Thread(target=run_cua_job, args=(job_id, argv), daemon=True).start()
+        return job_id
+
+    def api_cua_create(self):
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("name"):
+            return self.send_error_json(400, 'body must be {"name": ...}')
+        if not cua_client.find_cua():
+            return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
+        name = cua_client.full_name(str(body["name"]))
+        if not cua_client.valid_name(name):
+            return self.send_error_json(400, "bad name — use lowercase letters, digits and dashes (max 40 chars)")
+        result = self.spawn_cua_job(name, cua_client.create_argv(name))
+        if isinstance(result, tuple):
+            return self.send_error_json(result[0], result[1])
+        self.send_json({"job_id": result})
+
+    def api_cua_remove(self):
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("name"):
+            return self.send_error_json(400, 'body must be {"name": ...}')
+        if not cua_client.find_cua():
+            return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
+        name = cua_client.full_name(str(body["name"]))
+        if not cua_client.valid_name(name):
+            return self.send_error_json(400, "bad name — use lowercase letters, digits and dashes (max 40 chars)")
+        result = self.spawn_cua_job(name, cua_client.remove_argv(name))
+        if isinstance(result, tuple):
+            return self.send_error_json(result[0], result[1])
+        self.send_json({"job_id": result})
 
     def api_agent_job(self, job_id: str):
         with AGENT_JOBS_LOCK:

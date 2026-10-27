@@ -1,5 +1,6 @@
-/* tab-network.js — agent network view: one node per machine (local only for
-   now), its durable-agent sessions listed beneath, LAN-ready shape */
+/* tab-network.js — agent network view: one node per machine (this one, plus
+   cua sandboxes as VM nodes), its durable-agent sessions listed beneath,
+   LAN-ready shape */
 "use strict";
 
 (function () {
@@ -49,6 +50,19 @@
 
   function nodeCard(node) {
     const sessions = node.sessions || [];
+    if (!sessions.length && node.kind !== "local") {
+      /* VM nodes (cua sandboxes) have no agent sessions — say what they are
+         instead of showing an empty, collapsible list */
+      return el("div", { class: "pane", style: "padding:0" },
+        el("div", { style: "padding:10px 12px" },
+          el("div", { class: "row", style: "flex-wrap:wrap" },
+            el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
+            el("strong", null, node.name || node.id),
+            el("span", { class: "chip sm dim" }, node.kind),
+            el("span", { class: "spacer" }),
+            el("span", { class: "muted small" },
+              "client machine — open the app URL inside its browser"))));
+    }
     const expanded = sessions.length > 0 && sessions.length <= 6;
     const list = el("div", { style: expanded ? "" : "display:none" });
     sessions.forEach(s => list.appendChild(sessionRow(s)));

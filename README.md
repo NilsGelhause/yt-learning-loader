@@ -70,6 +70,35 @@ stays on `127.0.0.1` regardless — only server.py gets exposed, and the token
 gate covers every `/api/` route. Everything still stays inside your LAN; no
 traffic leaves the machine except to the model provider as before.
 
+## CUA Spaces (VMs as clients)
+
+The **CUA Spaces** tab creates throwaway client machines from inside the app,
+using [cua](https://github.com/trycua/cua) (open-source "computers for AI
+agents"). It drives the `cua` CLI on this machine:
+
+```bat
+cua sb create ubuntu --name dev   :: Ubuntu sandbox (gVisor container; WSL2 required on Windows)
+cua sb exec dev uname -a
+cua sb rm dev
+```
+
+- **Install**: `irm https://cua.ai/install.ps1 | iex` in PowerShell (Windows)
+  or `curl -fsSL https://cua.ai/install.sh | bash` (macOS/Linux). No sign-in
+  is needed for local sandboxes. The installer is interactive, so the tab
+  shows the command with a copy button instead of running it for you.
+- **What the app adds**: a tab that lists sandboxes (`GET /api/cua/status`)
+  and streams create/remove as background jobs
+  (`POST /api/cua/sandboxes`, `POST /api/cua/sandboxes/remove` — poll
+  `/api/agent/job/<id>` like agent jobs). Sandboxes also appear as VM nodes in
+  the Network tab.
+- **VMs live outside the repo**: sandboxes, the cua CLI, and its images are
+  installed on your machine (~/.cua and friends), nothing is vendored into
+  this repository. Delete a VM with the tab's delete button or
+  `cua sb rm <name>`; uninstall cua itself per its docs.
+- **Revertibility**: reverting the feature is `git revert` of its commits —
+  no binaries, services, or repo files are left behind by the feature itself
+  (pre-existing sandboxes you created would need `cua sb rm` by hand).
+
 ## The AI agent (Pi Durable sidecar + CLI fallback)
 
 Agent features (teach workspaces, learnings generation, skill distillation)
@@ -89,9 +118,11 @@ active.
 .venv\Scripts\python.exe tests\run.py
 ```
 
-226 tests: server endpoints, scraper helpers, workspace/agent flows, the
+254 tests: server endpoints, scraper helpers, workspace/agent flows, the
 agentd sidecar integration (stub sidecar, no Node needed), the skill
-taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan) —
+taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan),
+CUA Spaces (cua client parsing, create/remove jobs, VM nodes in the network
+view) —
 plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 (`node tests/js_smoke.js`).
 
@@ -100,6 +131,7 @@ plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 ```
 server.py            stdlib HTTP server: JSON API + static files + agent jobs
 agentd_client.py     stdlib HTTP client for the agentd sidecar (auto-spawn)
+cua_client.py        locate/parse the cua CLI for the CUA Spaces tab (no vendoring)
 agentd/              Node sidecar: Pi Durable agent harness (see above)
 scraper.py           channel/video metadata, transcripts, thumbnails
 launch.py            test-then-serve launcher used by start.bat

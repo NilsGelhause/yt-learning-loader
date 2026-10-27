@@ -1,6 +1,6 @@
 """Tests for the Console tab's standalone agent endpoint and the Network tab's
-/api/network view, plus the settings merge that gives existing installs the two
-new default tabs.
+/api/network view, plus the settings merge that gives existing installs the
+new default tabs (console, network, cua).
 
 Reuses the stub sidecar from tests.test_agentd; the server-wiring tests spin a
 real server.Handler on a temp data dir, mirroring AgentdServerTests.
@@ -87,6 +87,7 @@ class ConsoleNetworkServerTests(unittest.TestCase):
             mock.patch.object(server, "AGENT_JOBS", {}),
             mock.patch.object(server, "AGENT_POLL_INTERVAL", 0.01),
             mock.patch.object(server.agentd_client, "_BASE", cls.stub.base),
+            mock.patch.object(server.cua_client, "find_cua", return_value=None),
         ]
         for p in cls.patchers:
             p.start()
@@ -354,11 +355,11 @@ class ConsoleNetworkServerTests(unittest.TestCase):
     # -- settings merge for the two new default tabs
 
     def test_settings_merge_appends_new_default_tabs(self):
-        """A stored settings.json without console/network gains them, and the
-        user's visibility/order edits survive."""
+        """A stored settings.json without console/network/cua gains them, and
+        the user's visibility/order edits survive."""
         stored_tabs = []
         for t in server.DEFAULT_SETTINGS["tabs"]:
-            if t["id"] in ("console", "network"):
+            if t["id"] in ("console", "network", "cua"):
                 continue
             entry = dict(t)
             if entry["id"] == "videos":
@@ -371,7 +372,8 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         self.assertEqual(ids[:len(stored_tabs)], [t["id"] for t in stored_tabs])
         self.assertIn("console", ids)
         self.assertIn("network", ids)
-        self.assertEqual(ids[-2:], ["console", "network"])
+        self.assertIn("cua", ids)
+        self.assertEqual(ids[-3:], ["console", "network", "cua"])
         videos = next(t for t in settings["tabs"] if t["id"] == "videos")
         self.assertFalse(videos["visible"])  # user edit preserved
         self.assertEqual(settings["theme"], "light")
