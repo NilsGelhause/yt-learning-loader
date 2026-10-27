@@ -93,18 +93,33 @@
   }
 
   /* ---------- lan / other devices ---------- */
+  const WILDCARD_HOSTS = ["0.0.0.0", "::"];
+  const isWildcardHost = (h) => WILDCARD_HOSTS.includes((h || "").trim());
+
   function lanCard() {
     const s = App.settings;
     const hostIn = el("input", {
       type: "text", value: s.host || "", placeholder: "127.0.0.1",
     });
     const tokenIn = el("input", { type: "password", value: s.lan_token || "", placeholder: "(none)" });
+    const lanToggle = el("input", { type: "checkbox" });
+    lanToggle.checked = isWildcardHost(s.host);
+    lanToggle.addEventListener("change", () => {
+      hostIn.value = lanToggle.checked ? "0.0.0.0" : "127.0.0.1";
+    });
+    hostIn.addEventListener("input", () => {
+      lanToggle.checked = isWildcardHost(hostIn.value);
+    });
     return el("div", { class: "pane" },
       el("div", { class: "pane-header" }, "LAN / other devices"),
       el("div", { class: "pane-body" },
+        el("label", { class: "row", style: "gap:8px;cursor:pointer;margin-bottom:10px" },
+          lanToggle,
+          el("span", null, el("b", null, "LAN mode"),
+            " — allow other devices & VMs on my network to use this app")),
         el("div", { class: "field" }, el("label", null, "Host"), hostIn,
           el("div", { class: "muted small", style: "margin-top:3px" },
-            "Set to 0.0.0.0 to let other devices and VMs on your network use this app. Restart required.")),
+            "0.0.0.0 = LAN mode on, 127.0.0.1 = this PC only (advanced — the toggle above sets it). Restart required.")),
         el("div", { class: "field" }, el("label", null, "LAN token"), tokenIn,
           el("div", { class: "muted small", style: "margin-top:3px" },
             "Optional. When set, clients must enter this token.")),
@@ -136,9 +151,17 @@
       return;
     }
     const urls = lan.urls || [];
+    const active = urls.length > 0;
+    box.appendChild(el("div", { class: "row", style: "gap:8px;margin-bottom:10px" },
+      el("span", {
+        class: "pulse-dot" + (active ? "" : " off"),
+        title: active ? "LAN mode active" : "normal mode",
+      }),
+      el("b", null, active ? "LAN mode" : "Normal mode"),
+      el("span", { class: "muted small" },
+        active ? "— other devices can connect (restart already applied this)"
+               : `— localhost only (host ${lan.host}; tick “LAN mode” above and restart to share)`)));
     if (!urls.length) {
-      box.appendChild(el("div", { class: "muted small" },
-        `LAN access is off (host ${lan.host}). Set the host to 0.0.0.0 and restart to let other devices connect.`));
       return;
     }
     box.appendChild(el("div", { class: "muted small", style: "margin-bottom:6px" },
