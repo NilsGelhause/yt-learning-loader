@@ -162,18 +162,21 @@
     const rows = sandboxes.map(sb => {
       const taskInput = el("input", {
         placeholder: "delegate a task…",
-        style: "flex:1;min-width:160px",
+        style: "flex:1;min-width:130px",
         onkeydown: (e) => { if (e.key === "Enter") delegateBtn.click(); },
       });
       const delegateBtn = el("button", {
+        class: "btn-sm",
         title: `Delegate a task to ${sb.name} — the agent runs its commands on this VM`,
         onclick: () => doDelegate(sb.name, taskInput),
       }, "Delegate");
       const installBtn = el("button", {
+        class: "btn-sm",
         title: `Install the agentd sidecar inside ${sb.name} so tasks run natively on this VM`,
         onclick: () => doProvision(sb.name),
       }, "Install agent");
       const termBtn = el("button", {
+        class: "btn-sm",
         title: `Open a raw shell inside ${sb.name} (one terminal at a time)`,
         onclick: () => toggleTerm(sb.name),
       }, "Terminal");
@@ -186,10 +189,10 @@
       }, agent.agent ? "agent ✓" : (agent.online ? "agent ✗" : "agent —"));
       const row = el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
         el("span", { class: `pulse-dot${sb.status === "running" ? "" : " off"}`, title: sb.status || "unknown" }),
-        el("strong", { style: "min-width:160px" }, sb.name),
+        el("strong", { style: "min-width:140px" }, sb.name),
         el("span", { class: "chip sm dim" }, sb.status || "unknown"),
         agentChip,
-        el("span", { class: "muted small", style: "flex:1" }, sb.image || ""),
+        el("span", { class: "muted small", style: "flex:1;min-width:0;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", title: sb.image || "" }, sb.image || ""),
         taskInput, delegateBtn, installBtn, termBtn,
         el("button", {
           class: "icon-btn danger",
