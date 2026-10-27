@@ -40,7 +40,27 @@
       body.appendChild(emptyState("No nodes known yet.", "∅"));
       return;
     }
-    nodes.forEach(node => body.appendChild(nodeCard(node)));
+    const stopped = nodes.filter(n => !n.online && n.kind !== "local");
+    const shown = nodes.filter(n => !stopped.includes(n));
+    shown.forEach(node => body.appendChild(nodeCard(node)));
+    if (stopped.length) {
+      const list = el("div", { style: "display:none;margin-top:8px" });
+      stopped.forEach(node => list.appendChild(nodeCard(node)));
+      const label = el("span", { class: "muted small" },
+        `▸ stopped VMs (${stopped.length}) — click to show`);
+      const toggle = el("div", {
+        class: "row", style: "gap:8px;cursor:pointer;padding:8px 12px;"
+          + "border:1px solid var(--border);border-radius:12px;margin-top:8px",
+        onclick: () => {
+          const open = list.style.display === "none";
+          list.style.display = open ? "" : "none";
+          label.textContent = (open ? "▾" : "▸")
+            + ` stopped VMs (${stopped.length}) — click to ${open ? "hide" : "show"}`;
+        },
+      }, label);
+      body.appendChild(toggle);
+      body.appendChild(list);
+    }
     if (nodes.length === 1 && nodes[0].kind === "local"
         && !(nodes[0].sessions || []).length) {
       body.appendChild(emptyState(

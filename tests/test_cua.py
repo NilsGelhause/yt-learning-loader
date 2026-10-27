@@ -135,7 +135,7 @@ class CuaClientTests(unittest.TestCase):
         self.assertEqual(cua_client.full_name("ytl-dev"), "ytl-dev")  # idempotent
         self.assertEqual(cua_client.create_argv("ytl-dev"),
                          ["sb", "create", "ubuntu", "--name", "ytl-dev"])
-        self.assertEqual(cua_client.remove_argv("ytl-dev"), ["sb", "rm", "ytl-dev"])
+        self.assertEqual(cua_client.remove_argv("ytl-dev"), ["sb", "rm", "ytl-dev", "--force"])
 
 
 class CuaApiTests(unittest.TestCase):
@@ -318,7 +318,7 @@ class CuaApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         job = self.wait_job(body["job_id"])
         self.assertEqual(job["status"], "done")
-        self.assertEqual(seen[0], ["cua", "sb", "rm", "ytl-dev"])
+        self.assertEqual(seen[0], ["cua", "sb", "rm", "ytl-dev", "--force"])
 
     def test_remove_rejects_bad_name(self):
         status, _ = self.api("POST", "/api/cua/sandboxes/remove",

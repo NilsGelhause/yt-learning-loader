@@ -70,7 +70,9 @@ def create_argv(name: str) -> list[str]:
 
 
 def remove_argv(name: str) -> list[str]:
-    return ["sb", "rm", name]
+    # --force: `cua sb rm` asks for confirmation on a TTY and refuses to
+    # delete from a background process without it.
+    return ["sb", "rm", name, "--force"]
 
 
 def version(exe: str | None = None) -> str | None:
