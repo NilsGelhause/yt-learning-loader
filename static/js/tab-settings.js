@@ -10,12 +10,14 @@
     grid.append(
       appearanceCard(),
       scrapingCard(),
+      lanCard(),
       tabsCard(),
       el("div", { id: "settings-data" }, skeletonLines(6)),
       learningsCard(),
       el("div", { id: "settings-profile" }, skeletonLines(3)),
     );
     loadDataCards();
+    fillLanPanel();
   }
 
   async function postSettings(body, okMsg) {
@@ -88,6 +90,72 @@
           },
         }, "Save"),
       ));
+  }
+
+  /* ---------- lan / other devices ---------- */
+  function lanCard() {
+    const s = App.settings;
+    const hostIn = el("input", {
+      type: "text", value: s.host || "", placeholder: "127.0.0.1",
+    });
+    const tokenIn = el("input", { type: "password", value: s.lan_token || "", placeholder: "(none)" });
+    return el("div", { class: "pane" },
+      el("div", { class: "pane-header" }, "LAN / other devices"),
+      el("div", { class: "pane-body" },
+        el("div", { class: "field" }, el("label", null, "Host"), hostIn,
+          el("div", { class: "muted small", style: "margin-top:3px" },
+            "Set to 0.0.0.0 to let other devices and VMs on your network use this app. Restart required.")),
+        el("div", { class: "field" }, el("label", null, "LAN token"), tokenIn,
+          el("div", { class: "muted small", style: "margin-top:3px" },
+            "Optional. When set, clients must enter this token.")),
+        el("button", {
+          class: "primary",
+          onclick: async (e) => {
+            e.currentTarget.disabled = true;
+            try {
+              await postSettings({
+                host: hostIn.value.trim() || "127.0.0.1",
+                lan_token: tokenIn.value,
+              }, "LAN settings saved");
+              fillLanPanel();
+            } finally { e.currentTarget.disabled = false; }
+          },
+        }, "Save"),
+        el("div", { id: "lan-urls-panel", style: "margin-top:14px" }),
+      ));
+  }
+
+  async function fillLanPanel() {
+    const box = document.getElementById("lan-urls-panel");
+    if (!box) return;
+    const lan = await api("/api/lan").catch(() => null);
+    if (!box.isConnected) return;
+    clear(box);
+    if (!lan) {
+      box.appendChild(el("div", { class: "muted small" }, "LAN status unavailable."));
+      return;
+    }
+    const urls = lan.urls || [];
+    if (!urls.length) {
+      box.appendChild(el("div", { class: "muted small" },
+        `LAN access is off (host ${lan.host}). Set the host to 0.0.0.0 and restart to let other devices connect.`));
+      return;
+    }
+    box.appendChild(el("div", { class: "muted small", style: "margin-bottom:6px" },
+      "Clients on your network can open:"));
+    for (const url of urls) {
+      box.appendChild(el("div", { class: "row", style: "gap:8px;margin-bottom:4px" },
+        el("code", { class: "small" }, url),
+        el("button", { onclick: (e) => copyText(url, e.currentTarget) }, "Copy")));
+    }
+    if (lan.token_set) {
+      box.appendChild(el("div", { class: "muted small", style: "margin-top:8px" },
+        "A LAN token is set — clients will be asked for it when they connect."));
+    }
+    box.appendChild(el("div", { class: "muted small", style: "margin-top:8px" },
+      "Windows firewall: allow inbound TCP ", String((App.settings && App.settings.port) || 8471),
+      " — Settings → allow python.exe, or run: netsh advfirewall firewall add rule name=\"YT Learning Loader\" dir=in action=allow protocol=TCP localport=",
+      String((App.settings && App.settings.port) || 8471)));
   }
 
   /* ---------- tab manager ---------- */

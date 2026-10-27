@@ -123,9 +123,46 @@ function toast(message, type) {
 }
 
 /* ---------- api ---------- */
+let tokenPromptShown = false;  // at most one token prompt per page load
+
+function promptForToken() {
+  /* Overlay asking for the LAN token; resolves true when one was saved. */
+  return new Promise((resolve) => {
+    if (tokenPromptShown) return resolve(false);
+    tokenPromptShown = true;
+    const input = el("input", {
+      type: "password", placeholder: "LAN token", style: "flex:1",
+      onkeydown: (e) => { if (e.key === "Enter") saveBtn.click(); },
+    });
+    const close = (ok) => { overlay.remove(); resolve(ok); };
+    const saveBtn = el("button", {
+      class: "primary",
+      onclick: () => {
+        const value = input.value.trim();
+        if (!value) return;
+        sessionStorage.setItem("ytl_token", value);
+        close(true);
+      },
+    }, "Save");
+    const overlay = el("div", { class: "modal-overlay", id: "token-overlay" },
+      el("div", { class: "modal-box", style: "width:380px;height:auto;padding:16px;gap:10px" },
+        el("div", { class: "modal-head", style: "padding:0 0 4px;border-bottom:none" },
+          el("strong", null, "LAN token required"),
+          el("button", { onclick: () => close(false) }, "✕")),
+        el("div", { class: "muted small" },
+          "This server requires a token. Enter it once — it is kept for this tab only."),
+        el("div", { class: "row" }, input, saveBtn)));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
+    document.body.appendChild(overlay);
+    input.focus();
+  });
+}
+
 async function api(path, options) {
   options = options || {};
   const init = { method: options.method || "GET", headers: {} };
+  const token = sessionStorage.getItem("ytl_token");
+  if (token) init.headers["x-ytl-token"] = token;
   if (options.body !== undefined) {
     init.headers["Content-Type"] = "application/json";
     init.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
@@ -141,6 +178,10 @@ async function api(path, options) {
   const text = await res.text();
   if (text) { try { data = JSON.parse(text); } catch { data = null; } }
   if (!res.ok) {
+    if (res.status === 401 && data && data.error === "token_required") {
+      const saved = await promptForToken();
+      if (saved) return api(path, options);  // retry once with the new token
+    }
     const msg = (data && data.error) || `${res.status} ${res.statusText}`;
     toast(String(msg), "error");
     const err = new Error(String(msg));

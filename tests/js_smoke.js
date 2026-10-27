@@ -113,6 +113,7 @@ const sandbox = {
   setInterval: () => 0,
   clearInterval() {},
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
   confirm: () => true,
   prompt: () => null,
   alert() {},

@@ -1,6 +1,6 @@
 """Learning webapp backend. Python stdlib only (http.server, json, urllib,
-subprocess, threading, mimetypes, re, uuid, time, pathlib, os, sys) plus the
-local stdlib-only agentd_client for the Pi Durable sidecar.
+subprocess, threading, mimetypes, re, uuid, time, pathlib, os, sys, socket)
+plus the local stdlib-only agentd_client for the Pi Durable sidecar.
 
 Serves static/index.html plus a JSON API over the scraper's data layout:
 data/videos.json (index), data/learnings/, data/transcripts/, data/thumbs/,
@@ -16,6 +16,7 @@ import json
 import mimetypes
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -243,6 +244,8 @@ LOCK = threading.RLock()
 DEFAULT_SETTINGS = {
     "port": 8471,
     "agentd_port": 8472,
+    "host": "127.0.0.1",
+    "lan_token": "",
     "channel_default_limit": 30,
     "request_delay": 0.8,
     "accent": "#7c5cff",
@@ -331,6 +334,30 @@ def load_settings() -> dict:
 
 def save_settings(settings: dict) -> None:
     write_json_atomic(SETTINGS_JSON, settings)
+
+
+# ---------------------------------------------------------------- lan
+
+def lan_ipv4_addresses() -> list[str]:
+    """Non-loopback IPv4 addresses of this machine (best effort, may be empty)."""
+    addrs = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addrs.add(info[4][0])
+    except OSError:
+        pass
+    try:  # UDP connect finds the address of the default route without traffic
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            addrs.add(s.getsockname()[0])
+    except OSError:
+        pass
+    return sorted(a for a in addrs if not a.startswith("127."))
+
+
+def lan_urls(port: int) -> list[str]:
+    """http:// URLs LAN clients can use to reach the app (empty when none found)."""
+    return [f"http://{ip}:{port}" for ip in lan_ipv4_addresses()]
 
 
 # ---------------------------------------------------------------- videos
@@ -1379,6 +1406,17 @@ class Handler(BaseHTTPRequestHandler):
     def send_error_json(self, status: int, message: str) -> None:
         self.send_json({"error": message}, status)
 
+    def lan_token_ok(self) -> bool:
+        """Empty lan_token = open access (default). Otherwise the client must
+        send the token as x-ytl-token header or ?token= query param."""
+        token = load_settings().get("lan_token") or ""
+        if not token:
+            return True
+        if self.headers.get("x-ytl-token") == token:
+            return True
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        return (query.get("token") or [""])[0] == token
+
     def read_body(self):
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0:
@@ -1455,6 +1493,9 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
 
+        if path.startswith("/api/") and not self.lan_token_ok():
+            return self.send_error_json(401, "token_required")
+
         if method != "GET" and path.startswith("/api/"):
             self.audit_log(method, path)
 
@@ -1473,6 +1514,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_relations(query)
             if path == "/api/settings":
                 return self.send_json(load_settings())
+            if path == "/api/lan":
+                return self.api_lan()
             if path == "/api/profile":
                 return self.api_profile()
             if path == "/api/profile/skills":
@@ -1580,6 +1623,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error_json(404, "not_found")
 
     # -- endpoints
+
+    def api_lan(self):
+        settings = load_settings()
+        host = str(settings.get("host") or "127.0.0.1")
+        port = int(settings.get("port", 8471))
+        urls = lan_urls(port) if host in ("0.0.0.0", "::") else []
+        self.send_json({"host": host, "urls": urls, "token_set": bool(settings.get("lan_token"))})
 
     def api_state(self):
         settings = load_settings()
@@ -2208,8 +2258,13 @@ def main() -> None:
         print(f"agentd sidecar not started ({e}) — falling back to the kimi CLI")
     settings = load_settings()
     port = int(settings.get("port", 8471))
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    host = str(settings.get("host") or "127.0.0.1")
+    server = ThreadingHTTPServer((host, port), Handler)
     print(f"Serving on http://127.0.0.1:{port}")
+    if host in ("0.0.0.0", "::"):
+        print("LAN mode — other devices can reach this app at:")
+        for url in lan_urls(port):
+            print(f"  {url}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

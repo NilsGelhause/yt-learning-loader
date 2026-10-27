@@ -41,6 +41,35 @@ or manually:
 Then open http://127.0.0.1:8471 (the browser opens automatically).
 Requires Python 3.15 in `.venv` (already present).
 
+## LAN clients (VMs & other devices)
+
+By default the app binds `127.0.0.1` — only this machine can use it. To let
+other devices or VMs on your network reach it:
+
+1. **Settings tab → "LAN / other devices"**: set **Host** to `0.0.0.0`
+   (restart required) and optionally set a **LAN token**.
+2. **Windows firewall**: allow inbound TCP on the port (default 8471) —
+   Settings → Privacy & security → Windows Security → Firewall → "Allow an
+   app", and allow `python.exe`; or from an elevated prompt:
+
+   ```bat
+   netsh advfirewall firewall add rule name="YT Learning Loader" dir=in action=allow protocol=TCP localport=8471
+   ```
+
+3. **What clients see**: after restart the server prints the URLs to open,
+   e.g. `http://192.168.1.50:8471`, and the Settings tab shows them in a
+   read-only panel (`GET /api/lan`). If a token is set, clients are prompted
+   for it once per browser tab (sent as the `x-ytl-token` header; the
+   `?token=` query param works too — handy for sharing links).
+
+**Security note**: the app can run agent shell commands (the Console tab and
+teach workspaces drive a coding agent), so exposing it to a network means
+exposing that power. On any network you don't fully trust, set a LAN token;
+on a trusted home LAN it stays optional. The agentd sidecar itself always
+stays on `127.0.0.1` regardless — only server.py gets exposed, and the token
+gate covers every `/api/` route. Everything still stays inside your LAN; no
+traffic leaves the machine except to the model provider as before.
+
 ## The AI agent (Pi Durable sidecar + CLI fallback)
 
 Agent features (teach workspaces, learnings generation, skill distillation)
@@ -60,10 +89,11 @@ active.
 .venv\Scripts\python.exe tests\run.py
 ```
 
-201 tests: server endpoints, scraper helpers, workspace/agent flows, the
+226 tests: server endpoints, scraper helpers, workspace/agent flows, the
 agentd sidecar integration (stub sidecar, no Node needed), the skill
-taxonomy guard, file-preview API — plus a JS smoke test that renders every
-tab of the UI against a stubbed DOM (`node tests/js_smoke.js`).
+taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan) —
+plus a JS smoke test that renders every tab of the UI against a stubbed DOM
+(`node tests/js_smoke.js`).
 
 ## Layout
 
