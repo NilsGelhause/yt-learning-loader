@@ -5,12 +5,23 @@
 
 (function () {
   const TYPE_META = {
-    teach:    { label: "teach",    icon: "🎓" },
-    console:  { label: "console",  icon: "⌨" },
-    distill:  { label: "distill",  icon: "⚗" },
-    analysis: { label: "analysis", icon: "🔍" },
-    vmtask:   { label: "task",     icon: "🛠" },
+    teach:    { label: "teach",    icon: "🎓", color: "#34d399" },
+    console:  { label: "console",  icon: "⌨", color: "#60a5fa" },
+    distill:  { label: "distill",  icon: "⚗", color: "#c084fc" },
+    analysis: { label: "analysis", icon: "🔍", color: "#94a3b8" },
+    vmtask:   { label: "task",     icon: "🛠", color: "#fbbf24" },
   };
+
+  function typeChip(s) {
+    /* the four known session types get distinct chip colors — a glance tells
+       what a session is; unknown types fall back to the plain chip */
+    const meta = TYPE_META[s.type] || { label: s.type || "session", icon: "◌" };
+    const style = meta.color
+      ? `background: color-mix(in srgb, ${meta.color} 16%, transparent);`
+        + ` color: ${meta.color}; border-color: color-mix(in srgb, ${meta.color} 38%, transparent)`
+      : null;
+    return el("span", { class: "chip sm", style }, `${meta.icon} ${meta.label}`);
+  }
 
   function connectionHint(node) {
     /* a VM with an installed agent doesn't need the browser workaround — its
@@ -97,51 +108,43 @@
 
   function nodeCard(node) {
     const sessions = node.sessions || [];
-    if (!sessions.length && node.kind !== "local") {
-      /* a VM node without agent sessions — say how it reaches the app
-         instead of showing an empty, collapsible list */
-      return el("div", { class: "pane", style: "padding:0" },
-        el("div", { style: "padding:10px 12px" },
-          el("div", { class: "row", style: "flex-wrap:wrap" },
-            el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
-            el("strong", null, node.name || node.id),
-            el("span", { class: "chip sm dim" }, node.kind),
-            stateChip(node),
-            el("span", { class: "spacer" }),
-            el("span", { class: "muted small" }, connectionHint(node)))));
-    }
+    const collapsible = sessions.length > 0 || node.kind === "local";
     const expanded = sessions.length > 0 && sessions.length <= 6;
-    const list = el("div", { style: expanded ? "" : "display:none" });
+    /* the sessions list lives inside the card, indented under the header —
+       the list node is created first so the header toggle can close over it */
+    const list = el("div", { class: "net-node-sessions", style: expanded ? "" : "display:none" });
     sessions.forEach(s => list.appendChild(sessionRow(s)));
-    const caret = el("span", { class: "muted small" }, expanded ? "▾" : "▸");
+    const caret = el("span", { class: "muted small", style: "flex:none" }, collapsible ? (expanded ? "▾" : "▸") : "");
     const head = el("div", {
-      class: "row", style: "cursor:pointer;flex-wrap:wrap",
+      class: "net-node-head row",
+      style: collapsible ? "cursor:pointer;flex-wrap:wrap" : "flex-wrap:wrap",
       onclick: () => {
+        if (!collapsible) return;
         const open = list.style.display !== "none";
         list.style.display = open ? "none" : "";
         caret.textContent = open ? "▸" : "▾";
       },
     },
       el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
-      el("strong", null, node.name || node.id),
+      el("strong", { style: "flex:none" }, node.name || node.id),
       el("span", { class: "chip sm dim" }, node.kind || "local"),
       stateChip(node),
-      el("span", { class: "muted small" }, `${sessions.length} session${sessions.length === 1 ? "" : "s"}`),
+      sessions.length ? el("span", { class: "muted small", style: "flex:none" },
+        `${sessions.length} session${sessions.length === 1 ? "" : "s"}`) : null,
       el("span", { class: "spacer" }),
-      node.agent ? el("span", { class: "muted small" }, "agent runs here") : null,
+      sessions.length
+        ? (node.agent ? el("span", { class: "muted small" }, "agent runs here") : null)
+        : el("span", { class: "muted small", style: "text-align:right" }, connectionHint(node)),
       caret);
-    return el("div", { class: "pane", style: "padding:0" },
-      el("div", { style: "padding:10px 12px" }, head),
-      list);
+    return el("div", { class: "net-node" }, head, collapsible ? list : null);
   }
 
   function sessionRow(s) {
-    const meta = TYPE_META[s.type] || { label: s.type || "session", icon: "◌" };
     const dotCls = s.busy ? "pulse-dot" : (s.status === "error" ? "pulse-dot err" : "pulse-dot off");
     const dotTitle = s.busy ? "busy" : (s.status ? `last: ${s.status}` : "idle");
-    return el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
+    return el("div", { class: "row", style: "padding:6px 6px;border-top:1px solid var(--border);flex-wrap:wrap" },
       el("span", { class: dotCls, title: dotTitle }),
-      el("span", { class: "chip sm" }, `${meta.icon} ${meta.label}`),
+      typeChip(s),
       el("span", { style: "flex:1;min-width:120px", title: s.cwd || "" }, s.title || s.key),
       el("span", { class: "muted small", title: s.key || "" }, s.busy ? "working…" : (s.status || "idle")));
   }

@@ -226,6 +226,18 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .row.wrap { flex-wrap: wrap; }
 .spacer { flex: 1; }
 
+/* network tab: each node is one unmistakable card — header row on its own
+   shade, sessions indented inside, real margin between cards */
+.net-node {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.net-node + .net-node { margin-top: 12px; }
+.net-node-head { padding: 10px 12px; background: var(--panel-2); }
+.net-node-sessions { padding: 4px 10px 8px 20px; }
+
 /* skeleton */
 .skeleton {
   border-radius: var(--radius-sm);

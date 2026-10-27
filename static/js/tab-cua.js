@@ -11,9 +11,11 @@
   const jobs = new Map();    // running/polling create/remove/delegate/provision jobs
   let jobTimer = null;       // shared poller for everything in `jobs`
   let agentMap = new Map();  // sandbox name -> {online, agent, endpoint} from /api/vm-nodes
+  let term = null;           // the one open terminal pane {id, name, pane, out, input, idx, timer, atBottom}
 
   function render(screen) {
     stopPoll();
+    destroyTermPane(false);   /* pane is gone with the cleared screen; the server term idle-reaps */
     const wrap = el("div", { class: "screen-scroll scroll", style: "display:flex;flex-direction:column;gap:14px;max-width:960px;width:100%;margin:0 auto" });
     wrap.appendChild(el("div", { class: "pane" },
       el("div", { class: "pane-header" }, "CUA Spaces ",
@@ -131,8 +133,26 @@
   function refreshTable(data) {
     const box = document.getElementById("cua-table");
     if (!box) return;
+    /* the auto-refresh rebuilds the rows — carry an open terminal pane over
+       to the new row of its sandbox (or drop it if that sandbox is gone) */
+    const pane = term ? term.pane : null;
+    if (pane && pane.parentNode) pane.remove();
     clear(box);
     box.appendChild(tableBody(data.sandboxes || []));
+    if (pane) {
+      const row = findRow(box, term.name);
+      if (row) row.appendChild(pane);
+      else destroyTermPane(false);
+    }
+  }
+
+  function findRow(box, name) {
+    const wrap = box.children[0];
+    if (!wrap) return null;
+    for (const r of (wrap.children || [])) {
+      if (r._sbName === name) return r;
+    }
+    return null;
   }
 
   function tableBody(sandboxes) {
@@ -153,6 +173,10 @@
         title: `Install the agentd sidecar inside ${sb.name} so tasks run natively on this VM`,
         onclick: () => doProvision(sb.name),
       }, "Install agent");
+      const termBtn = el("button", {
+        title: `Open a raw shell inside ${sb.name} (one terminal at a time)`,
+        onclick: () => toggleTerm(sb.name),
+      }, "Terminal");
       const agent = agentMap.get(sb.name);
       /* agent ✓ = in-guest sidecar healthy with a key; ✗ = sidecar answers
          but no agent; — = VM offline (suspend keeps files, stop kills it) */
@@ -160,18 +184,20 @@
         class: `chip sm${agent.agent ? "" : " dim"}`,
         title: agent.endpoint ? `agent endpoint ${agent.endpoint}` : "no agent endpoint",
       }, agent.agent ? "agent ✓" : (agent.online ? "agent ✗" : "agent —"));
-      return el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
+      const row = el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
         el("span", { class: `pulse-dot${sb.status === "running" ? "" : " off"}`, title: sb.status || "unknown" }),
         el("strong", { style: "min-width:160px" }, sb.name),
         el("span", { class: "chip sm dim" }, sb.status || "unknown"),
         agentChip,
         el("span", { class: "muted small", style: "flex:1" }, sb.image || ""),
-        taskInput, delegateBtn, installBtn,
+        taskInput, delegateBtn, installBtn, termBtn,
         el("button", {
           class: "icon-btn danger",
           title: `Delete ${sb.name}`,
           onclick: () => doRemove(sb.name),
         }, "🗑"));
+      row._sbName = sb.name;   // so refreshTable can find the row again
+      return row;
     });
     return el("div", null, rows);
   }
@@ -190,6 +216,100 @@
         : "How do I use a VM? The server currently binds 127.0.0.1 — set Host to 0.0.0.0 in Settings → LAN / other devices (restart required) so VMs can reach it, and the URL will appear here.";
     })();
     return slot;
+  }
+
+  /* ---------- per-sandbox terminal (raw shell) ---------- */
+  /* One pane at a time: `cua sb exec -i <name> -- bash` runs on the host, its
+     stdin/stdout lines are the guest's — a persistent shell under the row. */
+
+  function termLine(t, text, cls) {
+    t.out.appendChild(el("div", { class: cls || "cl-out" }, text));
+    if (t.atBottom) t.out.scrollTop = t.out.scrollHeight;
+  }
+
+  async function toggleTerm(name) {
+    if (term && term.name === name) { destroyTermPane(true); return; }
+    await openTerm(name);
+  }
+
+  async function openTerm(name) {
+    destroyTermPane(true);   /* one terminal pane at a time */
+    let res;
+    try {
+      res = await api("/api/cua/term/open", { method: "POST", body: { name } });
+    } catch { return; }  /* api() toasted the reason (400/404/409/503) */
+    const out = el("div", {
+      class: "scroll",
+      style: "height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);"
+        + "border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:12px",
+    });
+    const input = el("input", {
+      placeholder: "type a command and press Enter…",
+      style: "flex:1;font-family:var(--mono);font-size:12px",
+      onkeydown: (e) => { if (e.key === "Enter") sendTermLine(); },
+    });
+    const pane = el("div", { style: "flex-basis:100%;display:flex;flex-direction:column;gap:6px;padding:8px 12px 10px" },
+      el("div", { class: "row" },
+        el("strong", { class: "small" }, `raw shell — ${name}`),
+        el("span", { class: "muted small" }, "ANSI escapes may appear verbatim"),
+        el("span", { class: "spacer" }),
+        el("button", { onclick: () => destroyTermPane(true) }, "Close")),
+      out,
+      el("div", { class: "row" },
+        el("span", { class: "mono small muted" }, "$"),
+        input));
+    const t = { id: res.term_id, name, pane, out, input, idx: 0, atBottom: true, over: false };
+    out.addEventListener("scroll", () => {
+      t.atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 12;
+    });
+    term = t;
+    termLine(t, `connected to ${name} — raw shell, 15 min idle closes it`, "cl-meta");
+    const box = document.getElementById("cua-table");
+    const row = box && findRow(box, name);
+    if (row) row.appendChild(pane);
+    t.timer = setInterval(pollTerm, 1000);
+    pollTerm();
+    input.focus();
+  }
+
+  async function sendTermLine() {
+    const t = term;
+    if (!t || t.over) return;
+    const line = (t.input.value || "").trim();
+    if (!line) return;
+    t.input.value = "";
+    termLine(t, `$ ${line}`, "cl-meta");
+    try {
+      await api(`/api/cua/term/${t.id}/send`, { method: "POST", body: { line } });
+    } catch { /* closed mid-send — pollTerm reports [session ended] */ }
+  }
+
+  async function pollTerm() {
+    const t = term;
+    if (!t || t.over) return;
+    if (!t.pane.isConnected) { destroyTermPane(true); return; }
+    let d;
+    try { d = await api(`/api/cua/term/${t.id}`); }
+    catch { return; }
+    if (term !== t) return;
+    (d.lines || []).slice(t.idx).forEach(l => termLine(t, l.x, l.t === "err" ? "cl-err" : "cl-out"));
+    t.idx = (d.lines || []).length;
+    if (d.status === "closed") {
+      t.over = true;
+      clearInterval(t.timer);
+      termLine(t, "[session ended]", "cl-meta");
+    }
+  }
+
+  function destroyTermPane(callApi) {
+    const t = term;
+    if (!t) return;
+    term = null;
+    if (t.timer) clearInterval(t.timer);
+    if (t.pane.parentNode) t.pane.parentNode.removeChild(t.pane);
+    if (callApi && t.id) {
+      api(`/api/cua/term/${t.id}/close`, { method: "POST", body: {} }).catch(() => {});
+    }
   }
 
   /* ---------- create / remove / delegate jobs ---------- */

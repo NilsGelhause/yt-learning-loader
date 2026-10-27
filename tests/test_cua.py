@@ -12,7 +12,9 @@ Run via tests/run.py.
 from __future__ import annotations
 
 import http.client
+import io
 import json
+import os
 import tempfile
 import threading
 import time
@@ -783,6 +785,290 @@ class VmTaskApiTests(unittest.TestCase):
             self.stub.finish(submitted["jobId"], "done")
             self.wait_job(body["job_id"])
         self.assertEqual(submitted["key"], "vmtask:ytl-dev:s2")
+
+
+class _FakeStdin:
+    """Records what the server wrote to the guest bash's stdin."""
+
+    def __init__(self):
+        self.writes = []
+
+    def write(self, s):
+        self.writes.append(s)
+        return len(s)
+
+    def flush(self):
+        pass
+
+
+class FakeTermProc:
+    """Long-lived stand-in for `cua sb exec -i <name> -- bash` (the host
+    process that keeps a guest bash alive). stdout/stderr are real pipes the
+    test writes to — the server's reader threads consume them for real;
+    wait() blocks until kill()/finish() like a live process."""
+
+    def __init__(self, cmd, **kwargs):
+        self.cmd = list(cmd)
+        self.kwargs = kwargs
+        self.pid = 4242
+        self.returncode = None
+        self.stdin = _FakeStdin()
+        self._r_out, self._w_out = os.pipe()
+        self._r_err, self._w_err = os.pipe()
+        self.stdout = io.TextIOWrapper(io.FileIO(self._r_out, "rb"),
+                                       encoding="utf-8", errors="replace")
+        self.stderr = io.TextIOWrapper(io.FileIO(self._r_err, "rb"),
+                                       encoding="utf-8", errors="replace")
+        self._ended = threading.Event()
+
+    def guest_print(self, text, err=False):
+        os.write(self._w_err if err else self._w_out, text.encode("utf-8") + b"\n")
+
+    def _close_ends(self):
+        for fd in (self._w_out, self._w_err):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+
+    def kill(self):
+        self.returncode = -9
+        self._close_ends()
+        self._ended.set()
+
+    def finish(self, code=0):
+        self.returncode = code
+        self._close_ends()
+        self._ended.set()
+
+    def poll(self):
+        return self.returncode if self._ended.is_set() else None
+
+    def wait(self, timeout=None):
+        self._ended.wait(timeout)
+        return self.returncode
+
+
+class CuaTermApiTests(unittest.TestCase):
+    """The /api/cua/term/* endpoints: a persistent raw bash per sandbox.
+
+    Real Handler on a temp data dir (like CuaApiTests); `cua sb exec` is
+    faked by FakeTermProc pipes, cua_client is patched to one fake sandbox."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = Path(cls.tmp.name)
+        data = root / "data"
+        for d in ("learnings", "transcripts", "thumbs", "info", "progress"):
+            (data / d).mkdir(parents=True)
+        (root / "teach").mkdir()
+        cls.data = data
+        cls.procs = []
+        cls.popen_patcher = mock.patch.object(server.subprocess, "Popen")
+        cls.mock_popen = cls.popen_patcher.start()
+        cls.mock_popen.side_effect = lambda cmd, **kw: cls._make_proc(cmd, kw)
+        cls.patchers = [
+            mock.patch.object(server, "SETTINGS_JSON", data / "settings.json"),
+            mock.patch.object(server, "CUA_TERMS", {}),
+            mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"),
+            mock.patch.object(server.cua_client, "list_sandboxes",
+                              side_effect=lambda exe=None: cls.sandboxes),
+        ]
+        for p in cls.patchers:
+            p.start()
+        cls.httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def _make_proc(cls, cmd, kw):
+        proc = FakeTermProc(cmd, **kw)
+        cls.procs.append(proc)
+        return proc
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join(timeout=5)
+        cls.httpd.server_close()
+        for p in cls.patchers:
+            p.stop()
+        cls.popen_patcher.stop()
+        cls.tmp.cleanup()
+
+    sandboxes = [{"name": "ytl-dev", "status": "running", "image": "ubuntu"}]
+
+    def setUp(self):
+        self.write_settings({})
+        type(self).sandboxes = [{"name": "ytl-dev", "status": "running", "image": "ubuntu"}]
+
+    def tearDown(self):
+        with server.CUA_TERMS_LOCK:
+            terms = list(server.CUA_TERMS.values())
+            server.CUA_TERMS.clear()
+        for t in terms:
+            try:
+                t["proc"].finish(0)
+            except Exception:  # noqa: BLE001
+                pass
+
+    def api(self, method, path, body=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        payload = json.dumps(body).encode("utf-8") if body is not None else None
+        headers = {"Content-Type": "application/json"} if payload is not None else {}
+        conn.request(method, path, body=payload, headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        status = resp.status
+        conn.close()
+        return status, json.loads(raw.decode("utf-8"))
+
+    def write_settings(self, settings: dict):
+        (self.data / "settings.json").write_text(
+            json.dumps(settings), encoding="utf-8")
+
+    def open_term(self):
+        status, body = self.api("POST", "/api/cua/term/open", {"name": "ytl-dev"})
+        self.assertEqual(status, 200)
+        return body["term_id"]
+
+    def wait_lines(self, term_id, count, timeout: float = 5):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status, snap = self.api("GET", f"/api/cua/term/{term_id}")
+            self.assertEqual(status, 200)
+            if len(snap["lines"]) >= count:
+                return snap
+            time.sleep(0.02)
+        self.fail(f"term {term_id} never reached {count} lines")
+
+    def wait_status(self, term_id, wanted, timeout: float = 5):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status, snap = self.api("GET", f"/api/cua/term/{term_id}")
+            self.assertEqual(status, 200)
+            if snap["status"] == wanted:
+                return snap
+            time.sleep(0.02)
+        self.fail(f"term {term_id} never became {wanted}")
+
+    def wait_exit(self, term_id, code, timeout: float = 5):
+        """After a kill the reaper fills the real exit code in a beat later."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status, snap = self.api("GET", f"/api/cua/term/{term_id}")
+            self.assertEqual(status, 200)
+            if snap["exit_code"] == code:
+                return snap
+            time.sleep(0.02)
+        self.fail(f"term {term_id} never recorded exit {code}")
+
+    # -- open
+
+    def test_term_open_rejects_bad_name(self):
+        status, body = self.api("POST", "/api/cua/term/open", {"name": "Bad Name!!"})
+        self.assertEqual(status, 400)
+        self.assertIn("bad name", body["error"])
+        self.assertEqual(server.CUA_TERMS, {})
+
+    def test_term_open_unknown_sandbox_404(self):
+        type(self).sandboxes = []
+        status, body = self.api("POST", "/api/cua/term/open", {"name": "dev"})
+        self.assertEqual(status, 404)
+        self.assertIn("not found", body["error"])
+        self.assertEqual(server.CUA_TERMS, {})
+
+    def test_term_spawn_failure_is_friendly_and_leaves_no_registry_entry(self):
+        self.mock_popen.side_effect = OSError("no cua")
+        try:
+            status, body = self.api("POST", "/api/cua/term/open", {"name": "dev"})
+        finally:
+            self.mock_popen.side_effect = lambda cmd, **kw: self._make_proc(cmd, kw)
+        self.assertEqual(status, 500)
+        self.assertIn("could not start terminal", body["error"])
+        self.assertEqual(server.CUA_TERMS, {})
+
+    def test_term_open_409_when_already_open(self):
+        self.open_term()
+        status, body = self.api("POST", "/api/cua/term/open", {"name": "dev"})
+        self.assertEqual(status, 409)
+        self.assertIn("already open", body["error"])
+
+    # -- send / poll round-trip
+
+    def test_term_open_send_poll_roundtrip(self):
+        term_id = self.open_term()
+        proc = self.procs[-1]
+        self.assertEqual(proc.cmd, ["cua", "sb", "exec", "-i", "ytl-dev", "--", "bash"])
+        self.assertEqual(proc.kwargs.get("stdin"), server.subprocess.PIPE)
+
+        status, _ = self.api("POST", f"/api/cua/term/{term_id}/send", {"line": "uname -a"})
+        self.assertEqual(status, 200)
+        self.assertEqual(proc.stdin.writes, ["uname -a\n"])
+
+        proc.guest_print("Linux ytl-dev 6.8.0-31-generic #1 SMP x86_64 GNU/Linux")
+        snap = self.wait_lines(term_id, 1)
+        self.assertEqual(snap["status"], "open")
+        self.assertEqual(snap["name"], "ytl-dev")
+        self.assertEqual(snap["lines"][0],
+                         {"t": "out", "x": "Linux ytl-dev 6.8.0-31-generic #1 SMP x86_64 GNU/Linux"})
+
+        proc.guest_print("/home/cua")
+        snap = self.wait_lines(term_id, 2)
+        self.assertEqual([l["x"] for l in snap["lines"]],
+                         ["Linux ytl-dev 6.8.0-31-generic #1 SMP x86_64 GNU/Linux",
+                          "/home/cua"])
+        proc.guest_print("boom", err=True)
+        snap = self.wait_lines(term_id, 3)
+        self.assertEqual(snap["lines"][2], {"t": "err", "x": "boom"})
+
+    def test_term_send_unknown_id_404(self):
+        status, _ = self.api("POST", "/api/cua/term/nope/send", {"line": "ls"})
+        self.assertEqual(status, 404)
+
+    def test_term_send_requires_line(self):
+        term_id = self.open_term()
+        status, _ = self.api("POST", f"/api/cua/term/{term_id}/send", {})
+        self.assertEqual(status, 400)
+
+    # -- closing: bash exits, idle timeout, close endpoint
+
+    def test_term_closed_when_bash_exits(self):
+        term_id = self.open_term()
+        self.procs[-1].finish(0)
+        snap = self.wait_status(term_id, "closed")
+        self.assertEqual(snap["exit_code"], 0)
+        status, body = self.api("POST", f"/api/cua/term/{term_id}/send", {"line": "ls"})
+        self.assertEqual(status, 410)
+        self.assertIn("closed", body["error"])
+
+    def test_term_idle_timeout_kills_the_bash(self):
+        term_id = self.open_term()
+        proc = self.procs[-1]
+        with mock.patch.object(server, "CUA_TERM_IDLE_SECONDS", -1):
+            self.wait_status(term_id, "closed")
+        self.assertEqual(proc.returncode, -9)  # killed, not exited
+
+    def test_term_close_endpoint(self):
+        term_id = self.open_term()
+        proc = self.procs[-1]
+        status, body = self.api("POST", f"/api/cua/term/{term_id}/close")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True})
+        self.wait_status(term_id, "closed")
+        self.wait_exit(term_id, -9)   # killed, not exited
+        status, _ = self.api("POST", f"/api/cua/term/{term_id}/send", {"line": "ls"})
+        self.assertEqual(status, 410)
+        # idempotent: closing again is fine
+        status, body = self.api("POST", f"/api/cua/term/{term_id}/close")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True})
+
+    def test_term_close_unknown_id_404(self):
+        status, _ = self.api("POST", "/api/cua/term/nope/close")
+        self.assertEqual(status, 404)
 
 
 if __name__ == "__main__":

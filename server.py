@@ -83,8 +83,8 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-skills.js": "Tab 8 — My Skills: skills you know (from learned videos) vs skills you can still learn, with teach-me jumps.",
     "static/js/tab-tests.js": "Tab 9 — the test suite: run tests live, searchable/sortable/groupable results with plain-language descriptions.",
     "static/js/tab-console.js": "Tab 11 — a standalone agent console with one persistent conversation for the whole app (no workspace): ask anything, the agent reads the app's files to answer.",
-    "static/js/tab-network.js": "Tab 12 — the agent network view: one node per machine (this one, plus cua sandboxes as VM nodes when the cua CLI is installed) with its durable-agent sessions, busy/idle/error status and working directory.",
-    "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, and link to the cua infographic.",
+    "static/js/tab-network.js": "Tab 12 — the agent network view: one bordered card per machine (this one, plus cua sandboxes as VM nodes) with its durable-agent sessions indented inside, color-coded session-type chips, busy/idle/error status and connection hints.",
+    "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, open a raw per-VM terminal (persistent cua sb exec bash), and link to the cua infographic.",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
     "cua_client.py": "The cua (trycua/cua) CLI client: locate the CLI, report its version, list sandboxes — tolerant of CLI drift, stdlib only. Sandboxes live outside the repo; nothing here installs or vendors cua.",
     "vm_nodes.py": "VM node agent discovery: the in-guest agentd sidecar endpoint per sandbox (published endpoints.agent, else a managed cua sb port-forward on a loopback port from a fixed range), cached /health probes, and per-node /conversations — the wiring behind 'agents inside VMs'.",
@@ -228,6 +228,134 @@ AGENT_MAX_LINES = 800
 CUA_JOB_TIMEOUT = 900  # cua create/remove may download images; beyond this, kill
 PROVISION_STEP_TIMEOUT = 600  # per-step ceiling for Install agent (npm ci ~10s; image hiccups happen)
 AGENT_POLL_INTERVAL = 1.0  # seconds between sidecar job polls
+
+# ---------------------------------------------------------------- cua terminals
+# A persistent per-sandbox raw shell: `cua sb exec -i <name> -- bash` stays
+# alive as long as the host process lives, stdin reaches the guest bash, and
+# every stdout/stderr line is guest output. One open terminal per sandbox;
+# terms die with their proc, and a poll finding one idle for
+# CUA_TERM_IDLE_SECONDS kills the bash (a forgotten pane must not hold the
+# sandbox's exec session open forever).
+CUA_TERMS: dict[str, dict] = {}
+CUA_TERMS_LOCK = threading.Lock()
+CUA_TERM_MAX_LINES = 800
+CUA_TERM_IDLE_SECONDS = 15 * 60
+
+
+def _term_append(term: dict, tag: str, text: str) -> None:
+    with CUA_TERMS_LOCK:
+        term["lines"].append({"t": tag, "x": text[:1000]})
+        if len(term["lines"]) > CUA_TERM_MAX_LINES:
+            del term["lines"][: len(term["lines"]) - CUA_TERM_MAX_LINES]
+
+
+def _term_mark_closed(term: dict, exit_code) -> None:
+    with CUA_TERMS_LOCK:
+        if term["status"] == "closed":
+            # a kill makes the real exit code observable a beat later — the
+            # reaper's mark fills it in once wait() has reaped the proc
+            if exit_code is not None and term["exit_code"] is None:
+                term["exit_code"] = exit_code
+            return
+        term["status"] = "closed"
+        term["exit_code"] = exit_code
+        term["closed"] = int(time.time())
+
+
+def _term_reap_idle(term: dict) -> None:
+    """Kill the bash when nobody has sent or polled for longer than
+    CUA_TERM_IDLE_SECONDS (lazy: checked on every poll/send)."""
+    if time.monotonic() - term["last_active"] <= CUA_TERM_IDLE_SECONDS:
+        return
+    try:
+        term["proc"].kill()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _term_reader(term: dict, stream, tag: str) -> None:
+    try:
+        for line in stream:
+            # newline="" keeps guest \r\n intact on read — drop the \r here
+            _term_append(term, tag, line.rstrip("\n").rstrip("\r"))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def run_cua_term(term_id: str) -> None:
+    """Reaper: wait for the bash proc and record how the session ended."""
+    term = CUA_TERMS[term_id]
+    try:
+        code = term["proc"].wait()
+    except Exception:  # noqa: BLE001
+        code = None
+    _term_mark_closed(term, code)
+
+
+def close_term(term: dict) -> None:
+    """Idempotent close: kill the bash (best effort) and mark the term closed.
+    The exit code may still be unknown right after a kill — the reaper thread
+    records it once the proc is reaped."""
+    try:
+        term["proc"].kill()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        code = term["proc"].poll()
+    except Exception:  # noqa: BLE001
+        code = None
+    _term_mark_closed(term, code)
+
+
+def open_term(name: str):
+    """Spawn a persistent bash inside sandbox `name`. Returns term_id, or a
+    (status, message) tuple when the name/sandbox is bad, a terminal for this
+    sandbox is already open, or the spawn failed (no registry entry then)."""
+    if not cua_client.valid_name(name):
+        return 400, "bad name — use lowercase letters, digits and dashes (max 40 chars)"
+    try:
+        sandboxes = cua_client.list_sandboxes()
+    except Exception:  # noqa: BLE001
+        sandboxes = []
+    if not any(isinstance(s, dict) and s.get("name") == name for s in sandboxes):
+        return 404, f"sandbox {name} not found"
+    try:
+        proc = subprocess.Popen(
+            ["cua", "sb", "exec", "-i", name, "--", "bash"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", errors="replace",
+        )
+    except Exception as e:  # noqa: BLE001
+        return 500, f"could not start terminal: {type(e).__name__}: {e}"
+    try:
+        # Windows text mode would translate the \n we send into \r\n and the
+        # guest bash would see "pwd\r" — force raw newlines on stdin.
+        proc.stdin.reconfigure(newline="")
+    except (AttributeError, OSError, ValueError):
+        pass
+    term_id = uuid.uuid4().hex[:12]
+    term = {"id": term_id, "name": name, "status": "open", "lines": [],
+            "proc": proc, "exit_code": None, "opened": int(time.time()),
+            "closed": None, "last_active": time.monotonic()}
+    with CUA_TERMS_LOCK:
+        for existing in CUA_TERMS.values():
+            if existing["name"] == name and existing["status"] == "open":
+                break
+        else:
+            existing = None
+            CUA_TERMS[term_id] = term
+    if existing is not None:  # lost the race — put ours down quietly
+        try:
+            proc.kill()
+        except Exception:  # noqa: BLE001
+            pass
+        return 409, f"a terminal for {name} is already open"
+    threading.Thread(target=_term_reader, args=(term, proc.stdout, "out"),
+                     daemon=True).start()
+    threading.Thread(target=_term_reader, args=(term, proc.stderr, "err"),
+                     daemon=True).start()
+    threading.Thread(target=run_cua_term, args=(term_id,), daemon=True).start()
+    return term_id
 
 
 def find_kimi() -> str | None:
@@ -1927,6 +2055,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_status()
             if path == "/api/vm-nodes":
                 return self.api_vm_nodes()
+            m = re.fullmatch(r"/api/cua/term/([^/]+)", path)
+            if m:
+                return self.api_cua_term_get(m.group(1))
             m = re.fullmatch(r"/api/teach/([^/]+)/state", path)
             if m:
                 return self.api_get_ws_state(m.group(1))
@@ -1988,6 +2119,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_remove()
             if path == "/api/cua/provision":
                 return self.api_cua_provision()
+            if path == "/api/cua/term/open":
+                return self.api_cua_term_open()
+            m = re.fullmatch(r"/api/cua/term/([^/]+)/send", path)
+            if m:
+                return self.api_cua_term_send(m.group(1))
+            m = re.fullmatch(r"/api/cua/term/([^/]+)/close", path)
+            if m:
+                return self.api_cua_term_close(m.group(1))
             if path == "/api/agent/vm-task":
                 return self.api_agent_vm_task()
             if path == "/api/skill/from_workspace":
@@ -2554,6 +2693,63 @@ class Handler(BaseHTTPRequestHandler):
         if isinstance(result, tuple):
             return self.send_error_json(result[0], result[1])
         self.send_json({"job_id": result})
+
+    # -- cua terminals: a persistent raw bash inside one sandbox, streamed
+    # line-by-line to an inline terminal pane in the CUA Spaces tab.
+
+    def api_cua_term_open(self):
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("name"):
+            return self.send_error_json(400, 'body must be {"name": ...}')
+        if not cua_client.find_cua():
+            return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
+        name = cua_client.full_name(str(body["name"]))
+        result = open_term(name)
+        if isinstance(result, tuple):
+            return self.send_error_json(result[0], result[1])
+        self.send_json({"term_id": result})
+
+    def api_cua_term_get(self, term_id: str):
+        with CUA_TERMS_LOCK:
+            term = CUA_TERMS.get(term_id)
+        if not term:
+            return self.send_error_json(404, "no such terminal")
+        _term_reap_idle(term)
+        with CUA_TERMS_LOCK:
+            term["last_active"] = time.monotonic()
+            snap = {"status": term["status"], "name": term["name"],
+                    "exit_code": term["exit_code"],
+                    "lines": list(term["lines"][-CUA_TERM_MAX_LINES:])}
+        self.send_json(snap)
+
+    def api_cua_term_send(self, term_id: str):
+        body = self.read_body()
+        if not isinstance(body, dict) or not isinstance(body.get("line"), str):
+            return self.send_error_json(400, 'body must be {"line": ...}')
+        with CUA_TERMS_LOCK:
+            term = CUA_TERMS.get(term_id)
+        if not term:
+            return self.send_error_json(404, "no such terminal")
+        _term_reap_idle(term)
+        if term["status"] != "open":
+            return self.send_error_json(410, "terminal is closed")
+        try:
+            term["proc"].stdin.write(body["line"] + "\n")
+            term["proc"].stdin.flush()
+        except Exception as e:  # noqa: BLE001
+            _term_mark_closed(term, term["proc"].poll())
+            return self.send_error_json(410, f"terminal is closed ({type(e).__name__})")
+        with CUA_TERMS_LOCK:
+            term["last_active"] = time.monotonic()
+        self.send_json({"ok": True})
+
+    def api_cua_term_close(self, term_id: str):
+        with CUA_TERMS_LOCK:
+            term = CUA_TERMS.get(term_id)
+        if not term:
+            return self.send_error_json(404, "no such terminal")
+        close_term(term)
+        self.send_json({"ok": True})
 
     # -- delegate-a-task v1: the agent thinks in the master's durable
     # conversation, but every command it runs executes ON the VM via

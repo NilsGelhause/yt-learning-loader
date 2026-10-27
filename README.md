@@ -115,12 +115,24 @@ re-applies the (idempotent) per-conversation instructions on every submission,
 which is how the same session moves to a different VM. Omitting `session`
 starts a fresh one each time.
 
+**Terminal (raw shell).** Each sandbox row has a Terminal button that opens a
+persistent raw bash inside that one VM (`POST /api/cua/term/open` — spawns
+`cua sb exec -i <name> -- bash` on the host; the pane polls
+`/api/cua/term/<id>` and sends lines via `/api/cua/term/<id>/send`). One
+terminal per sandbox and one pane at a time; closing the pane ends the shell,
+and a terminal nobody has touched for 15 minutes is killed automatically.
+ANSI escape codes may appear verbatim — it's a raw shell, not a pty.
+
 In the Network tab these conversations appear under their VM's node (labeled
 🛠 task, titled by the session part), and each VM node carries a connection
 hint by flavor: a qemu VM reaches this host at `http://10.0.2.2:8471` (its
 NAT gateway address; the browser asks for the LAN token), while a container
 shares the host's network and uses the plain LAN URL from
-Settings → LAN / other devices.
+Settings → LAN / other devices. Each node renders as its own bordered card —
+header row (status, name, kind, session count) on a shaded background with
+sessions indented inside — so neighboring nodes no longer blend together,
+and session-type chips are color-coded (console blue, distill purple, task
+amber, teach green, analysis grey).
 
 ## Agents inside VMs (v2)
 
@@ -178,12 +190,13 @@ active.
 .venv\Scripts\python.exe tests\run.py
 ```
 
-285 tests: server endpoints, scraper helpers, workspace/agent flows, the
+296 tests: server endpoints, scraper helpers, workspace/agent flows, the
 agentd sidecar integration (stub sidecar, no Node needed), the skill
 taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan),
 CUA Spaces (cua client parsing, create/remove jobs, delegate-a-task to a VM,
 VM nodes in the network view), agents inside VMs (node routing for the
-console and VM tasks, Install agent provisioning, /api/vm-nodes) —
+console and VM tasks, Install agent provisioning, /api/vm-nodes), the
+per-sandbox terminal (open/send/poll/close, idle timeout, double-open) —
 plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 (`node tests/js_smoke.js`).
 
