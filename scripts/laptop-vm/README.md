@@ -12,8 +12,9 @@ master PC (192.168.50.111)                laptop (any Windows)
 ├─ server.py :8471  ◄─────────────────────┤  VMs in browsers point here
 ├─ agentd :8472 (master brain)            ├─ laptop-vm-1 … laptop-vm-5
 └─ Network tab lists master sessions      └─ QEMU VMs, Ubuntu 24.04 desktops
-   (laptop VMs are pure clients today —
-    remote-node listing is a later step)
+   AND the laptop's VMs (the beacon        (the beacon registers them with
+   below registers them, presence-only     the master — presence-only unless
+   unless an agent endpoint is reachable)  an agent endpoint is reachable)
 ```
 
 ## Setup on the laptop (30 minutes, mostly downloads)
@@ -32,6 +33,21 @@ master PC (192.168.50.111)                laptop (any Windows)
    powershell -ExecutionPolicy Bypass -File .\New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 1
    ```
    (`-Count` up to 5. Each VM defaults to ~4 GB RAM — mind the laptop's RAM.)
+4. **Start the beacon** so the laptop's VMs appear in the master's
+   Network tab:
+   ```powershell
+   powershell -File .\Register-Nodes.ps1 -MasterUrl http://192.168.50.111:8471 -Token <your-LAN-token>
+   ```
+   Keep the window open, or run it in the background via Task Scheduler or
+   `Start-Process powershell -ArgumentList ... -WindowStyle Hidden`. It
+   registers every VM on the laptop every 30 s and auto-detects new/deleted
+   ones; if the master is offline it keeps retrying. Optional: when a VM
+   publishes `endpoints.agent` (an in-guest agentd sidecar), the beacon
+   passes the endpoint URL through, and the master lists that node's agent
+   and sessions too — provided the master can actually reach that URL
+   (reachability from the master is your job: LAN IP / port-forward / relay).
+   Without a reachable endpoint the node is presence-only, which is enough
+   for the Network tab. Use `-Once` for a single test registration.
 
 ## Using a VM
 

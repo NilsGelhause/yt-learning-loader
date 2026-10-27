@@ -24,6 +24,14 @@
   }
 
   function connectionHint(node) {
+    /* a remote node is a presence beacon from another host — it may have no
+       agent at all; with a reachable endpoint its sessions are listed above */
+    if (node.remote) {
+      if (!node.has_endpoint) {
+        return "registered by its host — no agent endpoint; presence only";
+      }
+      return "remote agent endpoint — its sessions are listed above";
+    }
     /* a VM with an installed agent doesn't need the browser workaround — its
        agent runs natively in the guest and its sessions are listed above */
     if (node.agent) {
@@ -128,6 +136,8 @@
       el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
       el("strong", { style: "flex:none" }, node.name || node.id),
       el("span", { class: "chip sm dim" }, node.kind || "local"),
+      node.remote ? el("span", { class: "chip sm dim", title: "registered by a remote host" },
+        `remote @ ${node.host || "?"}`) : null,
       stateChip(node),
       sessions.length ? el("span", { class: "muted small", style: "flex:none" },
         `${sessions.length} session${sessions.length === 1 ? "" : "s"}`) : null,

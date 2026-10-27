@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 import urllib.parse
+import urllib.request
 import uuid
 import difflib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -45,6 +46,7 @@ PROFILE_SKILLS_JSON = DATA / "profile-skills.json"
 TEACH_DIR = ROOT / "teach"
 SKILLS_DIR = ROOT / "skills"
 AGENT_CONVERSATIONS_JSON = DATA / "agent" / "conversations.json"
+REMOTE_NODES_JSON = DATA / "remote_nodes.json"
 
 KIMI_SKILLS_DIR = Path.home() / ".kimi-code" / "skills"
 """User-scope Kimi Code skills — copying a skill here makes it loadable in any
@@ -494,6 +496,108 @@ def lan_ipv4_addresses() -> list[str]:
 def lan_urls(port: int) -> list[str]:
     """http:// URLs LAN clients can use to reach the app (empty when none found)."""
     return [f"http://{ip}:{port}" for ip in lan_ipv4_addresses()]
+
+
+# ---------------------------------------------------------------- remote nodes
+
+# Nodes registered by other hosts over the LAN — the laptop-vm beacon on the
+# second laptop POSTs its cua sandboxes here (see scripts/laptop-vm). Presence
+# works without any agent on the remote node; an `endpoint` (its in-guest
+# agentd sidecar URL) additionally buys agent/sessions info when the master
+# can reach it. Entries that stop re-registering expire after REMOTE_NODE_TTL.
+REMOTE_NODES: dict[str, dict] = {}
+"""name -> {host, name, kind, state, endpoint, seen} — `seen` is a time.time()
+stamp, refreshed by every registration from the node's host."""
+
+REMOTE_NODES_LOCK = threading.Lock()
+REMOTE_NODE_TTL = 600.0       # registrations older than 10 min are pruned
+REMOTE_NODE_MAX = 20          # most remote nodes merged into /api/network
+REMOTE_ONLINE_WINDOW = 90.0   # seen within this = present (beacon interval + slack)
+REMOTE_NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,60}")
+
+
+def _remote_nodes_prune(now: float | None = None) -> None:
+    """Drop entries whose last registration is older than REMOTE_NODE_TTL.
+    Caller must hold REMOTE_NODES_LOCK."""
+    now = time.time() if now is None else now
+    for name in [n for n, e in REMOTE_NODES.items()
+                 if now - float(e.get("seen") or 0) > REMOTE_NODE_TTL]:
+        REMOTE_NODES.pop(name, None)
+
+
+def load_remote_nodes() -> None:
+    """Restore the registry from data/remote_nodes.json (called at startup)."""
+    data = read_json(REMOTE_NODES_JSON, {})
+    if not isinstance(data, dict):
+        return
+    with REMOTE_NODES_LOCK:
+        for name, entry in data.items():
+            if not isinstance(name, str) or not isinstance(entry, dict):
+                continue
+            REMOTE_NODES[name] = {
+                "host": str(entry.get("host") or "remote"),
+                "name": str(entry.get("name") or name),
+                "kind": str(entry.get("kind") or "vm"),
+                "state": str(entry.get("state") or ""),
+                "endpoint": (str(entry["endpoint"])
+                             if isinstance(entry.get("endpoint"), str) else None),
+                "seen": float(entry.get("seen") or 0),
+            }
+        _remote_nodes_prune()
+
+
+def register_remote_nodes(host: str, nodes: list) -> int:
+    """Upsert registrations (bad names skipped, malformed endpoints dropped —
+    presence still registered). Returns the number of registered nodes."""
+    now = time.time()
+    with REMOTE_NODES_LOCK:
+        _remote_nodes_prune(now)
+        registered = 0
+        for raw in nodes:
+            if not isinstance(raw, dict):
+                continue
+            name = str(raw.get("name") or "")
+            if not REMOTE_NAME_RE.fullmatch(name):
+                continue
+            endpoint = raw.get("endpoint")
+            if endpoint is not None:
+                endpoint = str(endpoint)
+                if not (endpoint.startswith(("http://", "https://"))
+                        and len(endpoint) < 200):
+                    endpoint = None
+            REMOTE_NODES[name] = {
+                "host": host, "name": name,
+                "kind": str(raw.get("kind") or "vm"),
+                "state": str(raw.get("state") or ""),
+                "endpoint": endpoint,
+                "seen": now,
+            }
+            registered += 1
+        write_json_atomic(REMOTE_NODES_JSON, REMOTE_NODES)
+    return registered
+
+
+def _remote_health(base: str) -> dict | None:
+    """GET <base>/health -> dict; None on any failure (never raises)."""
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/health",
+                                    timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data if isinstance(data, dict) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _remote_conversations(base: str) -> list | None:
+    """GET <base>/conversations -> list; None on any failure (never raises)."""
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/conversations",
+                                    timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        convs = data.get("conversations") if isinstance(data, dict) else None
+        return convs if isinstance(convs, list) else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 # ---------------------------------------------------------------- videos
@@ -1753,6 +1857,31 @@ def build_network() -> dict:
         sandboxes = []
     vm_node_list: list[dict] = []
     node_session_keys: dict[str, set] = {}
+
+    def conv_session_entries(convs: list) -> tuple[list[dict], set]:
+        """Sidecar /conversations -> session entries in the network shape
+        (same merge for a local VM's sidecar and a remote node's endpoint)."""
+        entries: list[dict] = []
+        keys: set[str] = set()
+        for c in convs:
+            if not isinstance(c, dict):
+                continue
+            key = str(c.get("key") or "")
+            if not key or key in keys:
+                continue
+            keys.add(key)
+            stype, title = session_type_title(key)
+            if stype == "teach" and not teach_workspace_exists(title):
+                continue
+            entries.append({
+                "key": key, "type": stype, "title": title,
+                "busy": bool(c.get("busy")),
+                "status": c.get("lastStatus") if c.get("lastStatus") in
+                          ("running", "done", "error", "cancelled") else None,
+                "cwd": str(c.get("cwd") or ""),
+            })
+        return entries, keys
+
     for sb in sandboxes[:10]:
         try:
             name, status = str(sb.get("name") or ""), str(sb.get("status") or "")
@@ -1764,25 +1893,8 @@ def build_network() -> dict:
         node_agent = False
         node_sessions: list[dict] = []
         if healthy:
-            convs = vm_nodes.node_conversations(name) or []
-            node_keys: set[str] = set()
-            for c in convs:
-                if not isinstance(c, dict):
-                    continue
-                key = str(c.get("key") or "")
-                if not key or key in node_keys:
-                    continue
-                node_keys.add(key)
-                stype, title = session_type_title(key)
-                if stype == "teach" and not teach_workspace_exists(title):
-                    continue
-                node_sessions.append({
-                    "key": key, "type": stype, "title": title,
-                    "busy": bool(c.get("busy")),
-                    "status": c.get("lastStatus") if c.get("lastStatus") in
-                              ("running", "done", "error", "cancelled") else None,
-                    "cwd": str(c.get("cwd") or ""),
-                })
+            node_sessions, node_keys = conv_session_entries(
+                vm_nodes.node_conversations(name) or [])
             node_session_keys[name] = node_keys
             health = vm_nodes.node_health(name) or {}
             node_agent = bool(health.get("keyConfigured"))
@@ -1809,6 +1921,40 @@ def build_network() -> dict:
         (target["sessions"] if target else local_sessions).append(s)
     nodes = [{"id": "local", "name": "local", "kind": "local",
               "online": online, "sessions": local_sessions}, *vm_node_list]
+    # Remote nodes registered by other hosts (the laptop-vm beacon). One card
+    # per fresh registration, unless it shadows a local node (same name or
+    # id) — the local cua listing wins. Presence needs only a recent seen;
+    # agent/sessions additionally need a reachable endpoint from the master.
+    with REMOTE_NODES_LOCK:
+        _remote_nodes_prune()
+        fresh_remotes = sorted(REMOTE_NODES.values(),
+                               key=lambda e: str(e.get("name")) )[:REMOTE_NODE_MAX]
+    now = time.time()
+    local_ids = {n["id"] for n in nodes} | {n["name"] for n in nodes}
+    for entry in fresh_remotes:
+        name = str(entry.get("name") or "")
+        if not name or name in local_ids or f"remote-{name}" in local_ids:
+            continue
+        endpoint = entry.get("endpoint")
+        health = _remote_health(endpoint) if endpoint else None
+        endpoint_ok = bool(health and health.get("ok"))
+        fresh = now - float(entry.get("seen") or 0) <= REMOTE_ONLINE_WINDOW
+        node_sessions = []
+        if endpoint_ok:
+            node_sessions, _ = conv_session_entries(
+                _remote_conversations(endpoint) or [])
+        local_ids.add(f"remote-{name}")
+        nodes.append({
+            "id": f"remote-{name}", "name": name, "kind": "vm", "remote": True,
+            "host": str(entry.get("host") or "remote"),
+            "flavor": "qemu" if str(entry.get("kind") or "").lower()
+                      in ("vm", "qemu") else "container",
+            "vm_state": str(entry.get("state") or ""),
+            "online": fresh and (endpoint_ok if endpoint else True),
+            "agent": endpoint_ok,
+            "has_endpoint": bool(endpoint),
+            "sessions": node_sessions,
+        })
     return {"nodes": nodes}
 
 
@@ -2129,6 +2275,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_term_close(m.group(1))
             if path == "/api/agent/vm-task":
                 return self.api_agent_vm_task()
+            if path == "/api/nodes/register":
+                return self.api_nodes_register()
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -2160,6 +2308,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error_json(404, "not_found")
 
     # -- endpoints
+
+    def api_nodes_register(self):
+        """Remote host (the laptop-vm beacon) registers its VM nodes."""
+        try:
+            body = self.read_body()
+        except ValueError as e:
+            return self.send_error_json(400, str(e))
+        if not isinstance(body, dict) or not isinstance(body.get("nodes"), list):
+            return self.send_error_json(400, "body must be {host?, nodes: [...]}")
+        host = str(body.get("host") or "remote")[:80]
+        registered = register_remote_nodes(host, body["nodes"])
+        self.send_json({"ok": True, "registered": registered})
 
     def api_lan(self):
         settings = load_settings()
@@ -3062,6 +3222,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     restore_jobs()
+    load_remote_nodes()
     try:
         agentd_client.ensure_running()  # best-effort: the CLI fallback covers absence
     except Exception as e:  # noqa: BLE001

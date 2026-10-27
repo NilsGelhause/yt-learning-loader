@@ -61,6 +61,9 @@ other devices or VMs on your network reach it:
    read-only panel (`GET /api/lan`). If a token is set, clients are prompted
    for it once per browser tab (sent as the `x-ytl-token` header; the
    `?token=` query param works too — handy for sharing links).
+   Remote VM hosts (a second laptop running cua VMs) also appear in the
+   Network tab: they register themselves via
+   `scripts/laptop-vm/Register-Nodes.ps1` — see that folder's README.
 
 **Security note**: the app can run agent shell commands (the Console tab and
 teach workspaces drive a coding agent), so exposing it to a network means
