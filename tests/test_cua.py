@@ -74,7 +74,8 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run",
                                side_effect=OSError("nope")):
             self.assertIsNone(cua_client.version("/fake/cua"))
-        self.assertIsNone(cua_client.version(None))
+        with mock.patch.object(cua_client, "find_cua", return_value=None):
+            self.assertIsNone(cua_client.version(None))
 
     def test_list_parses_json_object(self):
         out = json.dumps({"sandboxes": [
