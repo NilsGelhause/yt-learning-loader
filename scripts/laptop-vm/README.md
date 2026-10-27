@@ -19,6 +19,25 @@ master PC (192.168.50.111)                laptop (any Windows)
 
 ## Setup on the laptop (30 minutes, mostly downloads)
 
+### What the laptop needs — checklist
+
+| Program / piece | Required? | How it gets there |
+|---|---|---|
+| `cua` CLI | **yes** | `Install-VmStack.ps1` runs the official installer |
+| QEMU | **yes** | `cua runtime setup` inside the prep script (if missing) |
+| Windows Hypervisor Platform feature | **yes** | enabled by the prep script via DISM (**reboot**) |
+| Shim + keymaps fix | **yes** | applied by the prep script |
+| Node.js on the laptop | **no** — guests ship Node 24; nothing on the host needs it | — |
+| Git for Windows | only if you `git clone` the repo (else copy the folder via USB/cloud) | git-scm.com |
+| VNC viewer (e.g. RealVNC/TightVNC) | optional — only if you don't use the Cua Spaces app to see desktops | vendor site |
+| Cua Spaces app | optional — alternative desktop viewer/streamer | offered by the cua installer |
+| OBS Studio | optional — for recording VM desktops later | obsproject.com |
+
+Hardware/firmware: virtualization (VT-x) enabled in BIOS/UEFI (almost always on by
+default), and ~4 GB free RAM per VM you plan to run (5 VMs ⇒ a 24–32 GB laptop).
+
+### Steps
+
 1. **Copy this folder** (`scripts/laptop-vm`) to the laptop.
 2. **Admin PowerShell** in that folder:
    ```powershell
