@@ -1264,6 +1264,23 @@ class ServerApiTests(unittest.TestCase):
 class ShutdownApiTests(unittest.TestCase):
     """POST /api/shutdown with a dedicated server instance."""
 
+    @classmethod
+    def setUpClass(cls):
+        # the user's real settings may enable the LAN token; pin an empty
+        # settings file so the token gate (tests.test_lan covers it) stays open
+        cls._tmp_settings = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False)
+        cls._tmp_settings.write("{}")
+        cls._tmp_settings.close()
+        cls._settings_patcher = mock.patch.object(
+            server, "SETTINGS_JSON", Path(cls._tmp_settings.name))
+        cls._settings_patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._settings_patcher.stop()
+        os.unlink(cls._tmp_settings.name)
+
     def test_shutdown_stops_the_server(self):
         """After /api/shutdown the port stops answering requests."""
         httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
@@ -2368,6 +2385,14 @@ class ServerAppStructureApiTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # see ShutdownApiTests: keep the user's LAN token out of these tests
+        cls._tmp_settings = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False)
+        cls._tmp_settings.write("{}")
+        cls._tmp_settings.close()
+        cls._settings_patcher = mock.patch.object(
+            server, "SETTINGS_JSON", Path(cls._tmp_settings.name))
+        cls._settings_patcher.start()
         cls.httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
         cls.port = cls.httpd.server_address[1]
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
@@ -2378,6 +2403,8 @@ class ServerAppStructureApiTests(unittest.TestCase):
         cls.httpd.shutdown()
         cls.thread.join(timeout=5)
         cls.httpd.server_close()
+        cls._settings_patcher.stop()
+        os.unlink(cls._tmp_settings.name)
 
     def api(self, method, path):
         """Send one request on a fresh connection and return (status, json)."""
