@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The whole system — master, clients, VMs, devices</title>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#131a2e; --panel2:#182238; --line:#263150;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#7c5cff; --pink:#f472b6;
+    --cyan:#22d3ee; --green:#34d399; --amber:#fbbf24; --red:#fb7185;
+    --teal:#2dd4bf; --yellow:#facc15; --purple:#c084fc;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background: radial-gradient(1400px 700px at 85% -10%, #1c1440 0%, var(--bg) 55%);
+    color:var(--text); font-family:"Segoe UI", system-ui, sans-serif;
+    line-height:1.5; padding:40px 24px 60px;
+  }
+  .sheet { max-width:1100px; margin:0 auto; }
+  h1 { font-size:31px; } h1 .pi { color:var(--accent); }
+  .sub { color:var(--muted); margin-top:6px; font-size:15px; }
+  .chip { display:inline-block; padding:2px 10px; border-radius:999px; border:1px solid var(--line);
+    background:var(--panel); font-size:12px; color:var(--muted); margin-left:8px; vertical-align:middle; }
+  section { margin-top:36px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:2px; color:var(--accent); margin-bottom:14px; }
+  h2 .n { color:var(--muted); margin-right:8px; }
+  .panel { background:linear-gradient(180deg, var(--panel2), var(--panel));
+    border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .bigquote { font-size:16.5px; } .bigquote em { color:var(--amber); font-style:normal; }
+  .analogy { margin-top:10px; font-size:13.5px; color:var(--muted); } .analogy b { color:var(--text); }
+  code { font-family:Consolas, monospace; font-size:12px; background:#1d2946;
+    padding:1px 6px; border-radius:5px; color:var(--cyan); }
+
+  /* legend */
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--muted); margin-top:10px; }
+  .legend span b { color:var(--text); }
+
+  /* THE MAP */
+  .map { display:grid; grid-template-columns: 1.25fr 60px 1fr; gap:10px; align-items:stretch; }
+  .mapcol { display:flex; flex-direction:column; gap:10px; }
+  .mbox { border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:var(--panel); }
+  .mbox.master { border-color:var(--accent); box-shadow:0 0 18px #7c5cff33; }
+  .mbox b { font-size:14.5px; } .mbox .tag { float:right; }
+  .mbox p { font-size:12px; color:var(--muted); margin-top:4px; }
+  .mbox ul { margin:6px 0 0 16px; font-size:12px; color:var(--muted); }
+  .mbox ul b { color:var(--text); font-size:12px; }
+  .minibox { border:1px dashed var(--line); border-radius:8px; padding:6px 8px; font-size:11.5px; color:var(--muted); }
+  .minibox b { color:var(--text); font-size:11.5px; }
+  .bus { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; }
+  .bus .wire { flex:1; width:3px; background:linear-gradient(180deg,var(--accent),var(--teal)); border-radius:2px; min-height:30px; }
+  .bus .lbl { font-size:10.5px; color:var(--muted); writing-mode:vertical-rl; letter-spacing:1px; }
+  .device { display:flex; gap:10px; align-items:center; }
+  .device .ico { font-size:22px; }
+  .device p { font-size:12px; color:var(--muted); }
+
+  .pipe { display:flex; align-items:stretch; gap:8px; }
+  .pipe .node { flex:1; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel); font-size:12px; color:var(--muted); }
+  .pipe .node b { display:block; color:var(--text); font-size:13px; margin-bottom:2px; }
+  .pipe .arr { align-self:center; color:var(--accent); font-size:17px; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:13px; background:var(--panel); font-size:12.5px; color:var(--muted); }
+  .card b { display:block; color:var(--text); font-size:13.5px; margin-bottom:4px; }
+  .card .ico { font-size:19px; }
+  .k-accent { border-top:3px solid var(--accent); } .k-teal { border-top:3px solid var(--teal); }
+  .k-green { border-top:3px solid var(--green); } .k-amber { border-top:3px solid var(--amber); }
+  .k-cyan { border-top:3px solid var(--cyan); } .k-pink { border-top:3px solid var(--pink); }
+
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:1px;
+    padding:6px 10px; border-bottom:1px solid var(--line); }
+  td { padding:7px 10px; border-bottom:1px solid #1b2440; color:var(--muted); vertical-align:top; }
+  td b { color:var(--text); } tr:last-child td { border-bottom:none; }
+  .yes { color:var(--green); } .no { color:var(--red); } .part { color:var(--amber); }
+
+  .flow { counter-reset:st; }
+  .fstep { display:flex; gap:10px; padding:7px 0; border-bottom:1px dashed var(--line); font-size:13px; color:var(--muted); }
+  .fstep:last-child { border-bottom:none; }
+  .fstep::before { counter-increment:st; content:counter(st); flex:none; width:21px; height:21px; border-radius:50%;
+    background:var(--accent); color:#0b1020; font-weight:700; font-size:11.5px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .fstep b { color:var(--text); }
+
+  .rules { display:grid; grid-template-columns:1fr 1fr; gap:8px 22px; font-size:13px; color:var(--muted); }
+  .rules div { padding:8px 10px; background:#101828; border:1px solid var(--line); border-radius:9px; }
+  .rules b { color:var(--text); display:block; margin-bottom:2px; font-size:12.5px; }
+
+  footer { margin-top:42px; color:#64748b; font-size:12px; text-align:center; }
+  @media print { body { background:#fff; color:#111; } .panel,.card,.mbox,.node { background:#fff; border-color:#ccc; }
+    p,.analogy,td,.rules div,.mbox p,.mbox ul,.card,.fstep,.device p { color:#444 !important; } h2 { color:#5b3df0; } h1 .pi { color:#5b3df0; } }
+  @media (max-width:900px) { .map,.grid2,.grid3,.grid4,.rules { grid-template-columns:1fr; } .pipe { flex-direction:column; } .arr { transform:rotate(90deg); } }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <h1>The whole system <span class="pi">— one map of everything</span></h1>
+    <p class="sub">yt learning loader · Pi Durable · CUA · Kimi — master, clients, VMs, external devices
+      <span class="chip">one master · many windows · work can live on VMs</span> <span class="chip">as of 2026-10-27</span></p>
+  </header>
+
+  <section>
+    <h2><span class="n">1</span>The map</h2>
+    <div class="panel">
+      <div class="map">
+        <!-- master -->
+        <div class="mapcol">
+          <div class="mbox master">
+            <b>MASTER PC</b> <span class="tag chip">the brain is here</span>
+            <p>Your main Windows machine. Everything important lives here:</p>
+            <ul>
+              <li><b>server.py :8471</b> — the webapp: UI, APIs, LAN token gate, CUA control</li>
+              <li><b>agentd :8472</b> — the Pi Durable harness: conversations, tools, the notebook (<code>harness.sqlite</code>)</li>
+              <li><b>Kimi For Coding</b> (api.kimi.com) — the model the harness calls</li>
+              <li><b>the data</b> — <code>teach/</code>, <code>data/learnings</code>, <code>skills/</code></li>
+              <li><b>fallback</b> — <code>kimi</code> CLI when the sidecar/key is down</li>
+            </ul>
+          </div>
+          <div class="minibox"><b>Master-hosted VMs</b> (on this PC, via CUA)<br>
+            <b>containers</b> ytl-vm-1… — fast, headless Ubuntu<br>
+            <b>QEMU VMs</b> proto-agent — real kernel, desktop<br>
+            <span style="color:var(--green)">can host their own agents</span></div>
+        </div>
+        <!-- bus -->
+        <div class="bus">
+          <div class="wire"></div>
+          <div class="lbl">your LAN · wifi</div>
+          <div class="wire"></div>
+        </div>
+        <!-- outside -->
+        <div class="mapcol">
+          <div class="mbox">
+            <b>Laptop #2 — VM host</b> <span class="tag chip">external device</span>
+            <p>Prepared with <code>scripts/laptop-vm/</code>. Runs up to <b>5 GUI Ubuntu VMs</b>
+            (<code>laptop-vm-1…5</code>), each with a desktop you can watch and record.
+            The VMs join the master over the LAN.</p>
+          </div>
+          <div class="mbox">
+            <b>Other devices</b>
+            <div class="device" style="margin-top:6px"><span class="ico">💻</span><p>any laptop's browser → <code>http://192.168.50.111:8471</code> + token</p></div>
+            <div class="device"><span class="ico">📱</span><p>phone, tablet — same URL, same token</p></div>
+            <div class="device"><span class="ico">🖥️</span><p>inside any VM's browser — QEMU VM: <code>http://10.0.2.2:8471</code> is the host <i>of that VM</i>; for the master use the LAN IP</p></div>
+          </div>
+          <div class="minibox"><b>Rule of the map:</b> browsers are <b>windows</b>. Whoever opens the app, from wherever,
+            sees and steers the same master — until a task is delegated to an agent that lives on a VM.</div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><b>solid purple box</b> = the master (only one exists)</span>
+        <span><b>dashed</b> = machines managed by CUA</span>
+        <span><b>vertical line</b> = LAN, HTTP only</span>
+        <span><b>nothing crosses the LAN except HTTP + your token</b></span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>Clients are windows — what runs where when you click</h2>
+    <div class="panel">
+      <div class="pipe">
+        <div class="node"><b>your click</b>in any browser: master PC, laptop, phone, inside a VM</div>
+        <div class="arr">→</div>
+        <div class="node"><b>HTTP to the master</b>token checked (401 → prompt)</div>
+        <div class="arr">→</div>
+        <div class="node"><b>server.py</b>routes; asks agentd</div>
+        <div class="arr">→</div>
+        <div class="node"><b>agentd (master)</b>calls Kimi, runs tools in the master's folders — UNLESS the session belongs to an agent on a VM</div>
+        <div class="arr">→</div>
+        <div class="node"><b>results flow back</b>the browser only displays; it computes nothing</div>
+      </div>
+      <div class="analogy" style="margin-top:14px">That is why a Teach session started inside a VM shows under <b>local</b> in the Network tab:
+      the VM's browser is a steering wheel; the engine never left the master. Two things change this default:
+      <b>delegated tasks</b> (commands run on the VM, brain on master) and <b>agents inside VMs</b> (everything runs on the VM).</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>VMs — the machines you can create, enter, and fill with agents</h2>
+    <div class="grid4">
+      <div class="card k-cyan"><span class="ico">📦</span><b>Containers</b>Ubuntu userland on the shared WSL2 kernel. Start in seconds, no desktop. Ideal for agent work and shells. <code>ytl-*</code></div>
+      <div class="card k-purple"><span class="ico">🖥️</span><b>QEMU VMs</b>Boot their own Linux kernel, virtual disks, a real desktop. Heavier; what you watch and record. <code>proto-agent</code>, <code>laptop-vm-*</code></div>
+      <div class="card k-green"><span class="ico">🚪</span><b>Getting in</b>App: per-sandbox <b>Terminal</b> (bash in the browser). CLI: <code>cua sb exec name -- bash</code>. QEMU desktops: Cua Spaces app / VNC.</div>
+      <div class="card k-amber"><span class="ico">♻️</span><b>Lifecycle</b><code>create · suspend · resume · restart · rm --force</code>. Files persist on the machine's disk across all of it; only processes die on restart.</div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <p class="bigquote">💠 <b>Agents inside VMs</b> — the endgame, working today.</p>
+      <div class="analogy">One click (<b>Install agent</b>) copies the Pi Durable harness into the machine and starts it there.
+      From then on that VM has its <b>own conversations, its own files, its own Kimi calls</b> — the Console tab's
+      <b>"Run on"</b> selector talks to it, and the Network tab lists its sessions <em>under its node</em>.
+      Your master can reboot; the VM's sessions don't notice.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>Session map — where each kind lives</h2>
+    <div class="panel">
+      <table>
+        <tr><th>Session</th><th>Brain (Kimi + harness)</th><th>Commands execute</th><th>Listed under</th><th>Survives</th></tr>
+        <tr><td><b>Teach console</b> (any browser)</td><td>master</td><td>master (your files)</td><td><code>local</code></td><td class="yes">crash/restart of anything but the master</td></tr>
+        <tr><td><b>Consultant console</b> "Run on master"</td><td>master</td><td>master</td><td><code>local</code></td><td class="yes">same</td></tr>
+        <tr><td><b>Console "Run on &lt;VM&gt;"</b></td><td><b>that VM</b></td><td><b>that VM</b></td><td>the VM node</td><td class="yes">master reboot; VM suspend/resume</td></tr>
+        <tr><td><b>Delegated task</b> (v1)</td><td>master</td><td><b>target VM</b> via <code>cua sb exec</code></td><td>the VM node</td><td class="yes">VM death — session lives on</td></tr>
+        <tr><td><b>Analysis / distill</b> (after scrape / skill create)</td><td>master</td><td>master</td><td><code>local</code></td><td class="yes">same</td></tr>
+      </table>
+      <div class="analogy"><b>Resume semantics everywhere:</b> every session is a durable conversation. Kill the process mid-answer →
+      the partial stays marked <code>aborted</code>, the next run finishes it. Recreate a VM → re-run <b>Install agent</b> (idempotent);
+      the conversations on its disk are still there.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span>The second laptop — external VM host in 3 steps</h2>
+    <div class="panel">
+      <div class="flow">
+        <div class="fstep"><span><b>Copy</b> the folder <code>scripts/laptop-vm</code> from the repo to the laptop.</span></div>
+        <div class="fstep"><span><b>Prepare</b> (admin PowerShell): <code>Install-VmStack.ps1</code> — installs cua, enables the hypervisor feature (reboot),
+        fixes the QEMU keymap bug, installs the shim that cures the WHPX crash. Every pitfall from day one, automated.</span></div>
+        <div class="fstep"><span><b>Create</b>: <code>New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 3</code> — up to <b>5</b> desktop Ubuntu VMs,
+        each printing how to view it (Cua Spaces app / VNC) and how to join the master (browser → LAN URL + token).</span></div>
+      </div>
+      <div class="analogy" style="margin-top:12px"><b>Recording-ready:</b> each VM is a full desktop; capture the Cua Spaces stream or a VNC window
+      with OBS when you want to film what an agent does. <b>Resource rule of thumb:</b> ~4 GB RAM per VM.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">6</span>The five laws of the system</h2>
+    <div class="rules">
+      <div><b>1 · Off is off.</b>Durable never loses work and never ghost-runs. Master off → everything waits; VM off → its sessions wait on its disk.</div>
+      <div><b>2 · One owner per notebook.</b>Never two agentd processes on one <code>harness.sqlite</code>. It corrupts entry IDs.</div>
+      <div><b>3 · Browsers are windows.</b>Whoever and wherever — clicks become master-side work unless the session belongs to an agent on a VM.</div>
+      <div><b>4 · The token is the border.</b>Everything on the LAN is behind the LAN token; only loopback gets master powers (⏻ button).</div>
+      <div><b>5 · Aborted ≠ deleted.</b>Interrupt anything; the partial stays in the transcript, the next run resumes exactly there.</div>
+      <div><b>+1 · Exactly-once.</b>Re-sending a job after a crash returns the original result instead of doing the work twice.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">7</span>Security, at a glance</h2>
+    <div class="panel" style="font-size:13px;color:var(--muted)">
+      <b style="color:var(--text)">Key chain:</b> your Kimi key sits in <code>agentd/.env</code> on the master (gitignored) and is copied into a VM only when you
+      <b>Install agent</b> there (chmod 600 in the guest) — needed so the VM can call Kimi itself. The LAN token gate protects every API
+      on untrusted networks, the Windows firewall opens only port 8471, and <code>agentd</code> itself never leaves <code>127.0.0.1</code> on the master.
+      Guests on your LAN remain yours; don't forward 8471 to the internet.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">8</span>Now vs. next</h2>
+    <div class="grid2">
+      <div class="card k-green"><b class="ico">✅ Working today</b>
+        Master + LAN clients · LAN toggle · master-only power button · durable everything · CUA fleet on the master (terminal, delete, 3-VM button) ·
+        agents inside master-hosted VMs with per-node sessions · external laptop hosting 5 GUI clients · recording-ready desktops.
+      </div>
+      <div class="card k-amber"><b class="ico">🔜 Next steps</b>
+        Laptop-hosted VMs appearing in the master's Network tab (remote nodes — needs master→laptop reachability or a small relay) ·
+        pointing a session at a recreated VM in one click · recording pipeline (trajectory + video) · Cua Spaces desktop app on Windows maturing
+        (our shim cures its QEMU path meanwhile).
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    yt-learning-loader — components: server.py · agentd (Pi Durable) · cua CLI · QemuShim · scripts/laptop-vm<br>
+    to keep as PDF: open in a browser → Ctrl+P → “Save as PDF”
+  </footer>
+
+</div>
+</body>
+</html>
