@@ -13,6 +13,11 @@
   };
 
   function connectionHint(node) {
+    /* a VM with an installed agent doesn't need the browser workaround — its
+       agent runs natively in the guest and its sessions are listed above */
+    if (node.agent) {
+      return "agent runs here — its sessions are listed above";
+    }
     /* how a browser inside this VM reaches the app — a qemu VM sees the host
        as 10.0.2.2; a container shares the host's network, so the plain LAN
        URL applies. No flavor (older data): the generic line. */
@@ -24,6 +29,13 @@
       return "inside it open the LAN URL from Settings → LAN / other devices";
     }
     return "client machine — open the app URL inside its browser";
+  }
+
+  function stateChip(node) {
+    /* raw sandbox state (running/suspended/…) — shown only when not running;
+       node.online reflects the in-guest agent, not this */
+    if (!node.vm_state || node.vm_state === "running") return null;
+    return el("span", { class: "chip sm dim", title: "sandbox state" }, node.vm_state);
   }
 
   function render(screen) {
@@ -94,6 +106,7 @@
             el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
             el("strong", null, node.name || node.id),
             el("span", { class: "chip sm dim" }, node.kind),
+            stateChip(node),
             el("span", { class: "spacer" }),
             el("span", { class: "muted small" }, connectionHint(node)))));
     }
@@ -112,8 +125,10 @@
       el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
       el("strong", null, node.name || node.id),
       el("span", { class: "chip sm dim" }, node.kind || "local"),
+      stateChip(node),
       el("span", { class: "muted small" }, `${sessions.length} session${sessions.length === 1 ? "" : "s"}`),
       el("span", { class: "spacer" }),
+      node.agent ? el("span", { class: "muted small" }, "agent runs here") : null,
       caret);
     return el("div", { class: "pane", style: "padding:0" },
       el("div", { style: "padding:10px 12px" }, head),

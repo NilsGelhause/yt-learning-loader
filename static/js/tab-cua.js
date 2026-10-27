@@ -8,8 +8,9 @@
   const INSTALL_NIX = "curl -fsSL https://cua.ai/install.sh | bash";
 
   let pollTimer = null;      // status auto-refresh
-  const jobs = new Map();    // running/polling create/remove/delegate jobs
+  const jobs = new Map();    // running/polling create/remove/delegate/provision jobs
   let jobTimer = null;       // shared poller for everything in `jobs`
+  let agentMap = new Map();  // sandbox name -> {online, agent, endpoint} from /api/vm-nodes
 
   function render(screen) {
     stopPoll();
@@ -30,6 +31,10 @@
     let data;
     try { data = await api("/api/cua/status"); }
     catch { data = null; }
+    let vn;
+    try { vn = await api("/api/vm-nodes"); }
+    catch { vn = null; }
+    agentMap = new Map((((vn || {}).nodes) || []).map(n => [n.name, n]));
     const body = document.getElementById("cua-body");
     if (!body || !body.isConnected) return;
     clear(body);
@@ -144,12 +149,24 @@
         title: `Delegate a task to ${sb.name} — the agent runs its commands on this VM`,
         onclick: () => doDelegate(sb.name, taskInput),
       }, "Delegate");
+      const installBtn = el("button", {
+        title: `Install the agentd sidecar inside ${sb.name} so tasks run natively on this VM`,
+        onclick: () => doProvision(sb.name),
+      }, "Install agent");
+      const agent = agentMap.get(sb.name);
+      /* agent ✓ = in-guest sidecar healthy with a key; ✗ = sidecar answers
+         but no agent; — = VM offline (suspend keeps files, stop kills it) */
+      const agentChip = !agent ? null : el("span", {
+        class: `chip sm${agent.agent ? "" : " dim"}`,
+        title: agent.endpoint ? `agent endpoint ${agent.endpoint}` : "no agent endpoint",
+      }, agent.agent ? "agent ✓" : (agent.online ? "agent ✗" : "agent —"));
       return el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
         el("span", { class: `pulse-dot${sb.status === "running" ? "" : " off"}`, title: sb.status || "unknown" }),
         el("strong", { style: "min-width:160px" }, sb.name),
         el("span", { class: "chip sm dim" }, sb.status || "unknown"),
+        agentChip,
         el("span", { class: "muted small", style: "flex:1" }, sb.image || ""),
-        taskInput, delegateBtn,
+        taskInput, delegateBtn, installBtn,
         el("button", {
           class: "icon-btn danger",
           title: `Delete ${sb.name}`,
@@ -217,8 +234,18 @@
     startJob(res.job_id, `remove ${name}`);
   }
 
-  async function doDelegate(name, input) {
-    /* delegate-a-task v1: the agent thinks in the master's durable
+  async function doProvision(name) {
+    /* agents-inside-VMs: push the agentd sidecar into the guest so tasks run
+       natively on this VM; the steps stream into the shared transcript */
+    if (anyJobRunning()) return;
+    let res;
+    try {
+      res = await api("/api/cua/provision", { method: "POST", body: { name } });
+    } catch { return; }  /* api() toasted the reason (409/400/503) */
+    startJob(res.job_id, `install agent ${name}`);
+  }
+
+  async function doDelegate(name, input) {    /* delegate-a-task v1: the agent thinks in the master's durable
        conversation, its commands run ON the VM via `cua sb exec` */
     const task = (input.value || "").trim();
     if (!task) return;
@@ -263,8 +290,10 @@
   }
 
   async function refreshStatus() {
-    let d;
+    let d, vn;
     try { d = await api("/api/cua/status"); } catch { return; }
+    try { vn = await api("/api/vm-nodes"); } catch { vn = null; }
+    if (vn) agentMap = new Map(((vn.nodes) || []).map(n => [n.name, n]));
     if (d && d.installed) refreshTable(d);
   }
 

@@ -116,11 +116,14 @@ def backend() -> str:
 
 
 def submit(key: str, cwd: str, message: str, new_session: bool = False,
-           request_id: str | None = None, instructions: str | None = None) -> str:
+           request_id: str | None = None, instructions: str | None = None,
+           base: str | None = None) -> str:
     """POST /jobs -> remote job id. Raises BusyError on 409. When given,
     `instructions` becomes the conversation's persistent extra instructions —
     the sidecar re-applies it on every submission for that key, so resubmitting
-    a key with new instructions re-points the same conversation."""
+    a key with new instructions re-points the same conversation. `base`
+    overrides the sidecar URL (VM nodes run their own sidecar inside the
+    guest); the default is the local _BASE."""
     body: dict = {"key": key, "cwd": str(cwd), "message": message}
     if new_session:
         body["newSession"] = True
@@ -129,7 +132,7 @@ def submit(key: str, cwd: str, message: str, new_session: bool = False,
     if instructions:
         body["instructions"] = instructions
     req = urllib.request.Request(
-        _base() + "/jobs", data=json.dumps(body).encode("utf-8"),
+        (base or _base()) + "/jobs", data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -141,21 +144,24 @@ def submit(key: str, cwd: str, message: str, new_session: bool = False,
     return str(data["jobId"])
 
 
-def poll(job_id: str) -> dict | None:
-    """GET /jobs/<id> -> dict, or None on 404/failure (never raises)."""
+def poll(job_id: str, base: str | None = None) -> dict | None:
+    """GET /jobs/<id> -> dict, or None on 404/failure (never raises). `base`
+    overrides the sidecar URL for jobs submitted to a VM node's sidecar."""
     try:
-        with urllib.request.urlopen(f"{_base()}/jobs/{job_id}", timeout=PROBE_TIMEOUT) as resp:
+        with urllib.request.urlopen(f"{base or _base()}/jobs/{job_id}",
+                                    timeout=PROBE_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return data if isinstance(data, dict) else None
     except Exception:
         return None
 
 
-def cancel(job_id: str) -> bool:
-    """POST /jobs/<id>/cancel. False when the sidecar doesn't answer."""
+def cancel(job_id: str, base: str | None = None) -> bool:
+    """POST /jobs/<id>/cancel. False when the sidecar doesn't answer. `base`
+    overrides the sidecar URL for jobs submitted to a VM node's sidecar."""
     try:
         req = urllib.request.Request(
-            f"{_base()}/jobs/{job_id}/cancel", data=b"{}",
+            f"{base or _base()}/jobs/{job_id}/cancel", data=b"{}",
             headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT):
             return True

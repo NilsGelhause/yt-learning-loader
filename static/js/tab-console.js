@@ -9,6 +9,7 @@
   let jobTimer = null;
   const hist = [];                 // [{t, x}] console lines (session-persistent)
   let sessionStarted = false;      // false -> next send starts a new agent session
+  let runOnNode = "";              // "" = this machine; a sandbox name = that VM's agent
 
   /* ---------- entry ---------- */
   function render(screen) {
@@ -31,6 +32,38 @@
       },
     });
     const sendBtn = el("button", { id: "console-send", class: "primary", onclick: () => doSend() }, "Send");
+
+    /* "Run on" — route the console conversation to a VM's in-guest agent.
+       Options come from /api/network (vm nodes with a healthy agent); the
+       conversation stays key console:main but each node has its OWN one, so
+       the header notes where it lives. */
+    const runOnSel = el("select", {
+      id: "console-runon", style: "min-width:200px",
+      title: "Which machine's agent answers — master (this machine) or a VM with an installed agent",
+      onchange: () => { runOnNode = runOnSel.value; refreshRunOnNote(); },
+    });
+    const runOnNote = el("span", { class: "muted small", id: "console-runon-note" });
+    const runOnRow = el("div", { class: "row", id: "console-runon-row", style: "display:none" },
+      el("span", { class: "muted small" }, "Run on"), runOnSel, runOnNote);
+    function refreshRunOnNote() {
+      runOnNote.textContent = runOnNode
+        ? `conversation console:main on ${runOnNode} — that VM's own conversation (the master's is untouched)`
+        : "master (this machine)";
+    }
+    (async () => {
+      let data;
+      try { data = await api("/api/network"); }
+      catch { return; }
+      const vms = (((data || {}).nodes) || []).filter(n => n.kind === "vm" && n.agent);
+      if (!vms.length) return;
+      runOnSel.appendChild(el("option", { value: "" }, "master (this machine)"));
+      vms.forEach(n => runOnSel.appendChild(el("option", { value: n.name }, `${n.name} (this VM's agent)`)));
+      if (runOnNode && !vms.some(n => n.name === runOnNode)) runOnNode = "";
+      runOnSel.value = runOnNode;
+      refreshRunOnNote();
+      const row = document.getElementById("console-runon-row");
+      if (row && row.isConnected) row.style.display = "";
+    })();
     async function doSend() {
       const text = input.value.trim();
       if (!text || (job && isRunning(job))) return;
@@ -56,11 +89,15 @@
       el("div", { class: "pane-header" },
         "Agent console",
         agentMode ? el("span", { class: "chip sm dim", style: "margin-left:8px" },
-          agentMode === "pi-durable" ? "Pi Durable (kimi)" : "kimi CLI") : null),
+          agentMode === "pi-durable" ? "Pi Durable (kimi)" : "kimi CLI") : null,
+        runOnNode ? el("span", { class: "chip sm", style: "margin-left:8px",
+          title: "This console conversation lives on that VM's agent" },
+          `on: ${runOnNode}`) : null),
       el("div", { class: "pane-body scroll", style: "flex:1;display:flex;flex-direction:column;gap:8px" },
         banner,
         consoleBox,
         statusRow,
+        runOnRow,
         inputRow)));
     screen.appendChild(wrap);
     checkAgent();
@@ -106,7 +143,8 @@
     const isNew = !sessionStarted;
     let res;
     try {
-      res = await api("/api/agent/console/run", { method: "POST", body: { message: text, new_session: isNew } });
+      res = await api("/api/agent/console/run", { method: "POST",
+        body: { message: text, new_session: isNew, node: runOnNode || undefined } });
     } catch (err) {
       /* 409: a console job is already running — api() toasted the server's
          message; the caller keeps the input text for a later resend */

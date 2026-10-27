@@ -259,6 +259,94 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         status, _ = self.api("POST", "/api/agent/console/run", {})
         self.assertEqual(status, 400)
 
+    # -- POST /api/agent/console/run with node (agents inside VMs)
+
+    def test_console_run_on_node_uses_node_sidecar(self):
+        """node=<sandbox> submits the SAME key console:main to that VM's own
+        sidecar, working in the guest home — the local conversation is not
+        touched."""
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True):
+            status, body = self.api("POST", "/api/agent/console/run",
+                                    {"message": "hi from the host", "node": "ytl-dev"})
+            self.assertEqual(status, 200)
+            submitted = self.wait_submission()
+            self.stub.finish(submitted["jobId"], "done",
+                             lines=[{"t": "out", "x": "answer from the vm"}])
+            job = self.wait_job(body["job_id"])
+        self.assertEqual(submitted["key"], "console:main")
+        self.assertEqual(submitted["cwd"], "/home/cua")
+        self.assertEqual(submitted["message"], "hi from the host")
+        with server.AGENT_JOBS_LOCK:
+            record = server.AGENT_JOBS[body["job_id"]]
+        self.assertEqual(record["node"], "ytl-dev")
+        self.assertEqual(record["backend"], "durable")
+        self.assertEqual(job["status"], "done")
+        self.assertEqual([l["x"] for l in job["lines"]], ["answer from the vm"])
+        # the local sidecar saw exactly this one submission, the master's
+        # console:main stays wherever it was
+        self.assertEqual(len(self.stub.submitted), 1)
+
+    def test_console_run_on_node_ignores_local_backend_state(self):
+        """A node run needs only the node's agent: even with the local
+        sidecar key-less (CLI fallback territory), node routing still works."""
+        self.stub.key_configured = False
+        agentd_client.reset_cache()
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True):
+            status, body = self.api("POST", "/api/agent/console/run",
+                                    {"message": "node only", "node": "ytl-dev"})
+            self.assertEqual(status, 200)
+            submitted = self.wait_submission()
+            self.stub.finish(submitted["jobId"], "done")
+            self.wait_job(body["job_id"])
+        self.assertEqual(submitted["key"], "console:main")
+
+    def test_console_run_dead_node_503(self):
+        """A node without a reachable agent is rejected up front with a hint."""
+        with mock.patch.object(server.vm_nodes, "node_endpoint", return_value=None):
+            status, body = self.api("POST", "/api/agent/console/run",
+                                    {"message": "hello?", "node": "ytl-dev"})
+        self.assertEqual(status, 503)
+        self.assertIn("Install agent", body["error"])
+        self.assertEqual(self.stub.submitted, [])
+
+    def test_console_run_node_dies_mid_run_errors_job(self):
+        """Healthy at accept time but dead when the runner checks: the job
+        errors with a clear line instead of running locally."""
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy",
+                               side_effect=[True, False]):
+            _, body = self.api("POST", "/api/agent/console/run",
+                               {"message": "hi", "node": "ytl-dev"})
+            job = self.wait_job(body["job_id"])
+        self.assertEqual(job["status"], "error")
+        self.assertIn("Install agent", [l["x"] for l in job["lines"]][0])
+        self.assertEqual(self.stub.submitted, [])
+
+    def test_console_run_busy_is_per_node(self):
+        """A busy console on the master does not block a node console."""
+        with server.AGENT_JOBS_LOCK:
+            server.AGENT_JOBS["consolebusy"] = {
+                "id": "consolebusy", "workspace": None, "key": "console:main",
+                "node": None,
+                "status": "running", "backend": "durable", "lines": [],
+                "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True):
+            status, body = self.api("POST", "/api/agent/console/run",
+                                    {"message": "on the vm", "node": "ytl-dev"})
+            self.assertEqual(status, 200)
+            submitted = self.wait_submission()
+            self.stub.finish(submitted["jobId"], "done")
+            self.wait_job(body["job_id"])
+
     # -- GET /api/network
 
     def test_network_merges_sidecar_with_file(self):

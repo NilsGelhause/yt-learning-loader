@@ -29,6 +29,7 @@ from pathlib import Path
 
 import agentd_client
 import cua_client
+import vm_nodes
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
@@ -86,6 +87,7 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, and link to the cua infographic.",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
     "cua_client.py": "The cua (trycua/cua) CLI client: locate the CLI, report its version, list sandboxes — tolerant of CLI drift, stdlib only. Sandboxes live outside the repo; nothing here installs or vendors cua.",
+    "vm_nodes.py": "VM node agent discovery: the in-guest agentd sidecar endpoint per sandbox (published endpoints.agent, else a managed cua sb port-forward on a loopback port from a fixed range), cached /health probes, and per-node /conversations — the wiring behind 'agents inside VMs'.",
     "static/vendor/mermaid.min.js": "Vendored copy of mermaid v11 (diagram rendering) so the app works fully offline.",
     "tests/test_all.py": "The test suite — server endpoints, scraper helpers, workspace/agent flows, the skill taxonomy guard, file-preview API — against temp data dirs.",
     "tests/test_agentd.py": "The agentd integration tests — a stub sidecar (stdlib http.server on an ephemeral port) verifies the client, the durable/CLI backend selection, job streaming, cancel proxying, and the run_analysis durable branches.",
@@ -224,6 +226,7 @@ AGENT_JOBS: dict[str, dict] = {}
 AGENT_JOBS_LOCK = threading.Lock()
 AGENT_MAX_LINES = 800
 CUA_JOB_TIMEOUT = 900  # cua create/remove may download images; beyond this, kill
+PROVISION_STEP_TIMEOUT = 600  # per-step ceiling for Install agent (npm ci ~10s; image hiccups happen)
 AGENT_POLL_INTERVAL = 1.0  # seconds between sidecar job polls
 
 
@@ -1197,17 +1200,38 @@ def vm_task_instructions(vm: str, task: str) -> str:
 
 def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: bool) -> None:
     """Drive an agentd sidecar job: submit, then poll ~1s and append only NEW
-    lines into the job record with the same caps as the CLI path."""
+    lines into the job record with the same caps as the CLI path. When the job
+    carries a `node` (a cua sandbox name), the conversation lives on THAT
+    machine's in-guest sidecar: submit/poll/cancel against its endpoint and
+    work in the guest home — a dead node agent errors the job with a clear
+    line instead of silently running locally."""
     job = AGENT_JOBS[job_id]
     key = job.get("key") or f"teach:{job['workspace']}"
     job["cmd_preview"] = "agentd " + ("<msg> (new session)" if new_session else "<msg> (continue)") \
         + " | " + message[:60]
+    base = None
+    node = job.get("node")
+    if node:
+        endpoint = vm_nodes.node_endpoint(node)
+        if not endpoint or not vm_nodes.node_healthy(node):
+            with AGENT_JOBS_LOCK:
+                job["status"] = "error"
+                job["exit_code"] = 1
+                job["ended"] = int(time.time())
+                job["lines"].append({"t": "err", "x":
+                    f"node '{node}' has no reachable agentd agent — "
+                    "open CUA Spaces and press Install agent on that VM"})
+            return
+        base = endpoint
+        job["base"] = base
+        cwd = "/home/cua"  # guest home (POSIX on purpose — Path would mangle it on Windows)
     try:
         with AGENT_JOBS_LOCK:
             job["status"] = "running"
         try:
             remote_id = agentd_client.submit(key, str(cwd), message, new_session,
-                                             instructions=job.get("instructions"))
+                                             instructions=job.get("instructions"),
+                                             base=base)
         except agentd_client.BusyError:
             with AGENT_JOBS_LOCK:
                 job["status"] = "error"
@@ -1218,7 +1242,7 @@ def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: boo
         job["remote_id"] = remote_id
         seen = 0
         while True:
-            snap = agentd_client.poll(remote_id)
+            snap = agentd_client.poll(remote_id, base=base)
             if snap is None:
                 time.sleep(AGENT_POLL_INTERVAL)
                 continue
@@ -1303,6 +1327,203 @@ def run_cua_job(job_id: str, argv: list[str]) -> None:
     finally:
         with AGENT_JOBS_LOCK:
             job["ended"] = int(time.time())
+
+
+# ---------------------------------------------------------------- Install agent
+# Push the agentd sidecar into a sandbox guest so the VM becomes an agent
+# node (see vm_nodes.py): pack agentd/, ship it with the cua CLI, npm ci,
+# start it detached on 0.0.0.0:8472, verify /health from the host. The guest
+# filesystem survives suspend/resume AND a full restart — but a restart kills
+# processes, so after one the start script must be re-run (press Install
+# agent again; it is idempotent). The API key travels only in a chmod-600
+# .env and is never printed.
+
+START_AGENTD_SH = """#!/bin/sh
+# re-runnable after a VM restart (processes die on restart, files survive)
+mkdir -p /home/cua/agentd-data
+export YTL_AGENT_PORT=8472
+export YTL_AGENT_HOST=0.0.0.0
+export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite
+cd /home/cua/agentd
+setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &
+"""
+
+
+def _job_line(job: dict, tag: str, text: str) -> None:
+    with AGENT_JOBS_LOCK:
+        job["lines"].append({"t": tag, "x": text[:1000]})
+        if len(job["lines"]) > AGENT_MAX_LINES:
+            del job["lines"][: len(job["lines"]) - AGENT_MAX_LINES]
+
+
+def _provision_step(job: dict, argv: list[str], label: str,
+                    timeout: int = PROVISION_STEP_TIMEOUT) -> bool:
+    """Run one provisioning command, streaming its output into the job.
+    False (job marked error) on non-zero exit or timeout."""
+    _job_line(job, "out", f"$ {label}")
+    try:
+        proc = subprocess.Popen(
+            argv, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+        )
+        job["pid"] = proc.pid
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, err = proc.communicate()
+            _job_line(job, "err", f"{label} timed out after {timeout}s — killed")
+            return False
+    except Exception as e:  # noqa: BLE001
+        _job_line(job, "err", f"{type(e).__name__}: {e}")
+        return False
+    for line in (out or "").splitlines():
+        if line.strip():
+            _job_line(job, "out", line.strip())
+    if proc.returncode != 0:
+        for line in (err or "").splitlines()[-5:]:
+            if line.strip():
+                _job_line(job, "err", line.strip())
+        _job_line(job, "err", f"{label} exited with code {proc.returncode}")
+        return False
+    return True
+
+
+def _stage_key_env() -> Path | None:
+    """Temp file holding ONLY the KIMI_API_KEY line from agentd/.env
+    (CR-stripped), ready to ship into the guest. None when no key is set."""
+    env_path = ROOT / "agentd" / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    key_line = next((ln.strip() for ln in lines
+                     if ln.strip().startswith("KIMI_API_KEY=")), None)
+    if not key_line:
+        return None
+    import tempfile
+
+    fd, tmp = tempfile.mkstemp(prefix="ytl-key-", suffix=".env")
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+        f.write(key_line.replace("\r", "") + "\n")
+    return Path(tmp)
+
+
+def run_provision_job(job_id: str, name: str) -> None:
+    """The Install agent job: the 5 provisioning steps in order, each bounded
+    by PROVISION_STEP_TIMEOUT, streamed into the job record."""
+    job = AGENT_JOBS[job_id]
+    exe = cua_client.find_cua()
+    if not exe:
+        with AGENT_JOBS_LOCK:
+            job["status"] = "error"
+            job["exit_code"] = 1
+            job["ended"] = int(time.time())
+        return
+
+    def cua(*args: str) -> list[str]:
+        return [exe, "sb", *args]
+
+    def guest(*args: str) -> list[str]:
+        # exec joins the args into one guest sh -c line (verified against cua)
+        return cua("exec", name, "--", *args)
+
+    ok = True
+    tar_dir = key_tmp = start_tmp = None
+    try:
+        with AGENT_JOBS_LOCK:
+            job["status"] = "running"
+        # 1. pack agentd/ on the host (skip node_modules and the local .env)
+        import tempfile
+
+        tar_dir = Path(tempfile.mkdtemp(prefix="ytl-provision-"))
+        tar_path = tar_dir / "agentd.tgz"
+        if ok:
+            ok = _provision_step(
+                job, ["tar", "czf", str(tar_path), "--exclude", "node_modules",
+                      "--exclude", ".env", "-C", str(ROOT), "agentd"],
+                "pack agentd/")
+        # 2. ship + unpack into the guest
+        if ok:
+            ok = _provision_step(job, cua("cp", str(tar_path), f"{name}:/home/cua/agentd.tgz"),
+                                 "copy agentd.tgz into the VM")
+        if ok:
+            ok = _provision_step(
+                job, guest("mkdir -p /home/cua/agentd && "
+                           "tar xzf /home/cua/agentd.tgz -C /home/cua"),
+                "unpack agentd in the VM")
+        # 3. the API key — its own chmod-600 .env in the guest, never printed
+        key_tmp = _stage_key_env() if ok else None
+        if ok and key_tmp is None:
+            _job_line(job, "err", "agentd/.env has no KIMI_API_KEY — set one before installing")
+            ok = False
+        if ok:
+            ok = _provision_step(job, cua("cp", str(key_tmp), f"{name}:/home/cua/agentd/.env"),
+                                 "copy the API key into the VM (chmod 600)")
+        if ok:
+            ok = _provision_step(job, guest("chmod 600 /home/cua/agentd/.env"),
+                                 "chmod 600 the key file")
+        # 4. dependencies (full npm ci — tsx is a devDependency)
+        if ok:
+            ok = _provision_step(
+                job, guest("cd /home/cua/agentd && npm ci --no-audit --no-fund"),
+                "npm ci in the VM")
+        # 5. start script + launch + a peek at the log
+        start_tmp = None
+        if ok:
+            fd, start_tmp_s = tempfile.mkstemp(prefix="ytl-start-", suffix=".sh")
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write(START_AGENTD_SH)
+            start_tmp = Path(start_tmp_s)
+            ok = _provision_step(job, cua("cp", str(start_tmp), f"{name}:/home/cua/start-agentd.sh"),
+                                 "copy the start script")
+        if ok:
+            ok = _provision_step(
+                job, guest("sh /home/cua/start-agentd.sh && sleep 4 && "
+                           "tail -2 /home/cua/agentd-data/server.log"),
+                "start the sidecar in the VM")
+        # 6. verify from the host and report the endpoint
+        if ok:
+            vm_nodes.reset_cache()
+            endpoint = vm_nodes.node_endpoint(name)
+            health = vm_nodes.node_health(name)
+            if health and health.get("ok"):
+                _job_line(job, "out",
+                          f"agent ready at {endpoint}"
+                          + (" (key configured)" if health.get("keyConfigured") else
+                             " — but no API key is configured; re-install after adding one"))
+                with AGENT_JOBS_LOCK:
+                    job["status"] = "done"
+                    job["exit_code"] = 0
+            else:
+                _job_line(job, "err",
+                          f"sidecar did not answer at {endpoint or '?'} — "
+                          "check /home/cua/agentd-data/server.log inside the VM")
+                with AGENT_JOBS_LOCK:
+                    job["status"] = "error"
+                    job["exit_code"] = 1
+        else:
+            with AGENT_JOBS_LOCK:
+                job["status"] = "error"
+                job["exit_code"] = 1
+    except Exception as e:  # noqa: BLE001
+        with AGENT_JOBS_LOCK:
+            job["status"] = "error"
+            job["exit_code"] = 1
+        _job_line(job, "err", f"{type(e).__name__}: {e}")
+    finally:
+        with AGENT_JOBS_LOCK:
+            job["ended"] = int(time.time())
+        import shutil
+
+        for tmp in (key_tmp, start_tmp):
+            if tmp:
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+        if tar_dir:
+            shutil.rmtree(tar_dir, ignore_errors=True)
 
 
 def agentd_run_to_end(key: str, message: str, cwd: Path = ROOT) -> str:
@@ -1395,11 +1616,15 @@ def build_network() -> dict:
     # cua sandboxes double as LAN clients: surface them as VM nodes so the
     # network view answers "which machines can use the app right now". Fully
     # best-effort — no cua CLI, or a listing hiccup, just means no VM nodes.
+    # A VM with a healthy in-guest agent (see vm_nodes.py) is online even when
+    # nothing else knows it, and lists ITS OWN live sessions; otherwise the
+    # node falls back to the sandbox run state and stays session-less.
     try:
         sandboxes = cua_client.list_sandboxes() if cua_client.find_cua() else []
     except Exception:  # noqa: BLE001
         sandboxes = []
-    vm_nodes: list[dict] = []
+    vm_node_list: list[dict] = []
+    node_session_keys: dict[str, set] = {}
     for sb in sandboxes[:10]:
         try:
             name, status = str(sb.get("name") or ""), str(sb.get("status") or "")
@@ -1407,25 +1632,55 @@ def build_network() -> dict:
             continue
         if not name:
             continue
+        healthy = vm_nodes.node_healthy(name)
+        node_agent = False
+        node_sessions: list[dict] = []
+        if healthy:
+            convs = vm_nodes.node_conversations(name) or []
+            node_keys: set[str] = set()
+            for c in convs:
+                if not isinstance(c, dict):
+                    continue
+                key = str(c.get("key") or "")
+                if not key or key in node_keys:
+                    continue
+                node_keys.add(key)
+                stype, title = session_type_title(key)
+                if stype == "teach" and not teach_workspace_exists(title):
+                    continue
+                node_sessions.append({
+                    "key": key, "type": stype, "title": title,
+                    "busy": bool(c.get("busy")),
+                    "status": c.get("lastStatus") if c.get("lastStatus") in
+                              ("running", "done", "error", "cancelled") else None,
+                    "cwd": str(c.get("cwd") or ""),
+                })
+            node_session_keys[name] = node_keys
+            health = vm_nodes.node_health(name) or {}
+            node_agent = bool(health.get("keyConfigured"))
         node = {"id": f"vm-{name}", "name": name, "kind": "vm",
-                "online": status == "running", "sessions": []}
+                "online": healthy if healthy else status == "running",
+                "vm_state": status, "agent": node_agent, "sessions": node_sessions}
         flavor = {"vm": "qemu", "container": "container"}.get(
             str(sb.get("kind") or "").lower())
         if flavor:
             node["flavor"] = flavor
-        vm_nodes.append(node)
-    # vmtask:<vm>:<session> conversations belong to the VM they run on: move
-    # them under its node. A session whose VM is gone (deleted sandbox) stays
-    # on the local node.
-    vm_by_name = {n["name"]: n for n in vm_nodes}
+        vm_node_list.append(node)
+    # vmtask:<vm>:<session> conversations on the LOCAL sidecar belong to the
+    # VM they run on: move them under its node (unless the node's own sidecar
+    # already lists that key). A session whose VM is gone (deleted sandbox)
+    # stays on the local node.
+    vm_by_name = {n["name"]: n for n in vm_node_list}
     local_sessions: list[dict] = []
     for s in sessions:
         parts = s["key"].split(":")
         target = vm_by_name.get(parts[1]) if (len(parts) >= 3
                                               and parts[0] == "vmtask") else None
+        if target and s["key"] in node_session_keys.get(parts[1], set()):
+            continue  # already listed from the node's own sidecar
         (target["sessions"] if target else local_sessions).append(s)
     nodes = [{"id": "local", "name": "local", "kind": "local",
-              "online": online, "sessions": local_sessions}, *vm_nodes]
+              "online": online, "sessions": local_sessions}, *vm_node_list]
     return {"nodes": nodes}
 
 
@@ -1670,6 +1925,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(build_network())
             if path == "/api/cua/status":
                 return self.api_cua_status()
+            if path == "/api/vm-nodes":
+                return self.api_vm_nodes()
             m = re.fullmatch(r"/api/teach/([^/]+)/state", path)
             if m:
                 return self.api_get_ws_state(m.group(1))
@@ -1729,6 +1986,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_create()
             if path == "/api/cua/sandboxes/remove":
                 return self.api_cua_remove()
+            if path == "/api/cua/provision":
+                return self.api_cua_provision()
             if path == "/api/agent/vm-task":
                 return self.api_agent_vm_task()
             if path == "/api/skill/from_workspace":
@@ -2135,17 +2394,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_agent_console_run(self):
         """The Console tab's standalone agent: one persistent conversation for
-        the whole app (key console:main, cwd ROOT), no workspace attached."""
+        the whole app (key console:main, cwd ROOT), no workspace attached.
+        Optional `node` (a sandbox name) routes the conversation to that VM's
+        in-guest sidecar — key stays console:main, but each node has its OWN
+        console:main conversation; the local one is untouched."""
         body = self.read_body()
         if not isinstance(body, dict) or not body.get("message"):
             return self.send_error_json(400, 'body must be {"message": ...}')
-        exe = find_kimi()
-        durable = agentd_client.backend() == "durable"
-        if not durable and not exe:
-            return self.send_error_json(503, "no AI agent available (agentd sidecar down, kimi CLI not found)")
+        node = str(body.get("node") or "").strip() or None
+        if node and not cua_client.valid_name(node):
+            return self.send_error_json(400, "bad node name — use lowercase letters, digits and dashes (max 40 chars)")
+        if node:
+            endpoint = vm_nodes.node_endpoint(node)
+            if not endpoint or not vm_nodes.node_healthy(node):
+                return self.send_error_json(
+                    503, f"node '{node}' has no healthy agentd agent — "
+                         "open CUA Spaces and press Install agent on that VM")
+            durable, exe = True, None  # the node's own sidecar is the backend
+        else:
+            exe = find_kimi()
+            durable = agentd_client.backend() == "durable"
+            if not durable and not exe:
+                return self.send_error_json(503, "no AI agent available (agentd sidecar down, kimi CLI not found)")
         with AGENT_JOBS_LOCK:
             for existing in AGENT_JOBS.values():
                 if (existing.get("key") == "console:main"
+                        and existing.get("node") == node
                         and existing.get("status") in ("starting", "running")):
                     return self.send_error_json(
                         409, "the agent is still working on your previous message — "
@@ -2154,6 +2428,7 @@ class Handler(BaseHTTPRequestHandler):
         with AGENT_JOBS_LOCK:
             AGENT_JOBS[job_id] = {
                 "id": job_id, "workspace": None, "key": "console:main",
+                "node": node,
                 "status": "starting",
                 "backend": "durable" if durable else "cli",
                 "lines": [], "exit_code": None, "pid": None,
@@ -2223,6 +2498,49 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_error_json(result[0], result[1])
         self.send_json({"job_id": result})
 
+    def api_vm_nodes(self):
+        """The CUA tab's per-VM agent state: name, whether the in-guest
+        sidecar answers /health (online), whether it has a key (agent), and
+        its endpoint URL."""
+        nodes = []
+        for n in vm_nodes.list_nodes():
+            health = vm_nodes.node_health(n["name"]) if n["online"] else None
+            nodes.append({
+                "name": n["name"],
+                "online": n["online"],
+                "agent": bool(health and health.get("ok") and health.get("keyConfigured")),
+                "endpoint": n["endpoint"],
+            })
+        self.send_json({"nodes": nodes})
+
+    def api_cua_provision(self):
+        """Install agent: push the agentd sidecar into a sandbox guest so the
+        VM becomes an agent node. Streams the provisioning steps as a job."""
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("name"):
+            return self.send_error_json(400, 'body must be {"name": ...}')
+        if not cua_client.find_cua():
+            return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
+        name = cua_client.full_name(str(body["name"]))
+        if not cua_client.valid_name(name):
+            return self.send_error_json(400, "bad name — use lowercase letters, digits and dashes (max 40 chars)")
+        key = f"provision:{name}"
+        with AGENT_JOBS_LOCK:
+            for existing in AGENT_JOBS.values():
+                if (existing.get("key") == key
+                        and existing.get("status") in ("starting", "running")):
+                    return self.send_error_json(
+                        409, f"Install agent for {name} is already running — wait for it to finish")
+            job_id = uuid.uuid4().hex[:12]
+            AGENT_JOBS[job_id] = {
+                "id": job_id, "workspace": None, "key": key,
+                "status": "starting", "backend": "cli-style",
+                "lines": [], "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        threading.Thread(target=run_provision_job, args=(job_id, name), daemon=True).start()
+        self.send_json({"job_id": job_id})
+
     def api_cua_remove(self):
         body = self.read_body()
         if not isinstance(body, dict) or not body.get("name"):
@@ -2261,6 +2579,11 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def api_agent_vm_task(self):
+        """Delegate a task for a VM. Without `node`: v1 exec-delegation — the
+        agent thinks in this machine's durable conversation and runs every
+        command ON the VM via `cua sb exec`. With `node`: native — the whole
+        task runs on the VM's own in-guest sidecar (no cua-exec instructions,
+        cwd /home/cua), so the conversation and its work live on that VM."""
         body = self.read_body()
         if not isinstance(body, dict):
             return self.send_error_json(400, 'body must be {"vm": ..., "task": ...}')
@@ -2270,7 +2593,16 @@ class Handler(BaseHTTPRequestHandler):
         task = str(body.get("task") or "").strip()
         if not task:
             return self.send_error_json(400, 'body must be {"vm": ..., "task": ...}')
-        if agentd_client.backend() != "durable":
+        node = str(body.get("node") or "").strip() or None
+        if node and not cua_client.valid_name(node):
+            return self.send_error_json(400, "bad node name — use lowercase letters, digits and dashes (max 40 chars)")
+        if node:
+            endpoint = vm_nodes.node_endpoint(node)
+            if not endpoint or not vm_nodes.node_healthy(node):
+                return self.send_error_json(
+                    503, f"node '{node}' has no healthy agentd agent — "
+                         "open CUA Spaces and press Install agent on that VM")
+        elif agentd_client.backend() != "durable":
             return self.send_error_json(503, "VM tasks need the Pi Durable sidecar")
         self.maybe_resume_vm(vm)
         session = str(body.get("session") or "").strip() or uuid.uuid4().hex[:8]
@@ -2286,8 +2618,9 @@ class Handler(BaseHTTPRequestHandler):
         with AGENT_JOBS_LOCK:
             AGENT_JOBS[job_id] = {
                 "id": job_id, "workspace": None, "key": key,
+                "node": node,
                 "status": "starting", "backend": "durable",
-                "instructions": vm_task_instructions(vm, task),
+                "instructions": None if node else vm_task_instructions(vm, task),
                 "lines": [], "exit_code": None, "pid": None,
                 "started": int(time.time()), "ended": None,
             }
@@ -2315,9 +2648,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_error_json(404, "not_found")
             pid = job.get("pid")
             remote_id = job.get("remote_id") if job.get("backend") == "durable" else None
+            base = job.get("base")
             job["status"] = "cancelled"
         if remote_id:
-            agentd_client.cancel(remote_id)
+            agentd_client.cancel(remote_id, base=base)
         if pid:
             try:
                 import signal

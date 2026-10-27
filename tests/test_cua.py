@@ -88,9 +88,22 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
         self.assertEqual(sandboxes, [
-            {"name": "ytl-dev", "status": "running", "image": "ubuntu", "kind": ""},
-            {"name": "ytl-old", "status": "stopped", "image": "ubuntu", "kind": ""},
+            {"name": "ytl-dev", "status": "running", "image": "ubuntu", "kind": "",
+             "endpoints": {}},
+            {"name": "ytl-old", "status": "stopped", "image": "ubuntu", "kind": "",
+             "endpoints": {}},
         ])
+
+    def test_list_keeps_agent_endpoint(self):
+        """endpoints.agent (the in-guest sidecar URL) survives normalization
+        so vm_nodes can route to a VM's own agent."""
+        out = json.dumps([{"name": "ytl-dev", "status": "ready", "kind": "vm",
+                           "endpoints": {"agent": "http://127.0.0.1:56246"}}])
+        proc = mock.Mock(returncode=0, stdout=out, stderr="")
+        with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
+            sandboxes = cua_client.list_sandboxes("/fake/cua")
+        self.assertEqual(sandboxes[0]["endpoints"],
+                         {"agent": "http://127.0.0.1:56246"})
 
     def test_list_parses_bare_json_array(self):
         out = json.dumps([{"name": "a", "state": "ready"}])
@@ -98,7 +111,7 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
         self.assertEqual(sandboxes, [{"name": "a", "status": "running",
-                                      "image": "", "kind": ""}])
+                                      "image": "", "kind": "", "endpoints": {}}])
 
     def test_list_parses_table_text(self):
         out = ("NAME        STATUS     IMAGE\n"
@@ -108,8 +121,10 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
         self.assertEqual(sandboxes, [
-            {"name": "ytl-dev", "status": "running", "image": "ubuntu:latest", "kind": ""},
-            {"name": "ytl-old", "status": "stopped", "image": "ubuntu:latest", "kind": ""},
+            {"name": "ytl-dev", "status": "running", "image": "ubuntu:latest", "kind": "",
+             "endpoints": {}},
+            {"name": "ytl-old", "status": "stopped", "image": "ubuntu:latest", "kind": "",
+             "endpoints": {}},
         ])
 
     def test_list_empty_on_garbage_output(self):
@@ -137,7 +152,8 @@ class CuaClientTests(unittest.TestCase):
         self.assertEqual(cua_client.full_name("Dev"), "ytl-dev")
         self.assertEqual(cua_client.full_name("ytl-dev"), "ytl-dev")  # idempotent
         self.assertEqual(cua_client.create_argv("ytl-dev"),
-                         ["sb", "create", "ubuntu", "--name", "ytl-dev"])
+                         ["sb", "create", "ubuntu", "--name", "ytl-dev",
+                          "--service", "agent=8472"])
         self.assertEqual(cua_client.remove_argv("ytl-dev"), ["sb", "rm", "ytl-dev", "--force"])
 
 
@@ -279,7 +295,8 @@ class CuaApiTests(unittest.TestCase):
         with mock.patch.object(server.subprocess, "Popen", Proc):
             _, body = self.api("POST", "/api/cua/sandboxes", {"name": "dev"})
         self.wait_job(body["job_id"])
-        self.assertEqual(seen[0], ["cua", "sb", "create", "ubuntu", "--name", "ytl-dev"])
+        self.assertEqual(seen[0], ["cua", "sb", "create", "ubuntu", "--name", "ytl-dev",
+                                   "--service", "agent=8472"])
 
     def test_create_rejects_bad_name(self):
         status, _ = self.api("POST", "/api/cua/sandboxes", {"name": "Dev Box!!"})
@@ -377,6 +394,156 @@ class CuaApiTests(unittest.TestCase):
             status, body = self.api("GET", "/api/network")
         self.assertEqual(status, 200)
         self.assertEqual([n["id"] for n in body["nodes"]], ["local"])
+
+    # -- GET /api/vm-nodes
+
+    def test_vm_nodes_endpoint_shape(self):
+        with mock.patch.object(server.vm_nodes, "list_nodes", return_value=[
+                {"name": "ytl-dev", "online": True,
+                 "endpoint": "http://127.0.0.1:56246"}]), \
+             mock.patch.object(server.vm_nodes, "node_health",
+                               return_value={"ok": True, "keyConfigured": True}):
+            status, body = self.api("GET", "/api/vm-nodes")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"nodes": [
+            {"name": "ytl-dev", "online": True, "agent": True,
+             "endpoint": "http://127.0.0.1:56246"}]})
+
+    def test_vm_nodes_agent_false_without_key(self):
+        with mock.patch.object(server.vm_nodes, "list_nodes", return_value=[
+                {"name": "ytl-dev", "online": True, "endpoint": None}]), \
+             mock.patch.object(server.vm_nodes, "node_health",
+                               return_value={"ok": True, "keyConfigured": False}):
+            _, body = self.api("GET", "/api/vm-nodes")
+        self.assertEqual(body["nodes"][0]["agent"], False)
+
+    # -- POST /api/cua/provision (Install agent)
+
+    def test_provision_409_while_running(self):
+        with server.AGENT_JOBS_LOCK:
+            server.AGENT_JOBS["provbusy"] = {
+                "id": "provbusy", "workspace": None, "key": "provision:ytl-dev",
+                "status": "running", "backend": "cli-style", "lines": [],
+                "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        status, body = self.api("POST", "/api/cua/provision", {"name": "dev"})
+        self.assertEqual(status, 409)
+        self.assertIn("already running", body["error"])
+
+    def test_provision_rejects_bad_name(self):
+        status, _ = self.api("POST", "/api/cua/provision", {"name": "Bad Name!!"})
+        self.assertEqual(status, 400)
+
+    def test_provision_streams_steps_and_reports_endpoint(self):
+        """With every subprocess call faked, the job walks the provisioning
+        steps in order and the last line reports the agent endpoint."""
+        cmds = []
+
+        class Proc:
+            def __init__(self, cmd, **kwargs):
+                self.cmd = cmd
+                self.kwargs = kwargs
+                self.pid = 424242
+                self.returncode = 0
+
+            def communicate(self, timeout=None):
+                cmds.append(list(self.cmd))
+                return ("step output\n", "")
+
+            def kill(self):
+                pass
+
+        key_tmp = self.data / "key.env"
+        key_tmp.write_text("KIMI_API_KEY=test-key\n", encoding="utf-8")
+        with mock.patch.object(server.subprocess, "Popen", Proc), \
+             mock.patch.object(server, "_stage_key_env", return_value=key_tmp), \
+             mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value="http://127.0.0.1:9"), \
+             mock.patch.object(server.vm_nodes, "node_health",
+                               return_value={"ok": True, "keyConfigured": True}):
+            status, body = self.api("POST", "/api/cua/provision", {"name": "dev"})
+            self.assertEqual(status, 200)
+            job = self.wait_job(body["job_id"], timeout=10)
+        self.assertEqual(job["status"], "done")
+        # the full provisioning sequence: tar, cp, exec-unpack, cp-key, chmod,
+        # npm ci, cp-start-script, start — against /fake/cua
+        flat = [a for cmd in cmds for a in cmd]
+        joined = " ".join(flat)
+        self.assertEqual(cmds[0][:2], ["tar", "czf"])
+        self.assertIn("cp", flat)
+        self.assertIn("npm ci --no-audit --no-fund", joined)
+        self.assertIn("start-agentd.sh", joined)
+        last_lines = [l["x"] for l in job["lines"][-3:]]
+        self.assertTrue(any("agent ready at http://127.0.0.1:9" in x for x in last_lines),
+                        f"endpoint missing from tail: {last_lines}")
+        # the key material never appears in the streamed lines
+        streamed = "\n".join(l["x"] for l in job["lines"])
+        self.assertNotIn("test-key", streamed)
+
+    def test_provision_marks_error_when_a_step_fails(self):
+        class Proc:
+            def __init__(self, cmd, **kwargs):
+                self.cmd = cmd
+                self.kwargs = kwargs
+                self.pid = 424242
+                self.returncode = 1 if "npm" in " ".join(cmd) else 0
+
+            def communicate(self, timeout=None):
+                return ("", "npm exploded") if self.returncode else ("", "")
+
+            def kill(self):
+                pass
+
+        key_tmp = self.data / "key.env"
+        key_tmp.write_text("KIMI_API_KEY=test-key\n", encoding="utf-8")
+        with mock.patch.object(server.subprocess, "Popen", Proc), \
+             mock.patch.object(server, "_stage_key_env", return_value=key_tmp):
+            _, body = self.api("POST", "/api/cua/provision", {"name": "dev"})
+            job = self.wait_job(body["job_id"], timeout=10)
+        self.assertEqual(job["status"], "error")
+        self.assertIn("npm ci in the VM exited with code 1",
+                      [l["x"] for l in job["lines"]])
+
+    # -- VM nodes with a healthy in-guest agent
+
+    def test_network_vm_node_prefers_agent_health_over_state(self):
+        """A suspended sandbox with a healthy in-guest agent is online, keeps
+        its raw state in vm_state, and lists ITS OWN sidecar sessions."""
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                 {"name": "ytl-dev", "status": "suspended", "image": "",
+                  "kind": "vm", "endpoints": {"agent": "http://127.0.0.1:56246"}}]), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True), \
+             mock.patch.object(server.vm_nodes, "node_health",
+                               return_value={"ok": True, "keyConfigured": True}), \
+             mock.patch.object(server.vm_nodes, "node_conversations", return_value=[
+                 {"key": "console:main", "id": "c9", "cwd": "/home/cua",
+                  "busy": False, "lastStatus": "done"}]):
+            status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        vm = body["nodes"][1]
+        self.assertEqual(vm["id"], "vm-ytl-dev")
+        self.assertTrue(vm["online"])
+        self.assertEqual(vm["vm_state"], "suspended")
+        self.assertTrue(vm["agent"])
+        self.assertEqual([s["key"] for s in vm["sessions"]], ["console:main"])
+        self.assertEqual(vm["sessions"][0]["cwd"], "/home/cua")
+        self.assertEqual(vm["sessions"][0]["status"], "done")
+
+    def test_network_vm_node_without_agent_keeps_today_behavior(self):
+        """No healthy agent -> online follows the sandbox run state, no
+        sessions, agent False, and the raw state is still in vm_state."""
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                 {"name": "ytl-dev", "status": "running", "image": "", "kind": "vm"}]), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=False):
+            _, body = self.api("GET", "/api/network")
+        vm = body["nodes"][1]
+        self.assertTrue(vm["online"])          # sandbox running
+        self.assertFalse(vm["agent"])
+        self.assertEqual(vm["vm_state"], "running")
+        self.assertEqual(vm["sessions"], [])
 
 
 class VmTaskApiTests(unittest.TestCase):
@@ -564,6 +731,58 @@ class VmTaskApiTests(unittest.TestCase):
         submitted = self.wait_submission()
         self.stub.finish(submitted["jobId"], "done")
         self.wait_job(body["job_id"])
+
+    # -- node set: the task runs natively on the VM's own sidecar
+
+    def test_vm_task_on_node_runs_natively_in_guest(self):
+        """node=<sandbox> drops the cua-exec instructions and submits to the
+        VM's own sidecar, working in the guest home."""
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True):
+            status, body = self.api("POST", "/api/agent/vm-task",
+                                    {"vm": "ytl-dev", "task": "list /etc",
+                                     "node": "ytl-dev", "session": "s1"})
+            self.assertEqual(status, 200)
+            submitted = self.wait_submission()
+            self.stub.finish(submitted["jobId"], "done",
+                             lines=[{"t": "out", "x": "etc etc"}])
+            job = self.wait_job(body["job_id"])
+        self.assertEqual(submitted["key"], "vmtask:ytl-dev:s1")
+        self.assertEqual(submitted["cwd"], "/home/cua")
+        self.assertNotIn("instructions", submitted)
+        self.assertIn("list /etc", submitted["message"])
+        with server.AGENT_JOBS_LOCK:
+            record = server.AGENT_JOBS[body["job_id"]]
+        self.assertEqual(record["node"], "ytl-dev")
+        self.assertIsNone(record["instructions"])
+        self.assertEqual(job["status"], "done")
+        self.assertEqual([l["x"] for l in job["lines"]], ["etc etc"])
+
+    def test_vm_task_on_node_needs_healthy_agent(self):
+        with mock.patch.object(server.vm_nodes, "node_endpoint", return_value=None):
+            status, body = self.api("POST", "/api/agent/vm-task",
+                                    {"vm": "ytl-dev", "task": "hi", "node": "ytl-dev"})
+        self.assertEqual(status, 503)
+        self.assertIn("Install agent", body["error"])
+        self.assertEqual(self.stub.submitted, [])
+
+    def test_vm_task_on_node_ignores_local_backend_state(self):
+        """Node-native tasks need only the node's sidecar, not the local
+        durable backend."""
+        self.stub.key_configured = False
+        agentd_client.reset_cache()
+        with mock.patch.object(server.vm_nodes, "node_endpoint",
+                               return_value=self.stub.base), \
+             mock.patch.object(server.vm_nodes, "node_healthy", return_value=True):
+            status, body = self.api("POST", "/api/agent/vm-task",
+                                    {"vm": "ytl-dev", "task": "native",
+                                     "node": "ytl-dev", "session": "s2"})
+            self.assertEqual(status, 200)
+            submitted = self.wait_submission()
+            self.stub.finish(submitted["jobId"], "done")
+            self.wait_job(body["job_id"])
+        self.assertEqual(submitted["key"], "vmtask:ytl-dev:s2")
 
 
 if __name__ == "__main__":

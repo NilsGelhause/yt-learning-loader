@@ -122,6 +122,43 @@ NAT gateway address; the browser asks for the LAN token), while a container
 shares the host's network and uses the plain LAN URL from
 Settings → LAN / other devices.
 
+## Agents inside VMs (v2)
+
+Beyond exec-delegation, a VM can run the **agent itself**: the same agentd
+sidecar that runs on this machine, installed *inside the guest*. Each VM then
+is a true agent node with its own long-lived conversations that live on the
+VM, show up in the Network tab, and survive the master machine rebooting
+(suspend/resume the VM and everything is still there). VMs created by this
+app publish the sidecar port from birth (`--service agent=8472` on
+`cua sb create`); older VMs get a managed `cua sb port-forward` on a loopback
+port from the 18500+ range instead (`vm_nodes.py`).
+
+- **Install agent**: the CUA Spaces tab's per-VM button runs
+  `POST /api/cua/provision {"name": …}` — a streaming job that packs
+  `agentd/`, copies it into the guest, ships the API key as its own
+  chmod-600 `.env` (never printed), runs `npm ci`, starts the sidecar
+  detached on `0.0.0.0:8472`, and verifies `/health` from the host. Each step
+  has a 10-minute ceiling; re-running it is idempotent. **After a full VM
+  restart the processes are gone (files survive) — press Install agent again
+  to re-launch.**
+- **Console "Run on"**: the Console tab's select routes the conversation to a
+  VM's agent. The key stays `console:main`, but each node has its *own*
+  `console:main` — the master's conversation is untouched. A node without a
+  healthy agent answers 503 with a hint.
+- **Native VM tasks**: `POST /api/agent/vm-task` with `"node"` set runs the
+  task directly on that VM's sidecar (no `cua sb exec` instructions, cwd
+  `/home/cua`); without it you get the v1 exec-delegation from above.
+- **`GET /api/vm-nodes`** reports per-VM `{name, online, agent, endpoint}` —
+  the CUA tab shows agent ✓/✗ per row from it.
+
+**Security note**: the guest holds your API key, and the sidecar answers
+unauthenticated inside its own loopback world — the host only reaches it via
+the published endpoint or the managed port-forward on 127.0.0.1. The LAN
+token gate on `/api/*` is unchanged and is what keeps LAN clients (VM
+browsers included) out of the master's API; the VM agents themselves run with
+your key on your LAN, so treat the sandboxes like any machine that can spend
+your model quota.
+
 ## The AI agent (Pi Durable sidecar + CLI fallback)
 
 Agent features (teach workspaces, learnings generation, skill distillation)
@@ -141,11 +178,12 @@ active.
 .venv\Scripts\python.exe tests\run.py
 ```
 
-268 tests: server endpoints, scraper helpers, workspace/agent flows, the
+285 tests: server endpoints, scraper helpers, workspace/agent flows, the
 agentd sidecar integration (stub sidecar, no Node needed), the skill
 taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan),
 CUA Spaces (cua client parsing, create/remove jobs, delegate-a-task to a VM,
-VM nodes in the network view) —
+VM nodes in the network view), agents inside VMs (node routing for the
+console and VM tasks, Install agent provisioning, /api/vm-nodes) —
 plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 (`node tests/js_smoke.js`).
 
@@ -155,6 +193,7 @@ plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 server.py            stdlib HTTP server: JSON API + static files + agent jobs
 agentd_client.py     stdlib HTTP client for the agentd sidecar (auto-spawn)
 cua_client.py        locate/parse the cua CLI for the CUA Spaces tab (no vendoring)
+vm_nodes.py          per-VM agent discovery: endpoint, health, node conversations
 agentd/              Node sidecar: Pi Durable agent harness (see above)
 scraper.py           channel/video metadata, transcripts, thumbnails
 launch.py            test-then-serve launcher used by start.bat

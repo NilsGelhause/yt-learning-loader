@@ -66,7 +66,9 @@ def full_name(raw: str) -> str:
 
 
 def create_argv(name: str) -> list[str]:
-    return ["sb", "create", "ubuntu", "--name", name]
+    # --service agent=8472: publish the in-guest agentd sidecar port from
+    # birth so the VM is an agent node without extra provisioning (vm_nodes).
+    return ["sb", "create", "ubuntu", "--name", name, "--service", "agent=8472"]
 
 
 def remove_argv(name: str) -> list[str]:
@@ -120,7 +122,8 @@ def _norm(entry: dict) -> dict | None:
         status = "running"
     return {"name": str(name), "status": status,
             "image": str(entry.get("image") or entry.get("img") or ""),
-            "kind": str(entry.get("kind") or "")}
+            "kind": str(entry.get("kind") or ""),
+            "endpoints": entry.get("endpoints") if isinstance(entry.get("endpoints"), dict) else {}}
 
 
 def _parse_json(text: str) -> list[dict] | None:
@@ -178,6 +181,7 @@ def _parse_table(text: str) -> list[dict]:
             "status": status,
             "image": cells[image_i].strip() if image_i is not None and image_i < len(cells) else "",
             "kind": "",
+            "endpoints": {},
         })
     return rows
 

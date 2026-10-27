@@ -1,5 +1,5 @@
 // agentd: long-lived HTTP sidecar hosting one Pi Durable Harness for the
-// yt learning loader app. Binds 127.0.0.1 only. Never crashes on bad input.
+// yt learning loader app. Binds YTL_AGENT_HOST (default 127.0.0.1) only. Never crashes on bad input.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
@@ -481,6 +481,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  log(`agentd listening on http://127.0.0.1:${PORT}`);
+const HOST = process.env.YTL_AGENT_HOST ?? "127.0.0.1";
+server.listen(PORT, HOST, () => {
+  log(`agentd listening on http://${HOST}:${PORT}`);
 });
