@@ -223,6 +223,7 @@ AUDIT_LOG = DATA / "audit.log"
 AGENT_JOBS: dict[str, dict] = {}
 AGENT_JOBS_LOCK = threading.Lock()
 AGENT_MAX_LINES = 800
+CUA_JOB_TIMEOUT = 900  # cua create/remove may download images; beyond this, kill
 AGENT_POLL_INTERVAL = 1.0  # seconds between sidecar job polls
 
 
@@ -1247,12 +1248,15 @@ def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: boo
 def run_cua_job(job_id: str, argv: list[str]) -> None:
     """Run a cua CLI command (`sb create …`, `sb rm …`) in a thread, streaming
     output lines into the job record like an agent job — image downloads take
-    minutes, so the CUA Spaces tab polls /api/agent/job/<id> for progress."""
+    minutes, so the CUA Spaces tab polls /api/agent/job/<id> for progress.
+    Stdin is closed so a confirmation prompt errors out instead of hanging,
+    and a watchdog kills commands that exceed CUA_JOB_TIMEOUT."""
     job = AGENT_JOBS[job_id]
     job["cmd_preview"] = "cua " + " ".join(argv)
     try:
         proc = subprocess.Popen(
             ["cua", *argv], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             text=True, encoding="utf-8", errors="replace",
         )
         job["pid"] = proc.pid
@@ -1270,8 +1274,17 @@ def run_cua_job(job_id: str, argv: list[str]) -> None:
         threading.Thread(target=reader, args=(proc.stdout, "out"), daemon=True).start()
         threading.Thread(target=reader, args=(proc.stderr, "err"), daemon=True).start()
         open_streams = 2
+        deadline = time.time() + CUA_JOB_TIMEOUT
         while open_streams:
-            tag, line = q.get()
+            try:
+                tag, line = q.get(timeout=5)
+            except queue.Empty:
+                if proc.poll() is None and time.time() > deadline:
+                    with AGENT_JOBS_LOCK:
+                        job["lines"].append(
+                            {"t": "err", "x": f"cua {' '.join(argv)} timed out — killed"})
+                    proc.kill()
+                continue
             if tag is None:
                 open_streams -= 1
                 continue
