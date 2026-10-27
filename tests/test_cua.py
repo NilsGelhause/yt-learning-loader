@@ -124,7 +124,8 @@ class CuaClientTests(unittest.TestCase):
         self.assertEqual(run.call_args_list[1].args[0][:3], ["/fake/cua", "sb", "ls"])
 
     def test_list_empty_without_exe(self):
-        self.assertEqual(cua_client.list_sandboxes(None), [])
+        with mock.patch.object(cua_client, "find_cua", return_value=None):
+            self.assertEqual(cua_client.list_sandboxes(None), [])
 
     def test_name_validation_and_prefixing(self):
         self.assertTrue(cua_client.valid_name("ytl-dev-1"))
