@@ -1,0 +1,105 @@
+﻿#Requires -RunAsAdministrator
+<#
+.SYNOPSIS
+  Prepares a Windows laptop to host cua QEMU VMs (with desktops) that join the
+  yt-learning-loader master as LAN clients.
+
+.DESCRIPTION
+  Runs the three fixups we discovered the hard way on the master PC:
+    1. Ensures the `cua` CLI is installed (runs the official installer if not).
+    2. Enables the Windows Hypervisor Platform feature (WHPX) and reboots if needed.
+    3. Provisions the QEMU runtime (`cua runtime setup`) if qemu is missing.
+    4. Repairs the QEMU packaging bug (keymaps in share/keymaps instead of
+       share/qemu/keymaps) — without it, VNC dies with "Could not open 'en-us'".
+    5. Installs the qemu shim (QemuShim.cs next to this script): rewrites
+       `-cpu host` -> `-cpu qemu64` (WHPX crash fix) and forces a neutral
+       working directory (cua's daemon spawns qemu in C:\WINDOWS\system32,
+       which breaks VNC keymap loading).
+
+  Safe to re-run: every step checks before acting.
+
+.EXAMPLE
+  powershell -ExecutionPolicy Bypass -File .\Install-VmStack.ps1
+#>
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = "Stop"
+$QemuDir = "C:\Program Files\qemu"
+$ShimSrc = Join-Path $PSScriptRoot "QemuShim.cs"
+
+function Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }
+
+# --- 1. cua CLI -------------------------------------------------------------
+Step "cua CLI"
+$cua = Get-Command cua -ErrorAction SilentlyContinue
+if ($cua) {
+    Write-Host ("found: " + $cua.Source)
+} else {
+    Write-Host "not found — running the official installer ..."
+    irm https://cua.ai/install.ps1 | iex
+    $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+    if (-not (Get-Command cua -ErrorAction SilentlyContinue)) {
+        throw "cua still not on PATH — open a NEW terminal and re-run this script."
+    }
+}
+
+# --- 2. Windows Hypervisor Platform ----------------------------------------
+Step "Windows Hypervisor Platform (WHPX)"
+$feat = dism /online /get-featureinfo /featurename:HypervisorPlatform 2>$null | Select-String "State : Enabled"
+if ($feat) {
+    Write-Host "already enabled."
+} else {
+    dism /online /enable-feature /featurename:HypervisorPlatform /all /norestart | Out-Null
+    Write-Host "ENABLED — a reboot is required before VMs will start." -ForegroundColor Yellow
+    $global:needsReboot = $true
+}
+
+# --- 3. QEMU runtime ---------------------------------------------------------
+Step "QEMU runtime"
+$doctor = & cua runtime doctor 2>&1 | Out-String
+if ($doctor -match "qemu\s+ok") {
+    Write-Host "qemu present."
+} else {
+    Write-Host "provisioning via 'cua runtime setup' ..."
+    & cua runtime setup
+}
+
+# --- 4. keymaps packaging bug -------------------------------------------------
+Step "QEMU keymaps"
+$kmSrc = Join-Path $QemuDir "share\keymaps"
+$kmDst = Join-Path $QemuDir "share\qemu\keymaps"
+if ((Test-Path $kmSrc) -and -not (Test-Path (Join-Path $kmDst "en-us"))) {
+    New-Item -ItemType Directory -Force $kmDst | Out-Null
+    Copy-Item "$kmSrc\*" $kmDst -Recurse -Force
+    Write-Host "copied keymaps into share\qemu\keymaps."
+} elseif (Test-Path (Join-Path $kmDst "en-us")) {
+    Write-Host "already fixed."
+} else {
+    Write-Host "share\keymaps not found (nonstandard qemu layout?) — check manually."
+}
+
+# --- 5. qemu shim -------------------------------------------------------------
+Step "qemu shim (-cpu host WHPX fix + CWD fix)"
+$real = Join-Path $QemuDir "qemu-system-x86_64.real.exe"
+$shimInstalled = Join-Path $QemuDir "qemu-system-x86_64.exe"
+if ((Test-Path $real) -and (Test-Path $shimInstalled)) {
+    Write-Host "shim already installed."
+} elseif (Test-Path (Join-Path $QemuDir "qemu-system-x86_64.exe")) {
+    $tmp = Join-Path $env:TEMP "qemu-shim-build"
+    New-Item -ItemType Directory -Force $tmp | Out-Null
+    Add-Type -TypeDefinition (Get-Content -Raw $ShimSrc) -OutputAssembly (Join-Path $tmp "qemu-system-x86_64.exe") -ReferencedAssemblies System.dll
+    Rename-Item $shimInstalled "qemu-system-x86_64.real.exe"
+    Copy-Item (Join-Path $tmp "qemu-system-x86_64.exe") $shimInstalled
+    Write-Host "shim installed (original kept as qemu-system-x86_64.real.exe)."
+} else {
+    Write-Host "qemu-system-x86_64.exe not found at $QemuDir — install QEMU first."
+}
+
+# --- done ---------------------------------------------------------------------
+Write-Host "`n== Done." -ForegroundColor Green
+if ($global:needsReboot) {
+    Write-Host "REBOOT NOW, then continue with New-LaptopVm.ps1." -ForegroundColor Yellow
+} else {
+    Write-Host "Next:  powershell -ExecutionPolicy Bypass -File .\New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 1"
+}
