@@ -8,8 +8,8 @@
   const INSTALL_NIX = "curl -fsSL https://cua.ai/install.sh | bash";
 
   let pollTimer = null;      // status auto-refresh
-  let job = null;            // current create/remove job poll state
-  let jobTimer = null;
+  const jobs = new Map();    // running/polling create/remove/delegate jobs
+  let jobTimer = null;       // shared poller for everything in `jobs`
 
   function render(screen) {
     stopPoll();
@@ -100,10 +100,14 @@
       class: "primary",
       onclick: () => doCreate(nameInput),
     }, "Create VM");
+    const createThreeBtn = el("button", {
+      title: "Create vm-1, vm-2 and vm-3 (existing ones are skipped)",
+      onclick: () => doCreateThree(),
+    }, "Create 3 VMs");
 
     body.append(
       el("div", { class: "row", style: "flex-wrap:wrap" },
-        nameInput, createBtn,
+        nameInput, createBtn, createThreeBtn,
         el("span", { class: "chip sm dim" }, "Ubuntu"),
         el("span", { class: "muted small" },
           "created as ytl-<name> — the first creation downloads the image, which can take minutes")),
@@ -130,16 +134,28 @@
     if (!sandboxes.length) {
       return emptyState("No sandboxes yet — create one above.", "◌");
     }
-    const rows = sandboxes.map(sb => el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
-      el("span", { class: `pulse-dot${sb.status === "running" ? "" : " off"}`, title: sb.status || "unknown" }),
-      el("strong", { style: "min-width:160px" }, sb.name),
-      el("span", { class: "chip sm dim" }, sb.status || "unknown"),
-      el("span", { class: "muted small", style: "flex:1" }, sb.image || ""),
-      el("button", {
-        class: "icon-btn danger",
-        title: `Delete ${sb.name}`,
-        onclick: () => doRemove(sb.name),
-      }, "🗑")));
+    const rows = sandboxes.map(sb => {
+      const taskInput = el("input", {
+        placeholder: "delegate a task…",
+        style: "flex:1;min-width:160px",
+        onkeydown: (e) => { if (e.key === "Enter") delegateBtn.click(); },
+      });
+      const delegateBtn = el("button", {
+        title: `Delegate a task to ${sb.name} — the agent runs its commands on this VM`,
+        onclick: () => doDelegate(sb.name, taskInput),
+      }, "Delegate");
+      return el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
+        el("span", { class: `pulse-dot${sb.status === "running" ? "" : " off"}`, title: sb.status || "unknown" }),
+        el("strong", { style: "min-width:160px" }, sb.name),
+        el("span", { class: "chip sm dim" }, sb.status || "unknown"),
+        el("span", { class: "muted small", style: "flex:1" }, sb.image || ""),
+        taskInput, delegateBtn,
+        el("button", {
+          class: "icon-btn danger",
+          title: `Delete ${sb.name}`,
+          onclick: () => doRemove(sb.name),
+        }, "🗑"));
+    });
     return el("div", null, rows);
   }
 
@@ -159,17 +175,37 @@
     return slot;
   }
 
-  /* ---------- create / remove jobs ---------- */
+  /* ---------- create / remove / delegate jobs ---------- */
 
   async function doCreate(input) {
     const raw = (input.value || "").trim();
-    if (!raw || (job && isRunning(job))) return;
+    if (!raw || anyJobRunning()) return;
     let res;
     try {
       res = await api("/api/cua/sandboxes", { method: "POST", body: { name: raw } });
     } catch { return; }  /* api() toasted the reason (409/400/503) */
     input.value = "";
+    toast(`creating ytl-${raw.toLowerCase().replace(/^ytl-/, "")}…`);
     startJob(res.job_id, `create ytl-${raw.toLowerCase().replace(/^ytl-/, "")}`);
+  }
+
+  async function doCreateThree() {
+    /* the classic trio in one click: create vm-1/vm-2/vm-3 sequentially,
+       skipping any that already exist */
+    if (anyJobRunning()) return;
+    let data;
+    try { data = await api("/api/cua/status"); }
+    catch { return; }
+    const existing = new Set((data.sandboxes || []).map(s => s.name));
+    for (const n of ["vm-1", "vm-2", "vm-3"]) {
+      const full = `ytl-${n}`;
+      if (existing.has(full)) { toast(`${full} already exists — skipped`); continue; }
+      try {
+        const res = await api("/api/cua/sandboxes", { method: "POST", body: { name: n } });
+        toast(`creating ${full}…`);
+        startJob(res.job_id, `create ${full}`);
+      } catch { /* api() toasted the reason; try the next one */ }
+    }
   }
 
   async function doRemove(name) {
@@ -181,30 +217,49 @@
     startJob(res.job_id, `remove ${name}`);
   }
 
+  async function doDelegate(name, input) {
+    /* delegate-a-task v1: the agent thinks in the master's durable
+       conversation, its commands run ON the VM via `cua sb exec` */
+    const task = (input.value || "").trim();
+    if (!task) return;
+    let res;
+    try {
+      res = await api("/api/agent/vm-task", { method: "POST", body: { vm: name, task } });
+    } catch { return; }
+    input.value = "";
+    startJob(res.job_id, `task ${name}`);
+  }
+
   function isRunning(j) {
     return j.status !== "done" && j.status !== "error" && j.status !== "cancelled";
   }
 
+  function anyJobRunning() {
+    return jobs.size > 0;
+  }
+
   function startJob(jobId, label) {
-    if (jobTimer) { clearInterval(jobTimer); jobTimer = null; }
-    job = { id: jobId, rendered: 0 };
-    const tick = async () => {
+    jobs.set(jobId, { rendered: 0, label });
+    if (!jobTimer) jobTimer = setInterval(tickJobs, 1500);
+    tickJobs();
+  }
+
+  async function tickJobs() {
+    await Promise.all([...jobs.keys()].map(async (jobId) => {
+      const state = jobs.get(jobId);
       let j;
       try { j = await api(`/api/agent/job/${jobId}`); }
       catch { return; }
-      if (!job || job.id !== jobId) return;
-      (j.lines || []).slice(job.rendered).forEach(l => appendJob(l));
-      job.rendered = (j.lines || []).length;
-      job.status = j.status;
+      if (!jobs.has(jobId)) return;
+      (j.lines || []).slice(state.rendered).forEach(l => appendJob(l));
+      state.rendered = (j.lines || []).length;
       if (!isRunning(j)) {
-        if (jobTimer) { clearInterval(jobTimer); jobTimer = null; }
-        appendJob({ t: "err", x: `─ ${label}: ${j.status}${j.exit_code != null ? ` (exit ${j.exit_code})` : ""}` });
-        job = null;
+        jobs.delete(jobId);
+        appendJob({ t: "err", x: `─ ${state.label}: ${j.status}${j.exit_code != null ? ` (exit ${j.exit_code})` : ""}` });
         refreshStatus();  /* fresh sandbox list, keep the transcript */
       }
-    };
-    jobTimer = setInterval(tick, 1500);
-    tick();
+    }));
+    if (!jobs.size && jobTimer) { clearInterval(jobTimer); jobTimer = null; }
   }
 
   async function refreshStatus() {

@@ -352,6 +352,14 @@ const server = createServer(async (req, res) => {
         return;
       }
       const conv = await conversationForKey(key, cwd);
+      const instructions = typeof body.instructions === "string" ? body.instructions.trim() : "";
+      if (instructions) {
+        // Idempotent re-configure on EVERY submission (not just at creation):
+        // re-submitting a key with different instructions is how the caller
+        // resumes the same conversation pointed at a different VM.
+        await conv.configure({ instructions }, context);
+        log(`conversation ${conv.id} for key "${key}" instructions updated`);
+      }
       if (body.newSession === true) {
         await conv.reset(undefined, context);
         log(`conversation ${conv.id} reset for key "${key}"`);

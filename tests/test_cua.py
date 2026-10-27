@@ -23,8 +23,10 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import agentd_client  # noqa: E402
 import cua_client  # noqa: E402
 import server  # noqa: E402
+from tests.test_agentd import StubAgentd  # noqa: E402
 
 
 def fake_proc(stdout_lines=("",), returncode=0):
@@ -86,8 +88,8 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
         self.assertEqual(sandboxes, [
-            {"name": "ytl-dev", "status": "running", "image": "ubuntu"},
-            {"name": "ytl-old", "status": "stopped", "image": "ubuntu"},
+            {"name": "ytl-dev", "status": "running", "image": "ubuntu", "kind": ""},
+            {"name": "ytl-old", "status": "stopped", "image": "ubuntu", "kind": ""},
         ])
 
     def test_list_parses_bare_json_array(self):
@@ -95,7 +97,8 @@ class CuaClientTests(unittest.TestCase):
         proc = mock.Mock(returncode=0, stdout=out, stderr="")
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
-        self.assertEqual(sandboxes, [{"name": "a", "status": "running", "image": ""}])
+        self.assertEqual(sandboxes, [{"name": "a", "status": "running",
+                                      "image": "", "kind": ""}])
 
     def test_list_parses_table_text(self):
         out = ("NAME        STATUS     IMAGE\n"
@@ -105,8 +108,8 @@ class CuaClientTests(unittest.TestCase):
         with mock.patch.object(cua_client.subprocess, "run", return_value=proc):
             sandboxes = cua_client.list_sandboxes("/fake/cua")
         self.assertEqual(sandboxes, [
-            {"name": "ytl-dev", "status": "running", "image": "ubuntu:latest"},
-            {"name": "ytl-old", "status": "stopped", "image": "ubuntu:latest"},
+            {"name": "ytl-dev", "status": "running", "image": "ubuntu:latest", "kind": ""},
+            {"name": "ytl-old", "status": "stopped", "image": "ubuntu:latest", "kind": ""},
         ])
 
     def test_list_empty_on_garbage_output(self):
@@ -338,8 +341,8 @@ class CuaApiTests(unittest.TestCase):
     def test_network_includes_vm_nodes(self):
         with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
              mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
-                 {"name": "ytl-dev", "status": "running", "image": "ubuntu"},
-                 {"name": "ytl-old", "status": "stopped", "image": "ubuntu"},
+                 {"name": "ytl-dev", "status": "running", "image": "ubuntu", "kind": "vm"},
+                 {"name": "ytl-old", "status": "stopped", "image": "ubuntu", "kind": "container"},
              ]):
             status, body = self.api("GET", "/api/network")
         self.assertEqual(status, 200)
@@ -349,6 +352,8 @@ class CuaApiTests(unittest.TestCase):
         self.assertEqual(vm["kind"], "vm")
         self.assertTrue(vm["online"])
         self.assertEqual(vm["sessions"], [])
+        self.assertEqual(vm["flavor"], "qemu")
+        self.assertEqual(body["nodes"][2]["flavor"], "container")
         self.assertFalse(body["nodes"][2]["online"])
 
     def test_network_vm_nodes_capped_at_ten(self):
@@ -372,6 +377,193 @@ class CuaApiTests(unittest.TestCase):
             status, body = self.api("GET", "/api/network")
         self.assertEqual(status, 200)
         self.assertEqual([n["id"] for n in body["nodes"]], ["local"])
+
+
+class VmTaskApiTests(unittest.TestCase):
+    """POST /api/agent/vm-task against the stub sidecar: validation, key
+    shape, instructions, session reuse, backend gating, busy guard, and the
+    best-effort resume of a stopped VM."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        root = Path(cls.tmp.name)
+        data = root / "data"
+        for d in ("learnings", "transcripts", "thumbs", "info", "progress"):
+            (data / d).mkdir(parents=True)
+        (root / "teach").mkdir()
+        cls.root = root
+        cls.data = data
+
+        cls.stub = StubAgentd()
+
+        cls.patchers = [
+            mock.patch.object(server, "SETTINGS_JSON", data / "settings.json"),
+            mock.patch.object(server, "AGENT_JOBS", {}),
+            mock.patch.object(server, "AGENT_POLL_INTERVAL", 0.01),
+            mock.patch.object(server.agentd_client, "_BASE", cls.stub.base),
+            mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"),
+            mock.patch.object(server.cua_client, "list_sandboxes", return_value=[]),
+        ]
+        for p in cls.patchers:
+            p.start()
+
+        cls.httpd = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.port = cls.httpd.server_address[1]
+        cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.thread.join(timeout=5)
+        cls.httpd.server_close()
+        for p in cls.patchers:
+            p.stop()
+        cls.stub.stop()
+        cls.tmp.cleanup()
+
+    def setUp(self):
+        (self.data / "settings.json").write_text("{}", encoding="utf-8")
+        agentd_client.reset_cache()
+        self.stub.jobs.clear()
+        self.stub.submitted.clear()
+        self.stub.conversations = []
+        with server.AGENT_JOBS_LOCK:
+            server.AGENT_JOBS.clear()
+
+    def tearDown(self):
+        agentd_client.reset_cache()
+        self.stub.key_configured = True
+        with server.AGENT_JOBS_LOCK:
+            server.AGENT_JOBS.clear()
+
+    def api(self, method, path, body=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        payload = json.dumps(body).encode("utf-8") if body is not None else None
+        headers = {"Content-Type": "application/json"} if payload is not None else {}
+        conn.request(method, path, body=payload, headers=headers)
+        resp = conn.getresponse()
+        raw = resp.read()
+        status = resp.status
+        conn.close()
+        return status, json.loads(raw.decode("utf-8"))
+
+    def wait_job(self, job_id, timeout: float = 5) -> dict:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status, job = self.api("GET", f"/api/agent/job/{job_id}")
+            self.assertEqual(status, 200)
+            if job["status"] in ("done", "error", "cancelled"):
+                return job
+            time.sleep(0.02)
+        self.fail(f"job {job_id} did not settle")
+
+    def wait_submission(self, count: int = 1, timeout: float = 5) -> dict:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if len(self.stub.submitted) >= count:
+                return self.stub.submitted[count - 1]
+            time.sleep(0.02)
+        self.fail(f"sidecar saw no submission in {timeout}s")
+
+    def test_vm_task_requires_task_and_valid_vm(self):
+        status, _ = self.api("POST", "/api/agent/vm-task", {"vm": "ytl-dev"})
+        self.assertEqual(status, 400)
+        status, _ = self.api("POST", "/api/agent/vm-task",
+                             {"vm": "Bad Name!", "task": "do x"})
+        self.assertEqual(status, 400)
+        status, _ = self.api("POST", "/api/agent/vm-task",
+                             {"vm": "ytl-dev", "task": "   "})
+        self.assertEqual(status, 400)
+
+    def test_vm_task_submits_key_instructions_and_streams(self):
+        status, body = self.api("POST", "/api/agent/vm-task",
+                                {"vm": "ytl-dev", "task": "list /etc"})
+        self.assertEqual(status, 200)
+        submitted = self.wait_submission()
+        parts = submitted["key"].split(":")
+        self.assertEqual(parts[:2], ["vmtask", "ytl-dev"])
+        self.assertEqual(len(parts[2]), 8)  # generated session id
+        self.assertEqual(submitted["cwd"], str(server.ROOT))
+        self.assertIn("cua sb exec ytl-dev --", submitted["instructions"])
+        self.assertIn("list /etc", submitted["message"])
+        self.assertNotIn("newSession", submitted)
+        with server.AGENT_JOBS_LOCK:
+            record = server.AGENT_JOBS[body["job_id"]]
+        self.assertEqual(record["key"], submitted["key"])
+        self.assertEqual(record["workspace"], None)
+        self.assertEqual(record["backend"], "durable")
+        self.stub.finish(submitted["jobId"], "done",
+                         lines=[{"t": "out", "x": "task done"}])
+        job = self.wait_job(body["job_id"])
+        self.assertEqual(job["status"], "done")
+        self.assertEqual([l["x"] for l in job["lines"]], ["task done"])
+
+    def test_vm_task_session_reuse_resubmits_same_key(self):
+        _, b1 = self.api("POST", "/api/agent/vm-task",
+                         {"vm": "ytl-dev", "task": "first", "session": "s1"})
+        first = self.wait_submission()
+        self.assertEqual(first["key"], "vmtask:ytl-dev:s1")
+        self.stub.finish(first["jobId"], "done")
+        self.wait_job(b1["job_id"])
+        _, b2 = self.api("POST", "/api/agent/vm-task",
+                         {"vm": "ytl-dev", "task": "second", "session": "s1"})
+        second = self.wait_submission(2)
+        self.assertEqual(second["key"], "vmtask:ytl-dev:s1")
+        self.assertIn("second", second["message"])
+        self.stub.finish(second["jobId"], "done")
+        self.wait_job(b2["job_id"])
+
+    def test_vm_task_503_without_durable_backend(self):
+        self.stub.key_configured = False
+        agentd_client.reset_cache()
+        status, body = self.api("POST", "/api/agent/vm-task",
+                                {"vm": "ytl-dev", "task": "do x"})
+        self.assertEqual(status, 503)
+        self.assertIn("durable", body["error"].lower())
+        self.assertEqual(self.stub.submitted, [])
+
+    def test_vm_task_409_while_session_busy(self):
+        with server.AGENT_JOBS_LOCK:
+            server.AGENT_JOBS["vmbusy"] = {
+                "id": "vmbusy", "workspace": None, "key": "vmtask:ytl-dev:s1",
+                "status": "running", "backend": "durable", "lines": [],
+                "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        status, body = self.api("POST", "/api/agent/vm-task",
+                                {"vm": "ytl-dev", "task": "again", "session": "s1"})
+        self.assertEqual(status, 409)
+        self.assertIn("still running", body["error"])
+        self.assertEqual(self.stub.submitted, [])
+
+    def test_vm_task_resumes_stopped_vm(self):
+        with mock.patch.object(server.cua_client, "list_sandboxes",
+                               return_value=[{"name": "ytl-dev", "status": "suspended",
+                                              "image": "", "kind": "vm"}]), \
+             mock.patch.object(server.subprocess, "run") as run:
+            status, body = self.api("POST", "/api/agent/vm-task",
+                                    {"vm": "ytl-dev", "task": "wake up"})
+        self.assertEqual(status, 200)
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0], ["/fake/cua", "sb", "resume", "ytl-dev"])
+        submitted = self.wait_submission()
+        self.stub.finish(submitted["jobId"], "done")
+        self.wait_job(body["job_id"])
+
+    def test_vm_task_leaves_running_vm_alone(self):
+        with mock.patch.object(server.cua_client, "list_sandboxes",
+                               return_value=[{"name": "ytl-dev", "status": "running",
+                                              "image": "", "kind": "vm"}]), \
+             mock.patch.object(server.subprocess, "run") as run:
+            status, body = self.api("POST", "/api/agent/vm-task",
+                                    {"vm": "ytl-dev", "task": "just run"})
+        self.assertEqual(status, 200)
+        run.assert_not_called()
+        submitted = self.wait_submission()
+        self.stub.finish(submitted["jobId"], "done")
+        self.wait_job(body["job_id"])
 
 
 if __name__ == "__main__":

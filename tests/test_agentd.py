@@ -199,6 +199,18 @@ class AgentdClientTests(unittest.TestCase):
         agentd_client.submit("k", "/d", "m")
         self.assertNotIn("newSession", self.stub.submitted[0])
 
+    def test_submit_forwards_instructions(self):
+        """instructions lands in the body as the conversation's extra
+        instructions (applied by the sidecar on every submission for the key)."""
+        agentd_client.submit("vmtask:ytl-dev:s1", "/d", "m",
+                             instructions="stay on the VM")
+        self.assertEqual(self.stub.submitted[0]["instructions"], "stay on the VM")
+
+    def test_submit_omits_instructions_when_none(self):
+        """Without instructions the field stays out of the request body."""
+        agentd_client.submit("k", "/d", "m")
+        self.assertNotIn("instructions", self.stub.submitted[0])
+
     def test_submit_busy_raises_busy_error(self):
         """A 409 from the sidecar maps to BusyError."""
         self.stub.always_busy = True

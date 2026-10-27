@@ -75,6 +75,11 @@ def remove_argv(name: str) -> list[str]:
     return ["sb", "rm", name, "--force"]
 
 
+def resume_argv(name: str) -> list[str]:
+    # cua has no `sb start` — a suspended/stopped sandbox wakes with `resume`.
+    return ["sb", "resume", name]
+
+
 def version(exe: str | None = None) -> str | None:
     """`cua --version` output, loosely parsed; None on any failure."""
     exe = exe or find_cua()
@@ -114,7 +119,8 @@ def _norm(entry: dict) -> dict | None:
     if status in ("active", "started", "up", "ready"):
         status = "running"
     return {"name": str(name), "status": status,
-            "image": str(entry.get("image") or entry.get("img") or "")}
+            "image": str(entry.get("image") or entry.get("img") or ""),
+            "kind": str(entry.get("kind") or "")}
 
 
 def _parse_json(text: str) -> list[dict] | None:
@@ -171,12 +177,13 @@ def _parse_table(text: str) -> list[dict]:
             "name": cells[name_i].strip(),
             "status": status,
             "image": cells[image_i].strip() if image_i is not None and image_i < len(cells) else "",
+            "kind": "",
         })
     return rows
 
 
 def list_sandboxes(exe: str | None = None) -> list[dict]:
-    """Sandboxes as [{"name", "status", "image"}]. Tries `sb list`/`sb ls`
+    """Sandboxes as [{"name", "status", "image", "kind"}]. Tries `sb list`/`sb ls`
     (JSON first); any failure or unparseable output -> []."""
     exe = exe or find_cua()
     if not exe:

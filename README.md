@@ -99,6 +99,29 @@ cua sb rm dev
   no binaries, services, or repo files are left behind by the feature itself
   (pre-existing sandboxes you created would need `cua sb rm` by hand).
 
+**Delegate a task to a VM (v1).** The CUA Spaces tab can hand a task to a
+sandbox so the agent's *commands* execute on the VM while its thinking and
+memory stay in this machine's durable agent conversation: the conversation is
+keyed `vmtask:<vm>:<session>` and its instructions force every shell command
+through `cua sb exec <vm> -- …`, so nothing runs on the host. Submit one with
+`POST /api/agent/vm-task {"vm": …, "task": …}` (optionally `"session"` to name
+it); the job streams like any other at `/api/agent/job/<id>`. This needs the
+agentd sidecar — the CLI fallback can't carry per-conversation instructions —
+and best-effort wakes a suspended VM (`cua sb resume`) before delegating.
+
+**Resume semantics.** A task conversation is just a durable conversation, so
+resuming means re-submitting the same key with new instructions: the sidecar
+re-applies the (idempotent) per-conversation instructions on every submission,
+which is how the same session moves to a different VM. Omitting `session`
+starts a fresh one each time.
+
+In the Network tab these conversations appear under their VM's node (labeled
+🛠 task, titled by the session part), and each VM node carries a connection
+hint by flavor: a qemu VM reaches this host at `http://10.0.2.2:8471` (its
+NAT gateway address; the browser asks for the LAN token), while a container
+shares the host's network and uses the plain LAN URL from
+Settings → LAN / other devices.
+
 ## The AI agent (Pi Durable sidecar + CLI fallback)
 
 Agent features (teach workspaces, learnings generation, skill distillation)
@@ -118,11 +141,11 @@ active.
 .venv\Scripts\python.exe tests\run.py
 ```
 
-254 tests: server endpoints, scraper helpers, workspace/agent flows, the
+268 tests: server endpoints, scraper helpers, workspace/agent flows, the
 agentd sidecar integration (stub sidecar, no Node needed), the skill
 taxonomy guard, file-preview API, LAN client mode (token auth, /api/lan),
-CUA Spaces (cua client parsing, create/remove jobs, VM nodes in the network
-view) —
+CUA Spaces (cua client parsing, create/remove jobs, delegate-a-task to a VM,
+VM nodes in the network view) —
 plus a JS smoke test that renders every tab of the UI against a stubbed DOM
 (`node tests/js_smoke.js`).
 

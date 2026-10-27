@@ -1172,6 +1172,28 @@ def run_agent_job(job_id: str, cwd: Path, message: str, new_session: bool, exe: 
             job["ended"] = int(time.time())
 
 
+def vm_task_instructions(vm: str, task: str) -> str:
+    """System instructions for a vmtask:<vm>:<session> conversation: the agent
+    thinks on this host but must run every command ON the VM via the cua CLI.
+    Syntax verified against cua 0.9.0 (`cua sb exec --help`, live exec on a
+    running sandbox): `cua sb exec <name> -- <command>` joins the command into
+    one guest shell line; `-i` forwards stdin for tee/base64 pipelines."""
+    return (
+        f'You are a task agent. Your commands run ON the Ubuntu machine "{vm}" '
+        "via the `cua` CLI on this host — NEVER run anything directly on this host.\n"
+        "Rules:\n"
+        f"- Every shell command: cua sb exec {vm} -- <command>   (example: cua sb exec {vm} -- uname -a)\n"
+        f"- Read a file: cua sb exec {vm} -- cat <path>\n"
+        f"- Write a text file: printf '%s' '<content>' | cua sb exec -i {vm} -- tee <path> >/dev/null\n"
+        f"- Binary/multi-line content: base64-encode it locally, then: "
+        f"cua sb exec {vm} -- 'echo <b64> | base64 -d > <path>'\n"
+        "- Stay inside that VM. Do not touch this host's files.\n"
+        "- If a command fails because the VM is stopped, report that instead of retrying forever.\n"
+        "Work on this task until done, then summarize the outcome.\n"
+        f"Task: {task}"
+    )
+
+
 def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: bool) -> None:
     """Drive an agentd sidecar job: submit, then poll ~1s and append only NEW
     lines into the job record with the same caps as the CLI path."""
@@ -1183,7 +1205,8 @@ def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: boo
         with AGENT_JOBS_LOCK:
             job["status"] = "running"
         try:
-            remote_id = agentd_client.submit(key, str(cwd), message, new_session)
+            remote_id = agentd_client.submit(key, str(cwd), message, new_session,
+                                             instructions=job.get("instructions"))
         except agentd_client.BusyError:
             with AGENT_JOBS_LOCK:
                 job["status"] = "error"
@@ -1296,6 +1319,11 @@ def session_type_title(key: str) -> tuple[str, str]:
         return "console", "Console"
     if prefix == "analysis":
         return "analysis", f"Analysis {rest}"
+    if prefix == "vmtask":
+        # vmtask:<vm>:<session> — the Network tab groups these under the VM
+        # node's own listing, so the title is just the session part.
+        _vm, sep2, sess = rest.partition(":")
+        return "vmtask", sess if sep2 else rest
     return prefix, rest
 
 
@@ -1351,8 +1379,6 @@ def build_network() -> dict:
             "busy": False, "status": None,
             "cwd": file_sessions[key]["cwd"],
         })
-    nodes = [{"id": "local", "name": "local", "kind": "local",
-              "online": online, "sessions": sessions}]
     # cua sandboxes double as LAN clients: surface them as VM nodes so the
     # network view answers "which machines can use the app right now". Fully
     # best-effort — no cua CLI, or a listing hiccup, just means no VM nodes.
@@ -1360,6 +1386,7 @@ def build_network() -> dict:
         sandboxes = cua_client.list_sandboxes() if cua_client.find_cua() else []
     except Exception:  # noqa: BLE001
         sandboxes = []
+    vm_nodes: list[dict] = []
     for sb in sandboxes[:10]:
         try:
             name, status = str(sb.get("name") or ""), str(sb.get("status") or "")
@@ -1367,8 +1394,25 @@ def build_network() -> dict:
             continue
         if not name:
             continue
-        nodes.append({"id": f"vm-{name}", "name": name, "kind": "vm",
-                      "online": status == "running", "sessions": []})
+        node = {"id": f"vm-{name}", "name": name, "kind": "vm",
+                "online": status == "running", "sessions": []}
+        flavor = {"vm": "qemu", "container": "container"}.get(
+            str(sb.get("kind") or "").lower())
+        if flavor:
+            node["flavor"] = flavor
+        vm_nodes.append(node)
+    # vmtask:<vm>:<session> conversations belong to the VM they run on: move
+    # them under its node. A session whose VM is gone (deleted sandbox) stays
+    # on the local node.
+    vm_by_name = {n["name"]: n for n in vm_nodes}
+    local_sessions: list[dict] = []
+    for s in sessions:
+        parts = s["key"].split(":")
+        target = vm_by_name.get(parts[1]) if (len(parts) >= 3
+                                              and parts[0] == "vmtask") else None
+        (target["sessions"] if target else local_sessions).append(s)
+    nodes = [{"id": "local", "name": "local", "kind": "local",
+              "online": online, "sessions": local_sessions}, *vm_nodes]
     return {"nodes": nodes}
 
 
@@ -1672,6 +1716,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_create()
             if path == "/api/cua/sandboxes/remove":
                 return self.api_cua_remove()
+            if path == "/api/agent/vm-task":
+                return self.api_agent_vm_task()
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -2177,6 +2223,67 @@ class Handler(BaseHTTPRequestHandler):
         if isinstance(result, tuple):
             return self.send_error_json(result[0], result[1])
         self.send_json({"job_id": result})
+
+    # -- delegate-a-task v1: the agent thinks in the master's durable
+    # conversation, but every command it runs executes ON the VM via
+    # `cua sb exec <vm> -- …`. Requires the sidecar (the kimi CLI fallback
+    # can't carry per-conversation instructions).
+
+    def maybe_resume_vm(self, name: str) -> None:
+        """Best-effort wake of a suspended/stopped sandbox before delegating:
+        cua has no `sb start`, so a non-running VM gets `sb resume`. Synchronous,
+        bounded, and fully error-tolerant — the instructions tell the agent to
+        report a stopped VM instead of retrying forever."""
+        try:
+            exe = cua_client.find_cua()
+            if not exe:
+                return
+            sb = next((s for s in cua_client.list_sandboxes(exe)
+                       if isinstance(s, dict) and s.get("name") == name), None)
+            if not sb or str(sb.get("status") or "") == "running":
+                return
+            subprocess.run([exe, *cua_client.resume_argv(name)],
+                           capture_output=True, timeout=30)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def api_agent_vm_task(self):
+        body = self.read_body()
+        if not isinstance(body, dict):
+            return self.send_error_json(400, 'body must be {"vm": ..., "task": ...}')
+        vm = str(body.get("vm") or "")
+        if not cua_client.valid_name(vm):
+            return self.send_error_json(400, "bad vm name — use lowercase letters, digits and dashes (max 40 chars)")
+        task = str(body.get("task") or "").strip()
+        if not task:
+            return self.send_error_json(400, 'body must be {"vm": ..., "task": ...}')
+        if agentd_client.backend() != "durable":
+            return self.send_error_json(503, "VM tasks need the Pi Durable sidecar")
+        self.maybe_resume_vm(vm)
+        session = str(body.get("session") or "").strip() or uuid.uuid4().hex[:8]
+        key = f"vmtask:{vm}:{session}"
+        with AGENT_JOBS_LOCK:
+            for existing in AGENT_JOBS.values():
+                if (existing.get("key") == key
+                        and existing.get("status") in ("starting", "running")):
+                    return self.send_error_json(
+                        409, "a task with this session is still running on that VM — "
+                             "wait for it to finish")
+        job_id = uuid.uuid4().hex[:12]
+        with AGENT_JOBS_LOCK:
+            AGENT_JOBS[job_id] = {
+                "id": job_id, "workspace": None, "key": key,
+                "status": "starting", "backend": "durable",
+                "instructions": vm_task_instructions(vm, task),
+                "lines": [], "exit_code": None, "pid": None,
+                "started": int(time.time()), "ended": None,
+            }
+        threading.Thread(
+            target=run_agent_job,
+            args=(job_id, ROOT, task, False, None),
+            daemon=True,
+        ).start()
+        self.send_json({"job_id": job_id})
 
     def api_agent_job(self, job_id: str):
         with AGENT_JOBS_LOCK:

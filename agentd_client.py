@@ -116,13 +116,18 @@ def backend() -> str:
 
 
 def submit(key: str, cwd: str, message: str, new_session: bool = False,
-           request_id: str | None = None) -> str:
-    """POST /jobs -> remote job id. Raises BusyError on 409."""
+           request_id: str | None = None, instructions: str | None = None) -> str:
+    """POST /jobs -> remote job id. Raises BusyError on 409. When given,
+    `instructions` becomes the conversation's persistent extra instructions —
+    the sidecar re-applies it on every submission for that key, so resubmitting
+    a key with new instructions re-points the same conversation."""
     body: dict = {"key": key, "cwd": str(cwd), "message": message}
     if new_session:
         body["newSession"] = True
     if request_id:
         body["requestId"] = request_id
+    if instructions:
+        body["instructions"] = instructions
     req = urllib.request.Request(
         _base() + "/jobs", data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json"}, method="POST")

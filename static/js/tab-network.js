@@ -9,7 +9,22 @@
     console:  { label: "console",  icon: "⌨" },
     distill:  { label: "distill",  icon: "⚗" },
     analysis: { label: "analysis", icon: "🔍" },
+    vmtask:   { label: "task",     icon: "🛠" },
   };
+
+  function connectionHint(node) {
+    /* how a browser inside this VM reaches the app — a qemu VM sees the host
+       as 10.0.2.2; a container shares the host's network, so the plain LAN
+       URL applies. No flavor (older data): the generic line. */
+    if (node.flavor === "qemu") {
+      return "inside this VM open http://10.0.2.2:8471 "
+        + "(the browser will ask for the LAN token)";
+    }
+    if (node.flavor === "container") {
+      return "inside it open the LAN URL from Settings → LAN / other devices";
+    }
+    return "client machine — open the app URL inside its browser";
+  }
 
   function render(screen) {
     const wrap = el("div", { class: "screen-scroll scroll", style: "display:flex;flex-direction:column;gap:14px;max-width:960px;width:100%;margin:0 auto" });
@@ -71,7 +86,7 @@
   function nodeCard(node) {
     const sessions = node.sessions || [];
     if (!sessions.length && node.kind !== "local") {
-      /* VM nodes (cua sandboxes) have no agent sessions — say what they are
+      /* a VM node without agent sessions — say how it reaches the app
          instead of showing an empty, collapsible list */
       return el("div", { class: "pane", style: "padding:0" },
         el("div", { style: "padding:10px 12px" },
@@ -80,8 +95,7 @@
             el("strong", null, node.name || node.id),
             el("span", { class: "chip sm dim" }, node.kind),
             el("span", { class: "spacer" }),
-            el("span", { class: "muted small" },
-              "client machine — open the app URL inside its browser"))));
+            el("span", { class: "muted small" }, connectionHint(node)))));
     }
     const expanded = sessions.length > 0 && sessions.length <= 6;
     const list = el("div", { style: expanded ? "" : "display:none" });

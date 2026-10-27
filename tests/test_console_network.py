@@ -352,6 +352,68 @@ class ConsoleNetworkServerTests(unittest.TestCase):
             "online": False, "sessions": [],
         }])
 
+    # -- vmtask sessions grouped under their VM node
+
+    def test_network_groups_vmtask_sessions_under_vm_node(self):
+        """A vmtask:<vm>:<session> conversation is listed under the vm node,
+        with the session part as its title and busy/status honored."""
+        self.write_conversations({
+            "vmtask:ytl-x:s1": {"id": "c1", "cwd": "/app"},
+            "console:main": {"id": "c2", "cwd": "/app"},
+        })
+        self.stub.conversations = [
+            {"key": "vmtask:ytl-x:s1", "id": "c1", "cwd": "/app",
+             "busy": True, "lastStatus": "running"},
+            {"key": "console:main", "id": "c2", "cwd": "/app",
+             "busy": False, "lastStatus": "done"},
+        ]
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                 {"name": "ytl-x", "status": "running", "image": "", "kind": "vm"}]):
+            status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        self.assertEqual([n["id"] for n in body["nodes"]], ["local", "vm-ytl-x"])
+        local = body["nodes"][0]
+        self.assertEqual([s["key"] for s in local["sessions"]], ["console:main"])
+        vm = body["nodes"][1]
+        self.assertEqual(vm["flavor"], "qemu")
+        self.assertEqual(len(vm["sessions"]), 1)
+        sess = vm["sessions"][0]
+        self.assertEqual(sess["type"], "vmtask")
+        self.assertEqual(sess["title"], "s1")
+        self.assertTrue(sess["busy"])
+        self.assertEqual(sess["status"], "running")
+
+    def test_network_vmtask_session_stays_local_when_vm_node_missing(self):
+        """A vmtask conversation whose sandbox was deleted has no VM node to
+        live under — it falls back to the local node's listing."""
+        self.write_conversations({
+            "vmtask:ytl-gone:s1": {"id": "c1", "cwd": "/app"},
+        })
+        self.stub.conversations = [
+            {"key": "vmtask:ytl-gone:s1", "id": "c1", "cwd": "/app",
+             "busy": False, "lastStatus": "done"},
+        ]
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[]):
+            status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        self.assertEqual([n["id"] for n in body["nodes"]], ["local"])
+        sessions = {s["key"]: s for s in body["nodes"][0]["sessions"]}
+        self.assertIn("vmtask:ytl-gone:s1", sessions)
+        self.assertEqual(sessions["vmtask:ytl-gone:s1"]["title"], "s1")
+
+    def test_network_vm_node_flavor_container(self):
+        """kind: container in the cua listing maps to flavor 'container'."""
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                 {"name": "ytl-box", "status": "running", "image": "", "kind": "container"}]):
+            status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        vm = body["nodes"][1]
+        self.assertEqual(vm["id"], "vm-ytl-box")
+        self.assertEqual(vm["flavor"], "container")
+
     # -- settings merge for the two new default tabs
 
     def test_settings_merge_appends_new_default_tabs(self):
