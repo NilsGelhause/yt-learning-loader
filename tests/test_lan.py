@@ -197,6 +197,26 @@ class LanServerTests(unittest.TestCase):
         self.assertEqual(settings["port"], 9000)
         self.assertEqual(settings["theme"], "light")
 
+    # -- master vs client
+
+    def test_client_endpoint_reports_master_on_loopback(self):
+        """A browser on the server machine is the master."""
+        status, body = self.api("GET", "/api/client")
+        self.assertEqual(status, 200)
+        self.assertTrue(body["master"])
+        self.assertEqual(body["ip"], "127.0.0.1")
+
+    def test_master_check_ip_logic(self):
+        """Loopback addresses are master; LAN addresses are clients."""
+        class Stub:
+            def __init__(self, ip):
+                self.client_address = (ip, 51234)
+        is_master = server.Handler.is_master_client
+        self.assertTrue(is_master(Stub("127.0.0.1")))
+        self.assertTrue(is_master(Stub("::1")))
+        self.assertFalse(is_master(Stub("192.168.1.50")))
+        self.assertFalse(is_master(Stub("10.0.0.7")))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,15 @@
   applyAppearance();
   initMermaid();
   renderTabbar();
+  // the power button stops the whole app — master machine only
+  try {
+    const client = await api("/api/client");
+    if (!client.master) {
+      const btn = document.getElementById("power-btn");
+      btn.classList.add("disabled");
+      btn.title = "Only the master machine can stop the server";
+    }
+  } catch { /* on error leave the button enabled — local is the default */ }
   const id = (location.hash || "#overview").slice(1);
   const known = App.settings.tabs.some(t => t.id === id && (t.visible || t.id === ALWAYS_VISIBLE));
   showTab(known ? id : "overview");

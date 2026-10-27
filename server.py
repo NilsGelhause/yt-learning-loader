@@ -1588,6 +1588,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(load_settings())
             if path == "/api/lan":
                 return self.api_lan()
+            if path == "/api/client":
+                return self.api_client()
             if path == "/api/profile":
                 return self.api_profile()
             if path == "/api/profile/skills":
@@ -1708,6 +1710,15 @@ class Handler(BaseHTTPRequestHandler):
         port = int(settings.get("port", 8471))
         urls = lan_urls(port) if host in ("0.0.0.0", "::") else []
         self.send_json({"host": host, "urls": urls, "token_set": bool(settings.get("lan_token"))})
+
+    def is_master_client(self) -> bool:
+        """True when the browser runs on the machine that serves the app.
+        Only the master may stop the server — LAN clients get the button greyed."""
+        return self.client_address[0] in ("127.0.0.1", "::1", "localhost")
+
+    def api_client(self):
+        self.send_json({"master": self.is_master_client(),
+                        "ip": self.client_address[0]})
 
     def api_state(self):
         settings = load_settings()
