@@ -159,6 +159,64 @@ class CuaClientTests(unittest.TestCase):
         self.assertEqual(cua_client.remove_argv("ytl-dev"), ["sb", "rm", "ytl-dev", "--force"])
 
 
+class EnsureEngineTests(unittest.TestCase):
+    """server.ensure_container_engine: fast path, pipe-wait after starting
+    Docker Desktop, and the cua-listing fallback when the pipe lags."""
+
+    def make_job(self):
+        return {"lines": []}
+
+    def clock(self):
+        class Clock:
+            def __init__(self):
+                self.now = 1000.0
+
+            def time(self):
+                return self.now
+
+            def sleep(self, seconds):
+                self.now += seconds
+        return Clock()
+
+    def test_engine_up_fast_path(self):
+        job = self.make_job()
+        with mock.patch.object(server, "docker_engine_running", return_value=True), \
+             mock.patch.object(server.subprocess, "Popen") as popen:
+            self.assertTrue(server.ensure_container_engine(job))
+        popen.assert_not_called()
+        self.assertEqual(job["lines"], [])
+
+    def test_waits_for_pipe_after_starting_desktop(self):
+        job = self.make_job()
+        clock = self.clock()
+        states = iter([False, False, True])  # probe, one wait, then up
+        with mock.patch.object(server, "docker_engine_running",
+                               side_effect=lambda: next(states)), \
+             mock.patch.object(server.os.path, "exists", return_value=True), \
+             mock.patch.object(server.subprocess, "Popen") as popen, \
+             mock.patch.object(server.time, "time", clock.time), \
+             mock.patch.object(server.time, "sleep", clock.sleep):
+            self.assertTrue(server.ensure_container_engine(job))
+        popen.assert_called_once()
+        self.assertIn("container engine is up — creating the VM",
+                      [l["x"] for l in job["lines"]])
+
+    def test_cua_listing_falls_back_when_pipe_lags(self):
+        job = self.make_job()
+        clock = self.clock()
+        with mock.patch.object(server, "docker_engine_running", return_value=False), \
+             mock.patch.object(server.os.path, "exists", return_value=True), \
+             mock.patch.object(server.subprocess, "Popen"), \
+             mock.patch.object(server.cua_client, "list_sandboxes",
+                               return_value=[{"name": "ytl-dev"}]), \
+             mock.patch.object(server.time, "time", clock.time), \
+             mock.patch.object(server.time, "sleep", clock.sleep):
+            self.assertTrue(server.ensure_container_engine(job))
+        lines = [l["x"] for l in job["lines"]]
+        self.assertIn("still waiting for the container engine… (20s)", lines)
+        self.assertEqual(lines[-1], "container engine is up — creating the VM")
+
+
 class CuaApiTests(unittest.TestCase):
     """server.py wiring: /api/cua/* on a real Handler with a temp data dir."""
 
@@ -307,9 +365,42 @@ class CuaApiTests(unittest.TestCase):
         status, _ = self.api("POST", "/api/cua/sandboxes", {"name": "Dev Box!!"})
         self.assertEqual(status, 400)
 
-    def test_create_requires_name(self):
-        status, _ = self.api("POST", "/api/cua/sandboxes", {})
-        self.assertEqual(status, 400)
+    def test_create_empty_name_autonames_first_free_vm(self):
+        seen = []
+        engine = mock.patch.object(server, "docker_engine_running", return_value=True)
+        engine.start()
+        self.addCleanup(engine.stop)
+
+        class Proc(fake_proc()):
+            def __init__(self, cmd, **kwargs):
+                seen.append(cmd)
+                super().__init__(cmd, **kwargs)
+
+        with mock.patch.object(server.subprocess, "Popen", Proc), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[]):
+            _, body = self.api("POST", "/api/cua/sandboxes", {})
+        self.wait_job(body["job_id"])
+        self.assertEqual(seen[0], ["cua", "sb", "create", "ubuntu", "--name", "ytl-vm-1",
+                                   "--service", "agent=8472"])
+
+    def test_create_empty_name_skips_taken_vm_slots(self):
+        seen = []
+        engine = mock.patch.object(server, "docker_engine_running", return_value=True)
+        engine.start()
+        self.addCleanup(engine.stop)
+
+        class Proc(fake_proc()):
+            def __init__(self, cmd, **kwargs):
+                seen.append(cmd)
+                super().__init__(cmd, **kwargs)
+
+        taken = [{"name": "ytl-vm-1", "status": "running", "image": "ubuntu"}]
+        with mock.patch.object(server.subprocess, "Popen", Proc), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=taken):
+            _, body = self.api("POST", "/api/cua/sandboxes", {"name": "   "})
+        self.wait_job(body["job_id"])
+        self.assertEqual(seen[0], ["cua", "sb", "create", "ubuntu", "--name", "ytl-vm-2",
+                                   "--service", "agent=8472"])
 
     def test_create_503_without_cua(self):
         with mock.patch.object(server.cua_client, "find_cua", return_value=None):

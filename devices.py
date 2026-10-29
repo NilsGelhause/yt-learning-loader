@@ -43,7 +43,7 @@ ONLINE_WINDOW = 20.0        # last_seen younger than this = online
 TASK_MAX_LINES = 800        # same cap as agent jobs
 TASK_LINE_CHARS = 1000
 
-TASK_KINDS = ("install-stack", "create-vm", "start-beacon")
+TASK_KINDS = ("install-stack", "create-vm", "start-beacon", "open-desktop")
 
 # Crockford-ish alphabet: no I, L, O, 0, 1 — unambiguous over the phone.
 _PAIR_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -363,6 +363,18 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "'-ExecutionPolicy','Bypass','-File',$script,'-MasterUrl',"
             f"{_ps(master)},'-Token',{_ps(token)} -WindowStyle Hidden",
             "Write-Output 'beacon started (hidden window, re-registers VMs every 30 s)'",
+            "",
+        ])
+    if kind == "open-desktop":
+        vm = str(ctx.get("vm_name") or "")
+        return "\n".join([
+            "$ErrorActionPreference = 'Stop'",
+            f"$name = {_ps(vm)}",
+            "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
+            "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
+            "Start-Process -FilePath $exe -ArgumentList 'sb','view',$name | Out-Null",
+            'Write-Output "desktop viewer started on THIS machine\'s browser (the viewer runs where cua runs)"',
+            "exit 0",
             "",
         ])
     raise ValueError(f"unknown task kind: {kind}")

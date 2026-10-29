@@ -83,6 +83,8 @@ class ConsoleNetworkServerTests(unittest.TestCase):
             mock.patch.object(server, "SETTINGS_JSON", data / "settings.json"),
             mock.patch.object(server, "AGENT_CONVERSATIONS_JSON",
                               data / "agent" / "conversations.json"),
+            mock.patch.object(server, "HIDDEN_SESSIONS_JSON",
+                              data / "hidden_sessions.json"),
             mock.patch.object(server, "TEACH_DIR", root / "teach"),
             mock.patch.object(server, "AGENT_JOBS", {}),
             mock.patch.object(server, "AGENT_POLL_INTERVAL", 0.01),
@@ -116,6 +118,9 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         conv_file = self.data / "agent" / "conversations.json"
         if conv_file.exists():
             conv_file.unlink()
+        hidden_file = self.data / "hidden_sessions.json"
+        if hidden_file.exists():
+            hidden_file.unlink()
 
     def tearDown(self):
         agentd_client.reset_cache()
@@ -501,6 +506,76 @@ class ConsoleNetworkServerTests(unittest.TestCase):
         vm = body["nodes"][1]
         self.assertEqual(vm["id"], "vm-ytl-box")
         self.assertEqual(vm["flavor"], "container")
+
+    # -- POST /api/network/sessions/hide (v1: hide from the view, not delete)
+
+    def test_hide_session_bad_key_shapes_400(self):
+        """A non-string key, an empty one, or one over 100 chars is rejected
+        and nothing is persisted."""
+        for bad in ({"key": 123}, {"key": ""}, {}, {"key": "x" * 101}):
+            status, _ = self.api("POST", "/api/network/sessions/hide", bad)
+            self.assertEqual(status, 400)
+        self.assertFalse((self.data / "hidden_sessions.json").exists())
+
+    def test_hide_session_disappears_from_local_node(self):
+        """Hiding a local session filters it out of /api/network (the other
+        sessions stay), and hidden_count tracks the store."""
+        self.write_conversations({
+            "console:main": {"id": "c1", "cwd": "/app"},
+            "distill:docker-basics": {"id": "c2", "cwd": "/app"},
+        })
+        status, body = self.api("POST", "/api/network/sessions/hide",
+                                {"key": "console:main"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True, "hidden": 1})
+        status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["hidden_count"], 1)
+        sessions = {s["key"]: s for s in body["nodes"][0]["sessions"]}
+        self.assertNotIn("console:main", sessions)
+        self.assertIn("distill:docker-basics", sessions)
+        # re-hiding the same key is a no-op, still counted once
+        status, body = self.api("POST", "/api/network/sessions/hide",
+                                {"key": "console:main"})
+        self.assertEqual(body["hidden"], 1)
+
+    def test_hide_vmtask_session_filters_vm_node_listing(self):
+        """A hidden vmtask:<vm>:<session> key is filtered from its VM node's
+        sessions too, and hidden_count reflects it."""
+        self.write_conversations({
+            "vmtask:ytl-x:s1": {"id": "c1", "cwd": "/app"},
+            "console:main": {"id": "c2", "cwd": "/app"},
+        })
+        self.stub.conversations = [
+            {"key": "vmtask:ytl-x:s1", "id": "c1", "cwd": "/app",
+             "busy": False, "lastStatus": "done"},
+        ]
+        self.api("POST", "/api/network/sessions/hide",
+                 {"key": "vmtask:ytl-x:s1"})
+        with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
+             mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                 {"name": "ytl-x", "status": "running", "image": "", "kind": "vm"}]):
+            status, body = self.api("GET", "/api/network")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["hidden_count"], 1)
+        vm = body["nodes"][1]
+        self.assertEqual(vm["id"], "vm-ytl-x")
+        self.assertEqual(vm["sessions"], [])
+        local = body["nodes"][0]
+        self.assertEqual([s["key"] for s in local["sessions"]], ["console:main"])
+
+    def test_hide_session_persists_to_file(self):
+        """The hidden key lands in hidden_sessions.json; conversations.json
+        (the transcript index) is untouched."""
+        self.write_conversations({"console:main": {"id": "c1", "cwd": "/app"}})
+        status, body = self.api("POST", "/api/network/sessions/hide",
+                                {"key": "console:main"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["hidden"], 1)
+        hidden_file = self.data / "hidden_sessions.json"
+        self.assertEqual(json.loads(hidden_file.read_text(encoding="utf-8")),
+                         ["console:main"])
+        self.assertTrue((self.data / "agent" / "conversations.json").exists())
 
     # -- settings merge for the two new default tabs
 

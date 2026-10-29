@@ -112,6 +112,12 @@
       body.appendChild(emptyState(
         "Only this machine so far — LAN clients will appear here.", "◌"));
     }
+    const hiddenCount = (data && data.hidden_count) || 0;
+    if (hiddenCount > 0) {
+      body.appendChild(el("div", { class: "muted small", style: "padding:2px 12px" },
+        `${hiddenCount} hidden session${hiddenCount === 1 ? "" : "s"}`
+          + " — reload the app to manage"));
+    }
   }
 
   function nodeCard(node) {
@@ -135,6 +141,12 @@
     },
       el("span", { class: `pulse-dot${node.online ? "" : " off"}`, title: node.online ? "online" : "offline" }),
       el("strong", { style: "flex:none" }, node.name || node.id),
+      node.remote && node.online ? el("span", {
+        title: "Opens this VM's Ubuntu desktop in a browser on its laptop (cua sb view)",
+      }, el("button", {
+        class: "btn-sm", style: "margin-left:8px",
+        onclick: (e) => { e.stopPropagation(); openRemoteDesktop(node); },
+      }, "Open desktop")) : null,
       el("span", { class: "chip sm dim" }, node.kind || "local"),
       node.remote ? el("span", { class: "chip sm dim", title: "registered by a remote host" },
         `remote @ ${node.host || "?"}`) : null,
@@ -156,7 +168,21 @@
       el("span", { class: dotCls, title: dotTitle }),
       typeChip(s),
       el("span", { style: "flex:1;min-width:120px", title: s.cwd || "" }, s.title || s.key),
-      el("span", { class: "muted small", title: s.key || "" }, s.busy ? "working…" : (s.status || "idle")));
+      el("span", { class: "muted small", title: s.key || "" }, s.busy ? "working…" : (s.status || "idle")),
+      el("button", {
+        class: "btn-sm", title: "Hide this session from the list (the transcript stays stored)",
+        onclick: () => hideSession(s),
+      }, "×"));
+  }
+
+  /* v1 hide: drops the row from the view (the 3s auto-refresh re-renders
+     without it); the transcript stays in storage, restore UI comes later */
+  async function hideSession(s) {
+    try {
+      await api("/api/network/sessions/hide", {
+        method: "POST", body: { key: s.key || "" },
+      });
+    } catch { /* api() toasted */ }
   }
 
   // auto-refresh while this tab is on screen (showTab clears the screen on
@@ -164,6 +190,25 @@
   setInterval(() => {
     if (document.getElementById("net-body")?.isConnected) load();
   }, 3000);
+
+  /* Remote node: ask the paired device (matched by host name) to open the
+     VM's desktop viewer on the laptop — the viewer runs where cua runs. */
+  async function openRemoteDesktop(node) {
+    let devices;
+    try { devices = await api("/api/devices"); }
+    catch { return; }
+    const dev = ((devices && devices.devices) || []).find(
+      d => (d.hostname || "").toUpperCase() === String(node.host || "").toUpperCase());
+    if (!dev) { toast(`no paired device matches host "${node.host}"`, "error"); return; }
+    if (!dev.stack_done) { toast("run 'Install VM stack' on that device first", "error"); return; }
+    try {
+      await api(`/api/devices/${dev.id}/task`, {
+        method: "POST",
+        body: { kind: "open-desktop", params: { name: node.name } },
+      });
+      toast(`opening ${node.name}'s desktop on ${dev.hostname} — the browser opens there`);
+    } catch { /* api() toasted */ }
+  }
 
   App.tabs.network = { render, built: false };
 })();

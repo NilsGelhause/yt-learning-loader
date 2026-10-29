@@ -48,6 +48,7 @@ TEACH_DIR = ROOT / "teach"
 SKILLS_DIR = ROOT / "skills"
 AGENT_CONVERSATIONS_JSON = DATA / "agent" / "conversations.json"
 REMOTE_NODES_JSON = DATA / "remote_nodes.json"
+HIDDEN_SESSIONS_JSON = DATA / "hidden_sessions.json"
 KIT_DIR = ROOT / "scripts" / "laptop-vm"
 
 KIMI_SKILLS_DIR = Path.home() / ".kimi-code" / "skills"
@@ -1543,11 +1544,18 @@ DOCKER_DESKTOP = [
     r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
     r"C:\Program Files (x86)\Docker\Docker\Docker Desktop.exe",
 ]
-DOCKER_PIPE = r"\.\pipe\dockerDesktopLinuxEngine"
+DOCKER_PIPE = r"\\.\pipe\dockerDesktopLinuxEngine"
 
 
 def docker_engine_running() -> bool:
-    return os.path.exists(DOCKER_PIPE)
+    # os.path.exists() cannot be used here: a live engine pipe makes
+    # os.stat() raise ERROR_PIPE_BUSY (231), which exists() reports as
+    # missing. The pipe existing at all — busy or not — means up.
+    try:
+        os.stat(DOCKER_PIPE)
+        return True
+    except OSError as e:
+        return getattr(e, "winerror", None) == 231  # ERROR_PIPE_BUSY
 
 
 def ensure_container_engine(job: dict, timeout: int = 150) -> bool:
@@ -1575,10 +1583,21 @@ def ensure_container_engine(job: dict, timeout: int = 150) -> bool:
         push(f"could not start Docker Desktop: {e}")
         return False
     deadline = time.time() + timeout
+    started = time.time()
+    next_beat = 20.0
     while time.time() < deadline:
         if docker_engine_running():
             push("container engine is up — creating the VM")
             return True
+        if time.time() - started >= next_beat:
+            elapsed = int(time.time() - started)
+            push(f"still waiting for the container engine… ({elapsed}s)")
+            next_beat += 20.0
+            # the pipe can lag the CLI: once we're waiting anyway, a cua
+            # listing that answers is just as good a readiness signal
+            if cua_client.list_sandboxes():
+                push("container engine is up — creating the VM")
+                return True
         time.sleep(2)
     push("Docker Desktop did not become ready in time — start it manually, then retry")
     return False
@@ -1887,11 +1906,36 @@ def session_type_title(key: str) -> tuple[str, str]:
     return prefix, rest
 
 
+HIDDEN_SESSIONS_LOCK = threading.Lock()
+
+
+def load_hidden_sessions() -> list[str]:
+    """Conversation keys the user hid from the Network tab. v1 is view-only:
+    the transcripts stay in storage, the listing just filters them out."""
+    data = read_json(HIDDEN_SESSIONS_JSON, [])
+    if not isinstance(data, list):
+        return []
+    return [k for k in data if isinstance(k, str)]
+
+
+def hide_session(key: str) -> int:
+    """Add a conversation key to the hidden list, persist, return the count."""
+    with HIDDEN_SESSIONS_LOCK:
+        hidden = load_hidden_sessions()
+        if key not in hidden:
+            hidden.append(key)
+            write_json_atomic(HIDDEN_SESSIONS_JSON, hidden)
+        return len(hidden)
+
+
 def build_network() -> dict:
     """Nodes + sessions for the Network tab. The sidecar is authoritative when
     online (it knows which conversations are busy); file data fills the rest
     with busy=False, status=None. Teach sessions vanish when their workspace
-    is deleted — the transcript stays in storage, but there is nothing to show."""
+    is deleted — the transcript stays in storage, but there is nothing to show.
+    Sessions the user hid (hidden_sessions.json) are filtered out everywhere —
+    local, VM-node and remote-node listings — and only counted."""
+    hidden = set(load_hidden_sessions())
     conv_file = read_json(AGENT_CONVERSATIONS_JSON, {})
     file_sessions: dict[str, dict] = {}
     if isinstance(conv_file, dict):
@@ -1915,7 +1959,7 @@ def build_network() -> dict:
             if not isinstance(c, dict):
                 continue
             key = str(c.get("key") or "")
-            if not key or key in seen:
+            if not key or key in seen or key in hidden:
                 continue
             seen.add(key)
             stype, title = session_type_title(key)
@@ -1929,7 +1973,7 @@ def build_network() -> dict:
                 "cwd": str(c.get("cwd") or file_sessions.get(key, {}).get("cwd") or ""),
             })
     for key in sorted(file_sessions):
-        if key in seen:
+        if key in seen or key in hidden:
             continue
         stype, title = session_type_title(key)
         if stype == "teach" and not teach_workspace_exists(title):
@@ -1961,7 +2005,7 @@ def build_network() -> dict:
             if not isinstance(c, dict):
                 continue
             key = str(c.get("key") or "")
-            if not key or key in keys:
+            if not key or key in keys or key in hidden:
                 continue
             keys.add(key)
             stype, title = session_type_title(key)
@@ -2049,7 +2093,7 @@ def build_network() -> dict:
             "has_endpoint": bool(endpoint),
             "sessions": node_sessions,
         })
-    return {"nodes": nodes}
+    return {"nodes": nodes, "hidden_count": len(hidden)}
 
 
 
@@ -2383,6 +2427,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_agent_vm_task()
             if path == "/api/nodes/register":
                 return self.api_nodes_register()
+            if path == "/api/network/sessions/hide":
+                return self.api_network_session_hide()
             if path == "/api/devices/pair-codes":
                 return self.api_device_pair_codes()
             if path == "/api/devices/pair":
@@ -2439,6 +2485,19 @@ class Handler(BaseHTTPRequestHandler):
         host = str(body.get("host") or "remote")[:80]
         registered = register_remote_nodes(host, body["nodes"])
         self.send_json({"ok": True, "registered": registered})
+
+    def api_network_session_hide(self):
+        """Hide a session from the Network tab (v1: view-only — the transcript
+        stays in storage; a restore UI comes later)."""
+        try:
+            body = self.read_body()
+        except ValueError as e:
+            return self.send_error_json(400, str(e))
+        key = body.get("key") if isinstance(body, dict) else None
+        if not isinstance(key, str) or not key or len(key) > 100:
+            return self.send_error_json(
+                400, "key must be a non-empty string of at most 100 chars")
+        self.send_json({"ok": True, "hidden": hide_session(key)})
 
     # -- devices (Connect device: pairing-based reverse agent, see devices.py)
 
@@ -2564,6 +2623,11 @@ class Handler(BaseHTTPRequestHandler):
         if kind == "create-vm":
             ctx["count"] = int(params.get("count") or 1)
             ctx["name_prefix"] = str(params.get("name_prefix") or "laptop-vm")[:40]
+        if kind == "open-desktop":
+            vm = str(params.get("name") or "")
+            if not devices.REMOTE_NAME_RE.fullmatch(vm):
+                return self.send_error_json(400, "bad vm name")
+            ctx["vm_name"] = vm
         if kind == "start-beacon" and not ctx["lan_token"]:
             return self.send_error_json(400, "start-beacon needs a LAN token — set one in Settings → LAN / other devices")
         try:
@@ -3044,11 +3108,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_cua_create(self):
         body = self.read_body()
-        if not isinstance(body, dict) or not body.get("name"):
+        if not isinstance(body, dict):
             return self.send_error_json(400, 'body must be {"name": ...}')
         if not cua_client.find_cua():
             return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
-        name = cua_client.full_name(str(body["name"]))
+        raw = str(body.get("name") or "").strip()
+        if not raw:
+            # no name given: claim the first free ytl-vm-N slot
+            taken = {s.get("name") for s in cua_client.list_sandboxes()}
+            n = 1
+            while f"ytl-vm-{n}" in taken:
+                n += 1
+            raw = f"vm-{n}"
+        name = cua_client.full_name(raw)
         if not cua_client.valid_name(name):
             return self.send_error_json(400, "bad name — use lowercase letters, digits and dashes (max 40 chars)")
         result = self.spawn_cua_job(name, cua_client.create_argv(name))

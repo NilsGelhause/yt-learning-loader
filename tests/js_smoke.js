@@ -76,6 +76,7 @@ function cannedBody(url) {
   if (url.includes("/api/skills")) return { skills: [] };
   if (url.includes("/videos")) return { videos: [] };
   if (url.includes("/workspaces")) return { workspaces: [] };
+  if (url.includes("/api/network")) return { nodes: [], hidden_count: 0 };
   if (url.includes("/profile")) return { markdown: "" };
   if (url.includes("/learnings/")) return {};
   /* cua installed with one running sandbox — exercises the Sandboxes table,
