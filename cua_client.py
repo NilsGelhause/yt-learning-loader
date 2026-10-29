@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import subprocess
+import threading
 import time
 
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,40}")
@@ -24,18 +25,28 @@ _which_cache: tuple[float, str | None] | None = None
 # Verified against the cua CLI reference (cua.ai/docs): `cua sandbox` has
 # `ls`/`info`/`rm`/`exec`/`screenshot`; `sb` is the alias and `cua sb list`
 # is documented. Try `--json` first (global flag), fall back to table text.
+# Only three attempts: each is a subprocess; a slow daemon must not make the
+# webapp wait a minute per page load.
 _LIST_ARGV = (
     ("sb", "list", "--json"),
-    ("sb", "ls", "--json"),
-    ("sb", "list"),
     ("sb", "ls"),
 )
+_LIST_TIMEOUT = 8
+_LIST_CACHE_TTL = 5.0
+
+_list_lock = threading.Lock()
+_list_cache: tuple[float, list] | None = None
+"""(monotonic timestamp, last result) — successes AND failures are cached so
+a slow/dead cua daemon is never hammered by the polling tabs."""
 
 
 def reset_cache() -> None:
-    """Drop the cached find_cua() result (tests call this)."""
-    global _which_cache
+    """Drop cached find_cua()/list_sandboxes()/version() results (tests call this)."""
+    global _which_cache, _list_cache, _version_cache
     _which_cache = None
+    _version_cache = None
+    with _list_lock:
+        _list_cache = None
 
 
 def find_cua() -> str | None:
@@ -82,28 +93,48 @@ def resume_argv(name: str) -> list[str]:
     return ["sb", "resume", name]
 
 
+_version_lock = threading.Lock()
+_version_cache: tuple[float, str | None] | None = None
+_VERSION_TTL = 300.0
+
+
 def version(exe: str | None = None) -> str | None:
-    """`cua --version` output, loosely parsed; None on any failure."""
+    """`cua --version` output, loosely parsed; None on any failure.
+    Cached for a few minutes — the UI polls status every few seconds and the
+    version cannot change underneath a running server."""
+    global _version_cache
+    with _version_lock:
+        if _version_cache and time.monotonic() - _version_cache[0] < _VERSION_TTL:
+            return _version_cache[1]
     exe = exe or find_cua()
     if not exe:
         return None
     try:
         proc = subprocess.run([exe, "--version"], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=15)
+                              encoding="utf-8", errors="replace", timeout=15,
+                              stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError):
+        result = None
+        with _version_lock:
+            _version_cache = (time.monotonic(), result)
         return None
     out = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
     if not out:
-        return None
-    # shapes seen across CLIs: "cua 1.2.3", "cua-cli 1.2.3", "1.2.3"
-    m = re.search(r"(\d+(?:\.\d+)+(?:[-+][\w.]+)?)", out)
-    return m.group(1) if m else out.splitlines()[0][:40]
+        result = None
+    else:
+        # shapes seen across CLIs: "cua 1.2.3", "cua-cli 1.2.3", "1.2.3"
+        m = re.search(r"(\d+(?:\.\d+)+(?:[-+][\w.]+)?)", out)
+        result = m.group(1) if m else out.splitlines()[0][:40]
+    with _version_lock:
+        _version_cache = (time.monotonic(), result)
+    return result
 
 
 def _run_list(exe: str, args: tuple[str, ...]) -> str | None:
     try:
         proc = subprocess.run([exe, *args], capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=30)
+                              encoding="utf-8", errors="replace",
+                              timeout=_LIST_TIMEOUT, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError):
         return None
     if proc.returncode != 0:
@@ -187,17 +218,27 @@ def _parse_table(text: str) -> list[dict]:
 
 
 def list_sandboxes(exe: str | None = None) -> list[dict]:
-    """Sandboxes as [{"name", "status", "image", "kind"}]. Tries `sb list`/`sb ls`
-    (JSON first); any failure or unparseable output -> []."""
+    """Sandboxes as [{"name", "status", "image", "kind", "endpoints"}]. Tries
+    `sb list`/`sb ls` (JSON first); any failure or unparseable output -> [].
+    Results (including failures) are cached for a few seconds — the UI polls
+    several endpoints every few seconds and each poll must not spawn a fresh
+    cua subprocess."""
+    global _list_cache
+    with _list_lock:
+        if _list_cache and time.monotonic() - _list_cache[0] < _LIST_CACHE_TTL:
+            return _list_cache[1]
     exe = exe or find_cua()
-    if not exe:
-        return []
-    for args in _LIST_ARGV:
-        text = _run_list(exe, args)
-        if text is None:
-            continue  # command failed — maybe this build lacks it; try the next
-        parsed = _parse_json(text) if "--json" in args else None
-        if parsed is None:
-            parsed = _parse_table(text)
-        return parsed  # the list command answered; trust its shape
-    return []
+    result: list[dict] = []
+    if exe:
+        for args in _LIST_ARGV:
+            text = _run_list(exe, args)
+            if text is None:
+                continue  # command failed — maybe this build lacks it; try the next
+            parsed = _parse_json(text) if "--json" in args else None
+            if parsed is None:
+                parsed = _parse_table(text)
+            result = parsed  # the list command answered; trust its shape
+            break
+    with _list_lock:
+        _list_cache = (time.monotonic(), result)
+    return result

@@ -31,6 +31,10 @@ _pf_lock = threading.Lock()
 _pf_procs: dict[str, tuple[subprocess.Popen, int]] = {}
 """Sandbox name -> (host port-forward process, host port). Lives as long as
 the server process; the forward itself is a persistent host process."""
+_pf_failed_at: dict[str, float] = {}
+"""Sandbox name -> last failed spawn/forward attempt; respawns are backed off
+so a dead forward is not retried on every poll."""
+PF_RETRY_SECONDS = 60.0
 
 _health_lock = threading.Lock()
 _health_cache: dict[str, tuple[float, dict | None]] = {}
@@ -81,7 +85,8 @@ def _port_free(port: int) -> bool:
 def _ensure_port_forward(name: str) -> str | None:
     """Start (once) a managed `cua sb port-forward` for a legacy sandbox that
     does not publish its sidecar port. Returns http://127.0.0.1:<port>, or
-    None when no free port in the range or the spawn failed."""
+    None when no free port in the range or the spawn failed. Retries are
+    backed off so a wedged forward can't churn processes on every poll."""
     exe = cua_client.find_cua()
     if not exe:
         return None
@@ -89,9 +94,13 @@ def _ensure_port_forward(name: str) -> str | None:
         live = _pf_procs.get(name)
         if live and live[0].poll() is None:
             return f"http://127.0.0.1:{live[1]}"
+        failed_at = _pf_failed_at.get(name, 0.0)
+        if time.monotonic() - failed_at < PF_RETRY_SECONDS:
+            return None
         port = next((FALLBACK_PORT_BASE + i for i in range(FALLBACK_PORT_COUNT)
                      if _port_free(FALLBACK_PORT_BASE + i)), None)
         if port is None:
+            _pf_failed_at[name] = time.monotonic()
             return None
         try:
             proc = subprocess.Popen(
@@ -100,11 +109,26 @@ def _ensure_port_forward(name: str) -> str | None:
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
         except Exception:  # noqa: BLE001 - spawn failure tolerated
+            _pf_failed_at[name] = time.monotonic()
             return None
         _pf_procs[name] = (proc, port)
     print(f"vm_nodes: port-forward for {name} on 127.0.0.1:{port} "
           f"(pid {proc.pid})")
     return f"http://127.0.0.1:{port}"
+
+
+def reap_dead_forwards(sandboxes: list[dict]) -> None:
+    """Kill managed port-forwards whose sandbox no longer exists."""
+    alive = {str(sb.get("name") or "") for sb in sandboxes
+             if isinstance(sb, dict)}
+    with _pf_lock:
+        for name, (proc, _port) in list(_pf_procs.items()):
+            if name not in alive and proc.poll() is None:
+                try:
+                    proc.kill()
+                except Exception:  # noqa: BLE001
+                    pass
+                del _pf_procs[name]
 
 
 def node_endpoint(name: str) -> str | None:
@@ -170,6 +194,7 @@ def list_nodes() -> list[dict]:
         sandboxes = cua_client.list_sandboxes()
     except Exception:  # noqa: BLE001
         return []
+    reap_dead_forwards(sandboxes)
     out = []
     for sb in sandboxes:
         try:
