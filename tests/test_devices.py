@@ -471,3 +471,39 @@ class DeviceServerTests(unittest.TestCase):
         # unknown id -> 404
         status, _ = self.api("POST", f"/api/devices/{device_id}/remove", {})
         self.assertEqual(status, 404)
+
+    def test_create_vm_auto_chains_start_beacon(self):
+        """A successfully finished create-vm task starts the beacon on that
+        device automatically — no manual click needed."""
+        device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        self.write_settings({"lan_token": self.TOKEN, "host": "0.0.0.0",
+                             "port": self.port})
+        _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                           {"kind": "create-vm", "params": {"count": 1}})
+        task_id = body["task_id"]
+        self.api("GET", f"/api/devices/{device_id}/next?token={token}")
+        self.api("POST", f"/api/devices/{device_id}/output",
+                 {"token": token, "task_id": task_id, "done": True, "exit_code": 0})
+        _, listing = self.api("GET", "/api/devices")
+        dev = next(d for d in listing["devices"] if d["id"] == device_id)
+        kinds = [t["kind"] for t in dev["tasks"]]
+        self.assertIn("start-beacon", kinds)
+        chained = next(t for t in dev["tasks"] if t["kind"] == "start-beacon")
+        self.assertIn("auto", chained["label"])
+
+    def test_failed_create_vm_does_not_chain_beacon(self):
+        """A failed create-vm leaves the beacon alone."""
+        device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        self.write_settings({"lan_token": self.TOKEN, "host": "0.0.0.0",
+                             "port": self.port})
+        _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                           {"kind": "create-vm", "params": {"count": 1}})
+        task_id = body["task_id"]
+        self.api("GET", f"/api/devices/{device_id}/next?token={token}")
+        self.api("POST", f"/api/devices/{device_id}/output",
+                 {"token": token, "task_id": task_id, "done": True, "exit_code": 1})
+        _, listing = self.api("GET", "/api/devices")
+        dev = next(d for d in listing["devices"] if d["id"] == device_id)
+        self.assertNotIn("start-beacon", [t["kind"] for t in dev["tasks"]])

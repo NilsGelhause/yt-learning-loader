@@ -355,6 +355,10 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "$script = Join-Path $dir 'Register-Nodes.ps1'",
             download.format(url=_ps(f"{master}/kit/Register-Nodes.ps1"),
                             dest="$script"),
+            # idempotent: stop any previous beacon before starting a new one",
+            "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" |",
+            "    Where-Object { $_.CommandLine -like '*Register-Nodes.ps1*' } |",
+            "    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
             "Start-Process powershell -ArgumentList '-NoProfile','-WindowStyle','Hidden',"
             "'-ExecutionPolicy','Bypass','-File',$script,'-MasterUrl',"
             f"{_ps(master)},'-Token',{_ps(token)} -WindowStyle Hidden",

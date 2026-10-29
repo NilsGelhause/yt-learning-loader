@@ -2409,6 +2409,21 @@ class Handler(BaseHTTPRequestHandler):
         if not ok:
             return self.send_error_json(401, "device auth failed")
         self.send_json({"ok": True})
+        # Auto-chain: VMs were created on the laptop → start its beacon so the
+        # new VMs show up in the master's Network tab without a manual click.
+        if body.get("done") and not body.get("exit_code"):
+            try:
+                task = devices.DEVICES.get(device_id, {}).get("tasks", {}).get(
+                    str(body.get("task_id") or ""), {})
+                if (task.get("kind") == "create-vm" and not task.get("beacon_chained")):
+                    task["beacon_chained"] = True
+                    ctx = self._device_task_ctx()
+                    if ctx["lan_token"]:
+                        script = devices.build_task_script("start-beacon", ctx)
+                        devices.queue_task(device_id, "start-beacon", script,
+                                           "start beacon (auto)")
+            except Exception:  # noqa: BLE001 - chaining is best-effort
+                pass
 
     def _device_task_ctx(self) -> dict:
         """Device-reachable master URL (first LAN url) + the LAN token, which
