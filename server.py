@@ -229,6 +229,9 @@ AUDIT_LOG = DATA / "audit.log"
 # finished scrapes get auto-analyzed.
 AGENT_JOBS: dict[str, dict] = {}
 AGENT_JOBS_LOCK = threading.Lock()
+devices.set_job_sink(AGENT_JOBS, AGENT_JOBS_LOCK)
+# devices.py must never `import server` (this module is __main__ in
+# production — a fresh import would create a second AGENT_JOBS registry).
 AGENT_MAX_LINES = 800
 CUA_JOB_TIMEOUT = 900  # cua create/remove may download images; beyond this, kill
 PROVISION_STEP_TIMEOUT = 600  # per-step ceiling for Install agent (npm ci ~10s; image hiccups happen)

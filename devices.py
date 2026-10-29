@@ -198,14 +198,14 @@ def push_task_output(device_id: str, token: str, task_id: str, line=None,
 
 
 def _mirror_to_agent_jobs(task_id: str, task: dict) -> None:
-    """Mirror the task into server.AGENT_JOBS with the regular job shape so
-    /api/agent/job/<id> streams device tasks into the existing transcript UI."""
-    try:
-        import server
-    except Exception:  # noqa: BLE001 - devices.py must also work standalone
+    """Mirror the task into the server's AGENT_JOBS with the regular job shape
+    so /api/agent/job/<id> streams device tasks into the existing transcript
+    UI. Uses the sink injected by server.py — see JOB_SINK above."""
+    if not JOB_SINK:
         return
-    with server.AGENT_JOBS_LOCK:
-        job = server.AGENT_JOBS.get(task_id)
+    jobs, lock = JOB_SINK
+    with lock:
+        job = jobs.get(task_id)
         if job is None:
             job = {
                 "id": task_id, "workspace": None, "status": task["status"],
@@ -214,12 +214,24 @@ def _mirror_to_agent_jobs(task_id: str, task: dict) -> None:
                 "lines": [], "exit_code": None,
                 "started": int(task.get("created") or time.time()), "ended": None,
             }
-            server.AGENT_JOBS[task_id] = job
+            jobs[task_id] = job
         job["status"] = task["status"]
         job["lines"] = list(task["lines"])
         job["exit_code"] = task.get("exit_code")
         if task.get("ended"):
             job["ended"] = int(task["ended"])
+
+
+JOB_SINK = None
+"""(jobs_dict, lock) injected by server.py at startup. NEVER `import server`
+here: in production server.py runs as __main__, so a fresh import would
+create a SECOND module object with a separate AGENT_JOBS dict and the
+transcript mirror would vanish (the job-404 toasts)."""
+
+
+def set_job_sink(jobs, lock):
+    global JOB_SINK
+    JOB_SINK = (jobs, lock)
 
 
 TASK_STALE_SECONDS = 600.0
@@ -364,12 +376,11 @@ def remove_device(device_id: str, online: bool) -> str | None:
             return "device is still online — close its agent on the laptop first"
         del DEVICES[device_id]
         _save_devices()
-    try:
-        import server
-        with server.AGENT_JOBS_LOCK:
-            for jid, job in list(server.AGENT_JOBS.items()):
-                if job.get("backend") == "device" and job.get("device_id") == device_id:
-                    del server.AGENT_JOBS[jid]
-    except Exception:  # noqa: BLE001 - mirror cleanup is best-effort
-        pass
+    if JOB_SINK:
+        jobs, lock = JOB_SINK
+        with lock:
+            for jid, job in list(jobs.items()):
+                if (job.get("backend") == "device"
+                        and job.get("device_id") == device_id):
+                    del jobs[jid]
     return None
