@@ -94,7 +94,10 @@ function Get-SandboxNodes {
                 kind  = if ($sb.kind) { [string]$sb.kind } else { 'vm' }
                 state = if ($sb.status) { [string]$sb.status } else { '' }
             }
-            $agent = $sb.endpoints.agent
+            $agent = $null
+            if ($sb.endpoints -and $sb.endpoints.PSObject.Properties['agent']) {
+                $agent = $sb.endpoints.agent
+            }
             if ($agent -and ([string]$agent).StartsWith('http')) {
                 $node.endpoint = [string]$agent
             }
