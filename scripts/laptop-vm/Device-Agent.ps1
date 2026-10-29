@@ -1,4 +1,4 @@
-# Device-Agent.ps1 — pairing-based reverse agent ("Connect device").
+﻿# Device-Agent.ps1 — pairing-based reverse agent ("Connect device").
 #
 # Runs ON THE LAPTOP (PowerShell 5.1+). The master app shows a pairing code;
 # the laptop runs ONE line:

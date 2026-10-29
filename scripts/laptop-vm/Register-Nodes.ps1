@@ -1,4 +1,4 @@
-# Register-Nodes.ps1 — laptop-side beacon: registers this laptop's cua VMs
+﻿# Register-Nodes.ps1 — laptop-side beacon: registers this laptop's cua VMs
 # with the master's Network tab.
 #
 # Runs `cua sb list --json` on an interval and POSTs every sandbox to the
