@@ -94,7 +94,7 @@ $Streaming = @{}   # taskId -> @{ out, err, done, sent }
 function Task-Paths([string]$taskId) {
     $base = Join-Path $env:TEMP ("ytl-task-" + $taskId)
     return @{ out = "$base.out"; err = "$base.err"; done = "$base.done";
-              script = "$base.ps1"; launcher = "$base.run.ps1" }
+              script = "$base.ps1"; launcher = "$base.run.ps1"; launchlog = "$base.launch.log" }
 }
 
 function Start-Task($task) {
@@ -108,11 +108,16 @@ function Start-Task($task) {
     Set-Content -Path $p.launcher -Encoding UTF8 -Value @"
 `$code = 0
 `$global:LASTEXITCODE = 0
-try { & '$($p.script)' } catch { `$code = 1; Add-Content -Path '$($p.err)' -Value ("LAUNCHER: " + `$_.Exception.Message) -Encoding UTF8 }
+try { & '$($p.script)' } catch {
+    `$code = 1
+    # separate file: the .err path is held open by cmd's 2> redirection
+    try { [IO.File]::AppendAllText('$($p.launchlog)', "LAUNCHER: " + `$_.Exception.Message + [Environment]::NewLine) } catch { }
+}
 if (`$global:LASTEXITCODE) { `$code = `$global:LASTEXITCODE }
-[System.IO.File]::WriteAllText('$($p.done)', [string]`$code)
+# the done marker is unconditional - a throw must never stall the queue
+try { [System.IO.File]::WriteAllText('$($p.done)', [string]`$code) } catch { }
 "@
-    Remove-Item $p.out, $p.err, $p.done -Force -ErrorAction SilentlyContinue
+    Remove-Item $p.out, $p.err, $p.done, $p.launchlog -Force -ErrorAction SilentlyContinue
 
     # cmd line: powershell runs the launcher, streams go to files, stdin EOF.
     $inner = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $p.launcher + '"'
