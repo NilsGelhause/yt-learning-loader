@@ -13,6 +13,10 @@
       LAN token. From laptop-hosted VMs the master's LAN IP is the target
       (10.0.2.2 would be the laptop itself).
 
+  Exit code: 0 when every requested VM exists afterwards (created or already
+  present), 1 when cua is missing or any creation failed. The device agent
+  relies on this exit code to decide whether to auto-chain the beacon task.
+
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 3
 #>
@@ -29,6 +33,14 @@ Write-Host "Planning $Count VM(s) named $Name-1 .. $Name-$Count" -ForegroundColo
 Write-Host "Master (open inside each VM's browser): $MasterUrl"
 Write-Host "Check the laptop can handle it: each VM defaults to 4 GB RAM / 2-4 CPUs.`n"
 
+if (-not (Get-Command cua -ErrorAction SilentlyContinue)) {
+    Write-Host "ERROR: the 'cua' CLI is not on PATH on this laptop." -ForegroundColor Red
+    Write-Host "Run Install-VmStack.ps1 here first (it installs cua and the QEMU runtime)."
+    exit 1
+}
+
+$failed = @()
+
 for ($i = 1; $i -le $Count; $i++) {
     $vm = "{0}-{1}" -f $Name, $i
     $exists = & cua sb list --json 2>$null | ConvertFrom-Json | Where-Object { $_.name -eq $vm }
@@ -37,9 +49,14 @@ for ($i = 1; $i -le $Count; $i++) {
         continue
     }
     Write-Host "[$vm] creating (first run downloads the image, can take minutes) ..."
-    & cua sb create ubuntu --kind vm --runtime qemu --name $vm --service agent=8472 --json
+    $log = Join-Path $env:TEMP ("cua-create-{0}.log" -f $vm)
+    & cua sb create ubuntu --kind vm --runtime qemu --name $vm --service agent=8472 --json *>&1 | Tee-Object -FilePath $log
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[$vm] creation FAILED — run 'cua doctor' / 'cua runtime doctor' for why." -ForegroundColor Red
+        Write-Host "[$vm] creation FAILED — full cua output:" -ForegroundColor Red
+        Get-Content $log -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+        Write-Host ("[{0}] run this on the laptop to see the full error: cua sb create ubuntu --kind vm --name {0}" -f $vm) -ForegroundColor Yellow
+        Write-Host "[$vm] QEMU VMs on a fresh machine usually fail here because of the shim/WHPX/keymaps — Install-VmStack.ps1 fixes those." -ForegroundColor Yellow
+        $failed += $vm
         continue
     }
     Write-Host ("[{0}] ready. View: Cua Spaces app, or 'cua sb port-forward {0} 5900:{1}' + VNC viewer." -f $vm, (5900 + $i)) -ForegroundColor Green
@@ -48,3 +65,9 @@ for ($i = 1; $i -le $Count; $i++) {
 
 Write-Host "`nList:   cua sb list`nRemove: cua sb rm <name> --force"
 Write-Host "Scale: re-run with -Count 5 (max 5 per laptop by design; each needs ~4 GB free RAM)."
+
+if ($failed.Count -gt 0) {
+    Write-Host ("`nFAILED: {0} of {1} VM(s) could not be created: {2}" -f $failed.Count, $Count, ($failed -join ", ")) -ForegroundColor Red
+    exit 1
+}
+exit 0

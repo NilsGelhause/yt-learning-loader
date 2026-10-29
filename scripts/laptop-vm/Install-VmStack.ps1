@@ -25,6 +25,7 @@
 param()
 
 $ErrorActionPreference = "Stop"
+trap { Write-Host "`nERROR: $_" -ForegroundColor Red; exit 1 }
 $QemuDir = "C:\Program Files\qemu"
 $ShimSrc = Join-Path $PSScriptRoot "QemuShim.cs"
 
@@ -74,7 +75,7 @@ if ($doctor -match "qemu\s+ok") {
     if ($doctor -match "qemu\s+ok") {
         Write-Host "qemu ready."
     } else {
-        Write-Host "qemu still not ready after 'cua runtime setup' — see 'cua runtime doctor'." -ForegroundColor Yellow
+        throw "qemu still not ready after 'cua runtime setup' — run 'cua runtime doctor' on the laptop for details."
     }
 }
 
@@ -99,7 +100,7 @@ $shimInstalled = Join-Path $QemuDir "qemu-system-x86_64.exe"
 if ((Test-Path $real) -and (Test-Path $shimInstalled)) {
     Write-Host "shim already installed."
 } elseif (-not (Test-Path $shimInstalled) -and -not (Test-Path $real)) {
-    Write-Host "qemu-system-x86_64.exe not found at $QemuDir — install QEMU first (step 3)."
+    throw "qemu-system-x86_64.exe not found at $QemuDir — QEMU is not installed (step 3 failed?); run 'cua runtime doctor'."
 } else {
     # Partial state from an earlier run: only the original exe (fresh install)
     # or only the .real.exe (shim lost) — both are repaired here.
@@ -118,6 +119,7 @@ if ((Test-Path $real) -and (Test-Path $shimInstalled)) {
 Write-Host "`n== Done." -ForegroundColor Green
 if ($global:needsReboot) {
     Write-Host "REBOOT NOW, then continue with New-LaptopVm.ps1." -ForegroundColor Yellow
-} else {
-    Write-Host "Next:  powershell -ExecutionPolicy Bypass -File .\New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 1"
+    exit 42
 }
+Write-Host "Next:  powershell -ExecutionPolicy Bypass -File .\New-LaptopVm.ps1 -MasterUrl http://192.168.50.111:8471 -Count 1"
+exit 0

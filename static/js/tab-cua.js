@@ -118,15 +118,15 @@
         el("span", { class: "chip sm dim" }, "Ubuntu"),
         el("span", { class: "muted small" },
           "created as ytl-<name> — the first creation downloads the image, which can take minutes")),
-      tutorialPanes(),
       tablePane(data),
       devicesPane(),
       el("div", { class: "agent-console scroll", id: "cua-job", style: "max-height:220px" }),
       usageHint(),
+      guidesPane(),
     );
   }
 
-  /* ---------- how-to-get-onto-a-VM tutorial panes ---------- */
+  /* ---------- guides: how-to-get-onto-a-VM panes (bottom of the tab) ------ */
 
   function howToPane(title, steps, note) {
     const arrow = el("span", { class: "muted small" }, "▸");
@@ -145,7 +145,7 @@
       el("div", { class: "pane-body", style: "display:flex;flex-direction:column" }, head, inner));
   }
 
-  function tutorialPanes() {
+  function guidesPane() {
     const local = howToPane("Getting onto a local VM (on this PC)", [
       [el("span", null, "Terminal button (in the Sandboxes table) — a bash shell right in the browser")],
       [el("span", null, "Desktop button — this VM's Ubuntu desktop in a browser window (needs the VM running; serves ~1 h)")],
@@ -167,7 +167,10 @@
     ],
       "Viewing a laptop VM from the master's browser is a future step — "
       + "the viewer runs where cua runs, so it must be started on the laptop.");
-    return el("div", { style: "display:flex;flex-direction:column;gap:10px" }, local, laptop);
+    /* both panes start collapsed (inner display:none + ▸ arrow) */
+    return el("div", { class: "pane", style: "padding:0" },
+      el("div", { class: "pane-header" }, "Guides — getting onto VMs"),
+      el("div", { class: "pane-body", style: "display:flex;flex-direction:column;gap:10px" }, local, laptop));
   }
 
   /* ---------- devices (Connect device: reverse agent on a second laptop) --- */
@@ -265,8 +268,10 @@
       el("span", { class: "spacer" }),
       taskChips,
       tipBtn("Install VM stack",
-        "Installs cua CLI, the Windows hypervisor feature, QEMU, the keymaps fix and the shim on the laptop — needs one UAC click there; a reboot may be required",
-        { disabled: busy || undefined },
+        dev.stack_done
+          ? "VM stack already installed on this device"
+          : "Installs cua CLI, the Windows hypervisor feature, QEMU, the keymaps fix and the shim on the laptop — needs one UAC click there; a reboot may be required",
+        { disabled: busy || dev.stack_done || undefined },
         () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`)),
       tipBtn("Create VM",
         !dev.stack_done ? "Locked — run 'Install VM stack' first"

@@ -343,7 +343,15 @@ def build_task_script(kind: str, ctx: dict) -> str:
                             dest="(Join-Path $tmp 'New-LaptopVm.ps1')"),
             f"powershell -ExecutionPolicy Bypass -File (Join-Path $tmp 'New-LaptopVm.ps1') "
             f"-MasterUrl {_ps(master)} -Count {count} -Name {_ps(prefix)}",
-            "exit $LASTEXITCODE",
+            # New-LaptopVm.ps1 exits 1 when any VM failed to create (and prints
+            # the failing VM + cua output); echo a clear final line either way.
+            "$code = $LASTEXITCODE",
+            "if ($code -eq 0) {",
+            "    Write-Output '[OK] VMs created on the laptop'",
+            "} else {",
+            "    Write-Output '[FAILED] see the lines above — run the create on the laptop to see the full error'",
+            "}",
+            "exit $code",
             "",
         ])
     if kind == "start-beacon":
