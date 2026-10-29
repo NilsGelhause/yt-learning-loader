@@ -500,14 +500,16 @@
 
   async function doCreate(input) {
     const raw = (input.value || "").trim();
-    if (!raw || anyJobRunning()) return;
+    if (anyJobRunning()) return;
     let res;
     try {
+      /* empty name: the server picks the first free ytl-vm-N */
       res = await api("/api/cua/sandboxes", { method: "POST", body: { name: raw } });
     } catch { return; }  /* api() toasted the reason (409/400/503) */
     input.value = "";
-    toast(`creating ytl-${raw.toLowerCase().replace(/^ytl-/, "")}…`);
-    startJob(res.job_id, `create ytl-${raw.toLowerCase().replace(/^ytl-/, "")}`);
+    const label = raw ? `ytl-${raw.toLowerCase().replace(/^ytl-/, "")}` : "next free ytl-vm-N";
+    toast(`creating ${label}…`);
+    startJob(res.job_id, `create ${label}`);
   }
 
   async function doCreateThree() {
