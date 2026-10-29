@@ -30,6 +30,7 @@ from pathlib import Path
 
 import agentd_client
 import cua_client
+import devices
 import vm_nodes
 
 ROOT = Path(__file__).parent
@@ -47,6 +48,7 @@ TEACH_DIR = ROOT / "teach"
 SKILLS_DIR = ROOT / "skills"
 AGENT_CONVERSATIONS_JSON = DATA / "agent" / "conversations.json"
 REMOTE_NODES_JSON = DATA / "remote_nodes.json"
+KIT_DIR = ROOT / "scripts" / "laptop-vm"
 
 KIMI_SKILLS_DIR = Path.home() / ".kimi-code" / "skills"
 """User-scope Kimi Code skills — copying a skill here makes it loadable in any
@@ -86,10 +88,11 @@ STRUCTURE_DESCRIPTIONS = {
     "static/js/tab-tests.js": "Tab 9 — the test suite: run tests live, searchable/sortable/groupable results with plain-language descriptions.",
     "static/js/tab-console.js": "Tab 11 — a standalone agent console with one persistent conversation for the whole app (no workspace): ask anything, the agent reads the app's files to answer.",
     "static/js/tab-network.js": "Tab 12 — the agent network view: one bordered card per machine (this one, plus cua sandboxes as VM nodes) with its durable-agent sessions indented inside, color-coded session-type chips, busy/idle/error status and connection hints.",
-    "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, open a raw per-VM terminal (persistent cua sb exec bash), and link to the cua infographic.",
+    "static/js/tab-cua.js": "Tab 13 — CUA Spaces: create Ubuntu VMs (cua sandboxes) that act as LAN clients, watch create/remove jobs stream, open a raw per-VM terminal (persistent cua sb exec bash), and connect a second Windows laptop as a device (pairing code + one PowerShell line, then Install VM stack / Create VMs / Start beacon buttons).",
     "static/js/tab-settings.js": "Tab 10 — appearance, scraping defaults, the tab manager (reorder/colors/visibility), data stats, profile path.",
     "cua_client.py": "The cua (trycua/cua) CLI client: locate the CLI, report its version, list sandboxes — tolerant of CLI drift, stdlib only. Sandboxes live outside the repo; nothing here installs or vendors cua.",
     "vm_nodes.py": "VM node agent discovery: the in-guest agentd sidecar endpoint per sandbox (published endpoints.agent, else a managed cua sb port-forward on a loopback port from a fixed range), cached /health probes, and per-node /conversations — the wiring behind 'agents inside VMs'.",
+    "devices.py": "Connect device: pairing-based reverse agent for a second Windows laptop — short-lived pairing codes, device registry (persisted to data/devices.json), the three pre-built device task scripts (install VM stack / create VMs / start beacon) and the mirror of device tasks into AGENT_JOBS so the job transcript UI streams them.",
     "static/vendor/mermaid.min.js": "Vendored copy of mermaid v11 (diagram rendering) so the app works fully offline.",
     "tests/test_all.py": "The test suite — server endpoints, scraper helpers, workspace/agent flows, the skill taxonomy guard, file-preview API — against temp data dirs.",
     "tests/test_agentd.py": "The agentd integration tests — a stub sidecar (stdlib http.server on an ephemeral port) verifies the client, the durable/CLI backend selection, job streaming, cancel proxying, and the run_analysis durable branches.",
@@ -2160,6 +2163,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.serve_static("index.html")
             if path == "/cua-spaces-infographic.html":
                 return self.serve_file(ROOT / "cua-spaces-infographic.html", "text/html")
+            if path == "/device-agent.ps1":
+                return self.serve_kit_file("Device-Agent.ps1")
+            m = re.fullmatch(r"/kit/([A-Za-z0-9.-]+)", path)
+            if m:
+                return self.serve_kit_file(m.group(1))
             if path.startswith("/static/"):
                 return self.serve_static(path[len("/static/"):])
             if path == "/api/state":
@@ -2201,6 +2209,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_status()
             if path == "/api/vm-nodes":
                 return self.api_vm_nodes()
+            if path == "/api/devices":
+                return self.api_devices()
+            m = re.fullmatch(r"/api/devices/([^/]+)/next", path)
+            if m:
+                return self.api_device_next(m.group(1), query)
             m = re.fullmatch(r"/api/cua/term/([^/]+)", path)
             if m:
                 return self.api_cua_term_get(m.group(1))
@@ -2277,6 +2290,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_agent_vm_task()
             if path == "/api/nodes/register":
                 return self.api_nodes_register()
+            if path == "/api/devices/pair-codes":
+                return self.api_device_pair_codes()
+            if path == "/api/devices/pair":
+                return self.api_device_pair()
+            m = re.fullmatch(r"/api/devices/([^/]+)/output", path)
+            if m:
+                return self.api_device_output(m.group(1))
+            m = re.fullmatch(r"/api/devices/([^/]+)/task", path)
+            if m:
+                return self.api_device_task(m.group(1))
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -2320,6 +2343,110 @@ class Handler(BaseHTTPRequestHandler):
         host = str(body.get("host") or "remote")[:80]
         registered = register_remote_nodes(host, body["nodes"])
         self.send_json({"ok": True, "registered": registered})
+
+    # -- devices (Connect device: pairing-based reverse agent, see devices.py)
+
+    def serve_kit_file(self, name: str):
+        """Serve a file from scripts/laptop-vm/ (Device-Agent.ps1 + the kit
+        the device task scripts download). Plain-text, no-cache, LAN-public by
+        design — the sensitive bits (device token, LAN token) never ride here."""
+        if not re.fullmatch(r"[A-Za-z0-9.-]+", name):
+            return self.send_error_json(400, "bad filename")
+        target = (KIT_DIR / name).resolve()
+        if not str(target).startswith(str(KIT_DIR.resolve()) + os.sep) or not target.is_file():
+            return self.send_error_json(404, "not_found")
+        self.serve_file(target, "text/plain")
+
+    def api_device_pair_codes(self):
+        """Mint a pairing code for the Connect-device card (UI button)."""
+        code, expires = devices.new_pair_code()
+        self.send_json({"code": code, "expires_in": int(expires - time.time())})
+
+    def api_device_pair(self):
+        """Device-agent entry point: consume a code, get device_id + token."""
+        try:
+            body = self.read_body()
+        except ValueError as e:
+            return self.send_error_json(400, str(e))
+        if not isinstance(body, dict):
+            return self.send_error_json(400, 'body must be {"code": ..., "hostname": ...}')
+        code = str(body.get("code") or "")
+        hostname = str(body.get("hostname") or "device")[:80]
+        result = devices.register_device(code, hostname)
+        if not result:
+            return self.send_error_json(400, "invalid or expired pairing code")
+        device_id, token = result
+        self.send_json({"device_id": device_id, "token": token})
+
+    def api_devices(self):
+        self.send_json({"devices": devices.list_devices()})
+
+    def api_device_next(self, device_id: str, query: dict):
+        """The device long-polls (well, short-polls) for its next task. Auth is
+        the device token in ?token= — devices don't have a header habit."""
+        token = (query.get("token") or [""])[0]
+        if not devices.device_seen(device_id, token):
+            return self.send_error_json(401, "device auth failed")
+        self.send_json({"task": devices.next_task(device_id, token)})
+
+    def api_device_output(self, device_id: str):
+        try:
+            body = self.read_body()
+        except ValueError as e:
+            return self.send_error_json(400, str(e))
+        if not isinstance(body, dict):
+            return self.send_error_json(400, "body must be a JSON object")
+        ok = devices.push_task_output(
+            device_id, str(body.get("token") or ""), str(body.get("task_id") or ""),
+            line=body.get("line"), done=bool(body.get("done")),
+            exit_code=body.get("exit_code"), needs_admin=bool(body.get("needs_admin")))
+        if not ok:
+            return self.send_error_json(401, "device auth failed")
+        self.send_json({"ok": True})
+
+    def _device_task_ctx(self) -> dict:
+        """Device-reachable master URL (first LAN url) + the LAN token, which
+        only ever travels device-bound inside a built task script."""
+        settings = load_settings()
+        port = int(settings.get("port", 8471))
+        urls = lan_urls(port)
+        master = urls[0] if urls else f"http://{settings.get('host') or '127.0.0.1'}:{port}"
+        return {"master_url": master, "lan_token": settings.get("lan_token") or ""}
+
+    def api_device_task(self, device_id: str):
+        """Queue a pre-defined task from the UI. Only the three known kinds —
+        no arbitrary remote commands."""
+        with devices.DEVICES_LOCK:
+            if device_id not in devices.DEVICES:
+                return self.send_error_json(404, "device not found")
+        try:
+            body = self.read_body()
+        except ValueError as e:
+            return self.send_error_json(400, str(e))
+        if not isinstance(body, dict):
+            return self.send_error_json(400, "body must be a JSON object")
+        kind = str(body.get("kind") or "")
+        if kind not in devices.TASK_KINDS:
+            return self.send_error_json(400, f"unknown task kind — one of {', '.join(devices.TASK_KINDS)}")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        ctx = self._device_task_ctx()
+        if kind == "create-vm":
+            ctx["count"] = int(params.get("count") or 1)
+            ctx["name_prefix"] = str(params.get("name_prefix") or "laptop-vm")[:40]
+        if kind == "start-beacon" and not ctx["lan_token"]:
+            return self.send_error_json(400, "start-beacon needs a LAN token — set one in Settings → LAN / other devices")
+        try:
+            script = devices.build_task_script(kind, ctx)
+        except (ValueError, TypeError) as e:
+            return self.send_error_json(400, str(e))
+        label = str(body.get("label") or "").strip() or {
+            "install-stack": "install VM stack",
+            "create-vm": f"create {ctx.get('count', 1)} VM(s)",
+            "start-beacon": "start beacon",
+        }[kind]
+        task_id = devices.queue_task(device_id, kind, script, label)
+        self.send_json({"task_id": task_id})
+
 
     def api_lan(self):
         settings = load_settings()
@@ -2993,7 +3120,7 @@ class Handler(BaseHTTPRequestHandler):
             if not job:
                 return self.send_error_json(404, "not_found")
             snapshot = {k: job.get(k) for k in
-                        ("id", "workspace", "status", "exit_code", "started", "ended", "cmd_preview")}
+                        ("id", "workspace", "status", "exit_code", "started", "ended", "cmd_preview", "backend")}
             snapshot["lines"] = list(job["lines"])
         self.send_json(snapshot)
 

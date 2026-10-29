@@ -53,7 +53,7 @@
       catch { return; }
       /* keep create/remove controls and any running job output untouched —
          only swap the table + summary */
-      if (d && d.installed) refreshTable(d);
+      if (d && d.installed) { refreshTable(d); refreshDevices(); }
       else { clear(b); renderNotInstalled(b, d); stopPoll(); }
     }, 4000);
   }
@@ -119,9 +119,110 @@
         el("span", { class: "muted small" },
           "created as ytl-<name> — the first creation downloads the image, which can take minutes")),
       tablePane(data),
+      devicesPane(),
       el("div", { class: "agent-console scroll", id: "cua-job", style: "max-height:220px" }),
       usageHint(),
     );
+  }
+
+  /* ---------- devices (Connect device: reverse agent on a second laptop) --- */
+
+  function devicesPane() {
+    return el("div", { class: "pane", style: "padding:0" },
+      el("div", { class: "pane-header" }, "Devices ",
+        el("span", { class: "muted small" }, "— connect a second Windows laptop, then prepare it from here")),
+      el("div", { class: "pane-body", style: "display:flex;flex-direction:column;gap:10px" },
+        el("div", { class: "row" },
+          el("button", { onclick: connectDevice }, "Connect device"),
+          el("span", { class: "muted small" },
+            "shows a pairing code + the one PowerShell line to run on the laptop")),
+        el("div", { id: "devices-pair" }),
+        el("div", { id: "devices-table" })));
+  }
+
+  async function connectDevice() {
+    let res, lan;
+    try { res = await api("/api/devices/pair-codes", { method: "POST", body: {} }); }
+    catch { return; }  /* api() toasted the reason (401 when no LAN session) */
+    try { lan = await api("/api/lan"); } catch { lan = null; }
+    const base = ((lan || {}).urls || [])[0] || location.origin;
+    const line = `irm ${base}/device-agent.ps1 -OutFile agent.ps1; .\\agent.ps1 -MasterUrl ${base} -Code ${res.code}`;
+    const box = document.getElementById("devices-pair");
+    if (!box) return;
+    clear(box);
+    box.appendChild(el("div", { class: "instructions-box" },
+      el("strong", null, `Code ${res.code}`),
+      ` — valid ~${Math.max(1, Math.round(res.expires_in / 60))} min. On the laptop run this one line in PowerShell `
+        + "(it asks for the LAN token if the master requires one):",
+      el("div", { class: "row", style: "flex-wrap:wrap;margin-top:8px" },
+        el("code", { style: "flex:1;min-width:280px;overflow-wrap:anywhere" }, line),
+        el("button", { onclick: (e) => copyText(line, e.target) }, "Copy")),
+      el("div", { class: "muted small", style: "margin-top:6px" },
+        "The agent pairs, then polls this app for tasks. If the install task ends with [REBOOT-REQUIRED], "
+        + "reboot the laptop and re-run the same line.")));
+  }
+
+  async function refreshDevices() {
+    const box = document.getElementById("devices-table");
+    if (!box) return;
+    let data;
+    try { data = await api("/api/devices"); } catch { return; }
+    clear(box);
+    const list = (data && data.devices) || [];
+    if (!list.length) {
+      box.appendChild(el("div", { class: "muted small" },
+        "No devices connected yet — press Connect device and run the line on the laptop."));
+      return;
+    }
+    list.forEach(dev => box.appendChild(deviceRow(dev)));
+  }
+
+  function deviceRow(dev) {
+    const taskChips = (dev.tasks || []).slice(-4).map(t =>
+      el("span", {
+        class: `chip sm${t.status === "done" ? "" : " dim"}`,
+        title: t.label || t.kind,
+      }, `${t.label || t.kind}: ${t.status}`));
+    const rebootNote = (dev.tasks || []).some(t => t.reboot_required)
+      ? el("div", { class: "muted small", style: "flex-basis:100%" },
+          "[REBOOT-REQUIRED] reboot the laptop, then re-run the connect line.")
+      : null;
+    return el("div", { class: "row", style: "padding:6px 12px;border-top:1px solid var(--border);flex-wrap:wrap" },
+      el("span", { class: `pulse-dot${dev.online ? "" : " off"}`, title: dev.online ? "online" : "offline" }),
+      el("strong", { style: "min-width:140px" }, dev.hostname || dev.id),
+      el("span", { class: "muted small" }, dev.online ? "online" : "offline"),
+      el("span", { class: "spacer" }),
+      taskChips,
+      el("button", {
+        class: "btn-sm",
+        title: "Install cua/QEMU/shim on the laptop (elevated — one UAC click there)",
+        onclick: () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`),
+      }, "Install VM stack"),
+      el("button", {
+        class: "btn-sm",
+        title: "Create one laptop-vm VM on the laptop",
+        onclick: () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`),
+      }, "Create VM"),
+      el("button", {
+        class: "btn-sm",
+        title: "Create laptop-vm-1..3 on the laptop (existing ones are skipped)",
+        onclick: () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`),
+      }, "Create 3 VMs"),
+      el("button", {
+        class: "btn-sm",
+        title: "Start the beacon so the laptop's VMs appear in the Network tab",
+        onclick: () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`),
+      }, "Start beacon"),
+      rebootNote);
+  }
+
+  async function doDeviceTask(deviceId, kind, params, label) {
+    let res;
+    try {
+      res = await api(`/api/devices/${deviceId}/task`, { method: "POST", body: { kind, params } });
+    } catch { return; }  /* api() toasted the reason (400/404) */
+    toast(label + "…");
+    startJob(res.task_id, label);   /* mirrored device tasks stream like any job */
   }
 
   function tablePane(data) {
@@ -417,7 +518,7 @@
     try { d = await api("/api/cua/status"); } catch { return; }
     try { vn = await api("/api/vm-nodes"); } catch { vn = null; }
     if (vn) agentMap = new Map(((vn.nodes) || []).map(n => [n.name, n]));
-    if (d && d.installed) refreshTable(d);
+    if (d && d.installed) { refreshTable(d); refreshDevices(); }
   }
 
   function appendJob(line) {

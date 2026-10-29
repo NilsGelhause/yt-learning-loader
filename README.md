@@ -102,6 +102,13 @@ cua sb rm dev
   no binaries, services, or repo files are left behind by the feature itself
   (pre-existing sandboxes you created would need `cua sb rm` by hand).
 
+**Connect a second laptop as a device.** The CUA Spaces tab can also prepare a
+second Windows laptop entirely from here: press *Connect device* for a pairing
+code, run the printed one-liner in PowerShell on the laptop (it pairs and
+starts polling), then use the per-device buttons — Install VM stack, Create
+VM(s), Start beacon — whose output streams into the shared job transcript.
+See `scripts/laptop-vm/README.md` for what runs on the laptop.
+
 **Delegate a task to a VM (v1).** The CUA Spaces tab can hand a task to a
 sandbox so the agent's *commands* execute on the VM while its thinking and
 memory stay in this machine's durable agent conversation: the conversation is
