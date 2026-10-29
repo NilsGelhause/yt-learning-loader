@@ -76,20 +76,8 @@ if ($doctor -match "qemu\s+ok") {
         Write-Host "qemu ready."
     } else {
         # cua does NOT bundle QEMU on Windows ("which Cua does not install
-        # for you") — install it ourselves via winget, then re-check.
-        Write-Host "qemu still missing after 'cua runtime setup' — installing QEMU via winget ..."
-        $winget = Get-Command winget -ErrorAction SilentlyContinue
-        if ($winget) {
-            & winget install -e --id QEMU.QEMU --accept-source-agreements `
-                --accept-package-agreements --silent | Out-Null
-            $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
-            $doctor = & cua runtime doctor 2>&1 | Out-String
-        }
-        if ($doctor -match "qemu\s+ok") {
-            Write-Host "qemu installed."
-        } else {
-            throw "QEMU could not be installed automatically — install it manually from https://qemu.weilnetz.de/ into C:\Program Files\qemu, then re-run this script"
-        }
+        # for you") — the user installs it manually, then re-runs this script.
+        throw "QEMU is not installed. Download QEMU for Windows from https://qemu.weilnetz.de/ (installs into C:\Program Files\qemu), then re-run this script"
     }
 }
 
