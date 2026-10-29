@@ -6,7 +6,8 @@
 #   irm http://<master>:8471/device-agent.ps1 -OutFile agent.ps1; .\agent.ps1 -MasterUrl http://<master>:8471 -Code <CODE> [-Token <LAN token>]
 #
 # The agent pairs, then polls the master every few seconds for pre-defined
-# tasks (install-stack / create-vm / start-beacon) and executes them LOCALLY.
+# tasks (install-stack / create-vm / start-beacon / open-desktop /
+# install-agent / expose-agent) and executes them LOCALLY.
 #
 # Robustness design (learned the hard way):
 #   * Tasks run as DETACHED child processes (Start-Process, no .NET event
@@ -103,9 +104,18 @@ function Start-Task($task) {
     Set-Content -Path $p.script -Value $task.script -Encoding UTF8
     # launcher: run the task, then ALWAYS drop the exit code in the done file
     Set-Content -Path $p.launcher -Encoding UTF8 -Value @"
+`$code = 0
 `$global:LASTEXITCODE = 0
-& '$($p.script)'
-[System.IO.File]::WriteAllText('$($p.done)', [string]`$global:LASTEXITCODE)
+try {
+    & '$($p.script)'
+} catch {
+    `$code = 1
+    Add-Content -Path '$($p.err)' -Value ("LAUNCHER: " + `$_.Exception.Message) -Encoding UTF8
+}
+if (`$global:LASTEXITCODE) { `$code = `$global:LASTEXITCODE }
+# ALWAYS write the marker — without it the agent waits forever and the
+# device's whole task queue stalls behind a dead task.
+[System.IO.File]::WriteAllText('$($p.done)', [string]`$code)
 "@
     Remove-Item $p.out, $p.err, $p.done -Force -ErrorAction SilentlyContinue
 
