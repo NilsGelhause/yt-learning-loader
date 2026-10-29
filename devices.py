@@ -235,7 +235,7 @@ def _reap_stale_tasks() -> None:
     changed = False
     for dev in DEVICES.values():
         device_offline = now - (dev.get("last_seen") or 0) > DEVICE_OFFLINE_GRACE
-        for task in dev.get("tasks", {}).values():
+        for tid, task in dev.get("tasks", {}).items():
             if task.get("status") != "running":
                 continue
             interrupted = None
@@ -248,6 +248,7 @@ def _reap_stale_tasks() -> None:
                 task["exit_code"] = task.get("exit_code") or 1
                 task["ended"] = now
                 task["lines"].append({"t": "out", "x": interrupted})
+                _mirror_to_agent_jobs(tid, task)
                 changed = True
     if changed:
         _save_devices()
