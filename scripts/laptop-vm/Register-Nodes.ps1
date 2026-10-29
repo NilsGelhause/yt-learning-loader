@@ -74,9 +74,17 @@ function Get-SandboxNodes {
       $script:CuaListOk, never $null -eq $nodes.
     #>
     try {
-        $raw = & cua sb list --json 2>$null
+        # Embedded FIRST: while a QEMU VM runs, its runtime daemon owns the
+        # per-user socket and the daemon-backed listing fails -- the embedded
+        # runtime bypasses it. Fall back to the plain listing if embedded
+        # exits non-zero or returns unparseable output.
+        $raw = & cua sb list --json --embedded 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $raw) {
+            $raw = & cua sb list --json 2>$null
+        }
         if (-not $raw) { $script:CuaListOk = $false; return }
         $list = $raw | Out-String | ConvertFrom-Json
+        if ($null -eq $list) { $script:CuaListOk = $false; return }
         if ($list -isnot [System.Array]) { $list = @($list) }
         $nodes = @()
         foreach ($sb in $list) {
