@@ -3,17 +3,23 @@
 # Runs ON THE LAPTOP (PowerShell 5.1+). The master app shows a pairing code;
 # the laptop runs ONE line:
 #
-#   irm http://<master>:8471/device-agent.ps1 -OutFile agent.ps1; .\agent.ps1 -MasterUrl http://<master>:8471 -Code <CODE>
+#   irm http://<master>:8471/device-agent.ps1 -OutFile agent.ps1; .\agent.ps1 -MasterUrl http://<master>:8471 -Code <CODE> [-Token <LAN token>]
 #
 # The agent pairs, then polls the master every few seconds for pre-defined
-# tasks (install-stack / create-vm / start-beacon) and executes them LOCALLY,
-# streaming each output line back to the master. install-stack needs admin
-# (it enables the Windows hypervisor feature): the agent re-runs just that
-# task elevated via Start-Process -Verb RunAs — one UAC click on the laptop —
-# and tails the child's log file. Ctrl+C exits.
+# tasks (install-stack / create-vm / start-beacon) and executes them LOCALLY.
 #
-# If a task line carries [REBOOT-REQUIRED], reboot the laptop (the hypervisor
-# feature needs it), then re-run the one line above.
+# Robustness design (learned the hard way):
+#   * Tasks run as DETACHED child processes (Start-Process, no .NET event
+#     handlers, no WaitForExit, no jobs). The agent cannot be killed by task
+#     machinery, and closing the agent window no longer kills a running task.
+#   * Child output is redirected to log FILES by cmd (also stdin < NUL, so
+#     no interactive prompt can ever hang). The poll loop forwards new lines.
+#   * install-stack re-runs itself elevated via UAC (one click), same pattern.
+#
+# If a task line carries [REBOOT-REQUIRED], reboot the laptop, then re-run
+# the one line above.
+#
+# Diagnosis: every step is appended to ytl-agent.log on the Desktop.
 
 [CmdletBinding()]
 param(
@@ -27,6 +33,20 @@ $ErrorActionPreference = 'Stop'
 $MasterUrl = $MasterUrl.TrimEnd('/')
 $LanToken = $Token
 
+$AgentLog = Join-Path ([Environment]::GetFolderPath("Desktop")) "ytl-agent.log"
+function Trace([string]$msg) {
+    try {
+        Add-Content -Path $AgentLog -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -Encoding UTF8
+    } catch {}
+}
+
+# Last-resort crash net: exceptions on background threads bypass the trap.
+[AppDomain]::CurrentDomain.add_UnhandledException({
+    try {
+        Add-Content -Path $AgentLog -Value ("{0}  UNHANDLED: {1}" -f (Get-Date -Format "HH:mm:ss"), $_.ExceptionObject) -Encoding UTF8
+    } catch {}
+})
+
 function Test-Admin {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
@@ -34,16 +54,13 @@ function Test-Admin {
 }
 
 function Send-Output([string]$taskId, [string]$line) {
-    # Never throw from here: this runs inside .NET event handlers, and an
-    # unhandled exception on those threads kills the whole agent process
-    # (the PowerShell window just vanishes, e.g. while the master restarts).
     try {
         Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/devices/$DeviceId/output" `
             -Headers @{ 'x-ytl-token' = $LanToken } `
             -Body (@{ token = $DeviceToken; task_id = $taskId; line = $line } | ConvertTo-Json) `
             -ContentType 'application/json' | Out-Null
     } catch {
-        Write-Host "report failed (master unreachable?): $($_.Exception.Message)"
+        Trace ("report failed: " + $_.Exception.Message)
     }
 }
 
@@ -54,118 +71,81 @@ function Finish-Task([string]$taskId, [int]$exitCode) {
             -Body (@{ token = $DeviceToken; task_id = $taskId; done = $true; exit_code = $exitCode } | ConvertTo-Json) `
             -ContentType 'application/json' | Out-Null
     } catch {
-        Write-Host "finish report failed (master unreachable?): $($_.Exception.Message)"
+        Trace ("finish report failed: " + $_.Exception.Message)
     }
 }
 
-function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
-    # Run a task script with stdin closed: any interactive prompt gets EOF and
-    # fails fast instead of hanging the agent forever (the cua installer used
-    # to wait on "Type a number..." and starve the task).
-    $script:TaskId = $taskId
-    $script:TaskLog = $logFile
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$path`""
-    $psi.RedirectStandardInput = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    # ::Start(psi) creates AND starts the child in one call (a second
-    # $p.Start() would throw and previously killed the agent silently).
-    Trace "spawning child process"
-    $p = [System.Diagnostics.Process]::Start($psi)
-    Trace ("child started, pid " + $p.Id)
-    if ($logFile) {
-        $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
-        $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
-    } else {
-        $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
-        $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
-    }
-    $p.StandardInput.Close()   # EOF: no prompt may wait for input
-    Trace "stdin closed, reading output"
-    $p.BeginOutputReadLine()
-    $p.BeginErrorReadLine()
-    $p.WaitForExit()
-    Trace ("child exited, code " + $p.ExitCode)
-    return $p.ExitCode
+# ---------------------------------------------------------------- tasks
+# A running task = a detached child process; cmd redirects its output to
+# <base>.out / <base>.err and the launcher writes the exit code to
+# <base>.done when it finishes. The poll loop streams the logs and reports
+# completion. One task at a time.
+
+$Streaming = @{}   # taskId -> @{ out, err, done, sent }
+
+function Task-Paths([string]$taskId) {
+    $base = Join-Path $env:TEMP ("ytl-task-" + $taskId)
+    return @{ out = "$base.out"; err = "$base.err"; done = "$base.done";
+              script = "$base.ps1"; launcher = "$base.run.ps1" }
 }
 
-$AgentLog = Join-Path ([Environment]::GetFolderPath("Desktop")) "ytl-agent.log"
-function Trace([string]$msg) {
-    Add-Content -Path $AgentLog -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -Encoding UTF8
-}
-
-# Last-resort crash net: exceptions on background threads (event handlers)
-# bypass the trap below and kill the process — this hook still sees them.
-[AppDomain]::CurrentDomain.add_UnhandledException({
-    try {
-        Add-Content -Path $AgentLog -Value ("{0}  UNHANDLED: {1}" -f (Get-Date -Format "HH:mm:ss"), $_.ExceptionObject) -Encoding UTF8
-    } catch {}
-})
-Trace ("agent starting, pid " + $PID + " admin=" + (Test-Admin))
-
-function Invoke-Task($task) {
-    Trace ("task " + $task.id + " [" + $task.kind + "] starting")
-    $tmp = Join-Path $env:TEMP ("ytl-task-" + $task.id + ".ps1")
-    Set-Content -Path $tmp -Value $task.script -Encoding UTF8
-    Trace "task script written"
-    if ($task.kind -eq 'install-stack' -and -not (Test-Admin)) {
-        # Elevation v1: re-run just this task elevated and stream the child's
-        # log back — the standard Start-Process -Verb RunAs + log-tail pattern.
-        $log = Join-Path $env:TEMP ("ytl-task-" + $task.id + ".log")
-        $codeFile = Join-Path $env:TEMP ("ytl-task-" + $task.id + ".exit")
-        Remove-Item $log, $codeFile -Force -ErrorAction SilentlyContinue
-        $wrapper = Join-Path $env:TEMP ("ytl-elevated-" + $task.id + ".ps1")
-        Set-Content -Path $wrapper -Encoding UTF8 -Value @"
-`$psi = New-Object System.Diagnostics.ProcessStartInfo
-`$psi.FileName = 'powershell.exe'
-`$psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "$tmp"'
-`$psi.RedirectStandardInput = `$true
-`$psi.RedirectStandardOutput = `$true
-`$psi.RedirectStandardError = `$true
-`$psi.UseShellExecute = `$false
-`$psi.CreateNoWindow = `$true
-`$p = [System.Diagnostics.Process]::Start(`$psi)
-`$p.add_OutputDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
-`$p.add_ErrorDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
-`$p.StandardInput.Close()
-`$p.BeginOutputReadLine()
-`$p.BeginErrorReadLine()
-`$p.WaitForExit()
-[System.IO.File]::WriteAllText('$codeFile', [string]`$p.ExitCode)
+function Start-Task($task) {
+    $p = Task-Paths $task.id
+    Set-Content -Path $p.script -Value $task.script -Encoding UTF8
+    # launcher: run the task, then ALWAYS drop the exit code in the done file
+    Set-Content -Path $p.launcher -Encoding UTF8 -Value @"
+`$global:LASTEXITCODE = 0
+& '$($p.script)'
+[System.IO.File]::WriteAllText('$($p.done)', [string]`$global:LASTEXITCODE)
 "@
+    Remove-Item $p.out, $p.err, $p.done -Force -ErrorAction SilentlyContinue
+
+    # cmd line: powershell runs the launcher, streams go to files, stdin EOF.
+    $inner = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $p.launcher + '"'
+    $cmdArgs = '/d /c ' + $inner + ' > "' + $p.out + '" 2> "' + $p.err + '" < NUL'
+
+    if ($task.kind -eq 'install-stack' -and -not (Test-Admin)) {
         Write-Host "Task $($task.id) needs admin — accept the UAC prompt to continue."
-        Trace "requesting elevation (UAC)"
+        Trace ("task " + $task.id + " starting elevated (UAC)")
         try {
-            Start-Process powershell -Verb RunAs -Wait -ArgumentList `
-                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wrapper
+            Start-Process cmd.exe -Verb RunAs -Wait -ArgumentList $cmdArgs -WindowStyle Hidden
         } catch {
             Trace ("UAC failed: " + $_.Exception.Message)
             Send-Output $task.id "[error] elevation failed: $($_.Exception.Message)"
             Finish-Task $task.id 1
             return
         }
-        Trace "elevated child returned"
-        $exitCode = 1
-        if (Test-Path $codeFile) { $exitCode = [int](Get-Content $codeFile -Raw).Trim() }
-        $sent = 0
-        if (Test-Path $log) {
-            $lines = @(Get-Content $log -ErrorAction SilentlyContinue)
-            if ($sent -lt $lines.Count) {
-                $lines[$sent..($lines.Count - 1)] | ForEach-Object { Send-Output $task.id ([string]$_); $sent++ }
+        # The elevated child ran synchronously; the done file is already
+        # (or very soon) there — the streamer finishes the task.
+    } else {
+        Trace ("task " + $task.id + " starting detached child")
+        Start-Process cmd.exe -ArgumentList $cmdArgs -WindowStyle Hidden | Out-Null
+    }
+    $Streaming[$task.id] = @{ out = $p.out; err = $p.err; done = $p.done; sent = 0 }
+}
+
+function Stream-Tasks {
+    foreach ($taskId in @($Streaming.Keys)) {
+        $st = $Streaming[$taskId]
+        foreach ($f in @($st.out, $st.err)) {
+            if (Test-Path $f) {
+                $lines = @(Get-Content $f -ErrorAction SilentlyContinue)
+                if ($lines.Count -gt $st.sent) {
+                    for ($i = $st.sent; $i -lt $lines.Count; $i++) {
+                        Send-Output $taskId ([string]$lines[$i])
+                    }
+                    $st.sent = $lines.Count
+                }
             }
         }
-        Finish-Task $task.id $exitCode
-        return
+        if (Test-Path $st.done) {
+            $code = 1
+            try { $code = [int]((Get-Content $st.done -Raw).Trim()) } catch {}
+            Finish-Task $taskId $code
+            Trace ("task " + $taskId + " finished, exit " + $code)
+            $Streaming.Remove($taskId)
+        }
     }
-    # Unprivileged tasks (and already-elevated agents) stream line by line.
-    Trace "running task in-process"
-    $exitCode = Invoke-Script -path $tmp -taskId $task.id -logFile $null
-    Trace ("task exited with " + $exitCode)
-    Finish-Task $task.id $exitCode
 }
 
 # ---- pair (a few friendly retries, then give up) ----
@@ -174,6 +154,7 @@ $hostname = $env:COMPUTERNAME
 $pairBody = @{ code = $Code; hostname = $hostname } | ConvertTo-Json
 $DeviceId = $null
 $DeviceToken = $null
+Trace ("agent starting, pid " + $PID + " admin=" + (Test-Admin))
 for ($attempt = 1; $attempt -le 4 -and -not $DeviceId; $attempt++) {
     try {
         $headers = @{}
@@ -184,24 +165,27 @@ for ($attempt = 1; $attempt -le 4 -and -not $DeviceId; $attempt++) {
         $DeviceToken = $res.token
     } catch {
         $status = $null
-        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        if ($status -eq 401 -and -not $LanToken) {
-            $LanToken = Read-Host "This master requires its LAN token — enter it now"
-        } elseif ($status -eq 401) {
+        if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+            try { $status = ($_.ErrorDetails.Message | ConvertFrom-Json).error } catch {}
+        }
+        if ($status -eq 'token_required' -and -not $LanToken) {
+            $LanToken = Read-Host "This master requires its LAN token - enter it now"
+        } elseif ($status -eq 'token_required') {
             Write-Host "The master rejected the LAN token." -ForegroundColor Red
             exit 1
-        } elseif ($status -eq 400) {
+        } elseif ($_.Exception.Response -and $_.Exception.Response.StatusCode.value__ -eq 400) {
             Write-Host "Pairing code $Code was rejected (wrong or expired)." -ForegroundColor Red
             Write-Host "Press Connect device again on the master's CUA tab for a fresh code."
             exit 1
         } else {
-            Write-Host "Master not reachable at $MasterUrl ($($_.Exception.Message)) — retrying in 5 s ($attempt/4)…"
+            Write-Host "Master not reachable at $MasterUrl ($($_.Exception.Message)) — retrying in 5 s ($attempt/4)..."
             Start-Sleep -Seconds 5
         }
     }
 }
 if (-not $DeviceId) {
     Write-Host "Giving up — check the master app is running and MasterUrl is right." -ForegroundColor Red
+    Trace "pairing gave up"
     exit 1
 }
 
@@ -219,16 +203,19 @@ trap {
 
 while ($true) {
     try {
-        $res = Invoke-RestMethod -Uri "$MasterUrl/api/devices/$DeviceId/next?token=$DeviceToken" `
-            -Headers @{ 'x-ytl-token' = $LanToken }
-        if ($res.task) {
-            Write-Host "Task $($res.task.id) [$($res.task.kind)] received."
-            Invoke-Task $res.task
-            Write-Host "Task $($res.task.id) finished."
-            Trace ("task " + $res.task.id + " finished")
+        Stream-Tasks
+        if ($Streaming.Count -eq 0) {
+            $res = Invoke-RestMethod -Uri "$MasterUrl/api/devices/$DeviceId/next?token=$DeviceToken" `
+                -Headers @{ 'x-ytl-token' = $LanToken }
+            if ($res.task) {
+                Write-Host "Task $($res.task.id) [$($res.task.kind)] received."
+                Trace ("task " + $res.task.id + " [" + $res.task.kind + "] received")
+                Start-Task $res.task
+            }
         }
     } catch {
         Write-Host "Poll failed: $($_.Exception.Message)"
+        Trace ("poll failed: " + $_.Exception.Message)
     }
     Start-Sleep -Seconds $IntervalSeconds
 }
