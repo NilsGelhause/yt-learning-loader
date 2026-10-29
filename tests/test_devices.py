@@ -365,7 +365,7 @@ class DeviceServerTests(unittest.TestCase):
         script = devices.build_task_script(
             "expose-agent", {"master_url": "http://m:8471",
                              "vm_name": "laptop-vm-1"})
-        for marker in ("hostfwd=tcp:127.0.0.1:", "cmdline",
+        for marker in ("qemu-system-x86_64", "Get-NetTCPConnection",
                        "guest sidecar published at", "connectport=`$published",
                        "Contains('ok')", "Contains('true')",
                        "run install-agent first",
