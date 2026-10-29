@@ -3227,6 +3227,9 @@ def main() -> None:
         agentd_client.ensure_running()  # best-effort: the CLI fallback covers absence
     except Exception as e:  # noqa: BLE001
         print(f"agentd sidecar not started ({e}) — falling back to the kimi CLI")
+    # Warm the cua daemon in the background so the first Network/CUA request
+    # after startup doesn't eat the daemon's cold-start (takes ~10-20 s).
+    threading.Thread(target=cua_client.list_sandboxes, daemon=True).start()
     settings = load_settings()
     port = int(settings.get("port", 8471))
     host = str(settings.get("host") or "127.0.0.1")
