@@ -2279,6 +2279,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.api_cua_create()
             if path == "/api/cua/sandboxes/remove":
                 return self.api_cua_remove()
+            if path == "/api/cua/sandboxes/view":
+                return self.api_cua_view()
             if path == "/api/cua/provision":
                 return self.api_cua_provision()
             if path == "/api/cua/term/open":
@@ -2963,6 +2965,38 @@ class Handler(BaseHTTPRequestHandler):
         if isinstance(result, tuple):
             return self.send_error_json(result[0], result[1])
         self.send_json({"job_id": result})
+
+    def api_cua_view(self):
+        """Fire-and-forget desktop viewer: opens `cua sb view <name>` detached
+        on this machine — the CLI serves the HTML5 viewer and opens a browser
+        window (~1h link TTL). No job record; the POST just kicks it off."""
+        body = self.read_body()
+        if not isinstance(body, dict) or not body.get("name"):
+            return self.send_error_json(400, 'body must be {"name": ...}')
+        exe = cua_client.find_cua()
+        if not exe:
+            return self.send_error_json(503, "cua CLI not found on PATH — install it first (see the CUA Spaces tab)")
+        name = cua_client.full_name(str(body["name"]))
+        if not cua_client.valid_name(name):
+            return self.send_error_json(400, "bad name — use lowercase letters, digits and dashes (max 40 chars)")
+        if not any(s.get("name") == name for s in cua_client.list_sandboxes()):
+            return self.send_error_json(404, f"sandbox {name} not found")
+        help_run = None
+        try:
+            help_run = subprocess.run([exe, "sb", "view", "--help"],
+                                      capture_output=True, timeout=30)
+            help_text = (help_run.stdout or b"").decode("utf-8", "replace")
+        except (OSError, subprocess.SubprocessError):
+            help_text = ""
+        if (help_run is None or help_run.returncode != 0
+                or not re.search(r"\bsandbox view\b", help_text)):
+            return self.send_error_json(503, "this cua version has no `sb view` desktop viewer — update cua")
+        subprocess.Popen([exe, "sb", "view", name],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, close_fds=True)
+        self.send_json({"ok": True,
+                        "note": "opening the desktop viewer in a browser window "
+                                "on this machine (serves ~1h)"})
 
     def api_vm_nodes(self):
         """The CUA tab's per-VM agent state: name, whether the in-guest

@@ -34,15 +34,36 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Continue'
 
+$LogFile = Join-Path ([Environment]::GetFolderPath("Desktop")) "ytl-beacon.log"
+
+function Write-Log {
+    <#
+    .SYNOPSIS
+      Append a timestamped line to the desktop log AND echo it to the
+      console (the hidden beacon's only other output). Never log the token.
+    #>
+    param([string]$Message)
+    $line = "{0}  {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Message
+    Add-Content -Path $LogFile -Value $line -Encoding UTF8
+    Write-Host $line
+}
+
+Write-Log ("beacon starting: master={0} host={1} interval={2}s once={3}" -f
+    $MasterUrl, $HostLabel, $IntervalSeconds, [bool]$Once)
+
 function Get-SandboxNodes {
     <#
     .SYNOPSIS
       cua sb list --json -> array of @{name; kind; state; endpoint?}.
-      Any failure (cua missing, parse error) -> @() : the loop just retries.
+      Any failure (cua missing, parse error) sets $script:CuaListOk = $false
+      and outputs nothing : the loop logs it and retries without posting a
+      bogus empty list. Note: a legitimately EMPTY sandbox list also outputs
+      nothing (PowerShell unrolls empty arrays), so the caller must consult
+      $script:CuaListOk, never $null -eq $nodes.
     #>
     try {
         $raw = & cua sb list --json 2>$null
-        if (-not $raw) { return @() }
+        if (-not $raw) { $script:CuaListOk = $false; return }
         $list = $raw | Out-String | ConvertFrom-Json
         if ($list -isnot [System.Array]) { $list = @($list) }
         $nodes = @()
@@ -59,9 +80,11 @@ function Get-SandboxNodes {
             }
             $nodes += $node
         }
+        $script:CuaListOk = $true
         return $nodes
     } catch {
-        return @()
+        $script:CuaListOk = $false
+        return
     }
 }
 
@@ -77,16 +100,32 @@ function Send-Registration {
         Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/nodes/register" `
             -Headers @{ 'x-ytl-token' = $Token } `
             -ContentType 'application/json' -Body $body -TimeoutSec 10 | Out-Null
-        Write-Host ("{0}  registered {1} node(s) with {2}" -f
-            (Get-Date -Format 'HH:mm:ss'), $Nodes.Count, $MasterUrl)
+        Write-Log ("registered {0} node(s) with {1}" -f $Nodes.Count, $MasterUrl)
     } catch {
-        Write-Host ("{0}  master unreachable - will retry" -f (Get-Date -Format 'HH:mm:ss'))
+        $httpStatus = $null
+        $resp = $_.Exception.Response
+        if ($resp -and $resp.StatusCode) {
+            $httpStatus = "HTTP {0}" -f [int]$resp.StatusCode
+        }
+        if ($httpStatus) {
+            Write-Log ("master unreachable ({0}) - will retry" -f $httpStatus)
+        } else {
+            Write-Log ("master unreachable ({0}) - will retry" -f $_.Exception.Message)
+        }
     }
 }
 
+$script:CuaListOk = $true
 while ($true) {
-    $nodes = Get-SandboxNodes
-    Send-Registration -Nodes $nodes
+    $script:CuaListOk = $true
+    $nodes = @(Get-SandboxNodes)
+    if (-not $script:CuaListOk) {
+        Write-Log "cua list failed (N=-1)"
+    } else {
+        Send-Registration -Nodes $nodes
+    }
     if ($Once) { break }
     Start-Sleep -Seconds $IntervalSeconds
 }
+
+Write-Log "beacon exited"

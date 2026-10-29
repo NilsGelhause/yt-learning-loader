@@ -355,6 +355,73 @@ class CuaApiTests(unittest.TestCase):
         self.assertEqual(job["status"], "error")
         self.assertEqual(job["exit_code"], 1)
 
+    # -- POST /api/cua/sandboxes/view (desktop viewer, fire-and-forget)
+
+    def test_view_requires_name(self):
+        status, _ = self.api("POST", "/api/cua/sandboxes/view", {})
+        self.assertEqual(status, 400)
+
+    def test_view_rejects_bad_name(self):
+        status, _ = self.api("POST", "/api/cua/sandboxes/view",
+                             {"name": "Bad Name!!"})
+        self.assertEqual(status, 400)
+
+    def test_view_404_for_unknown_sandbox(self):
+        with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[]):
+            status, body = self.api("POST", "/api/cua/sandboxes/view",
+                                    {"name": "dev"})
+        self.assertEqual(status, 404)
+        self.assertIn("not found", body["error"])
+
+    def test_view_503_without_cua(self):
+        with mock.patch.object(server.cua_client, "find_cua", return_value=None):
+            status, body = self.api("POST", "/api/cua/sandboxes/view",
+                                    {"name": "dev"})
+        self.assertEqual(status, 503)
+        self.assertIn("error", body)
+
+    def test_view_503_when_cli_lacks_sb_view(self):
+        """A cua build whose --help does not mention `sandbox view` gets a
+        clean 503 instead of a spawned process that errors out."""
+        help_run = mock.Mock(returncode=2, stdout=b"no such command", stderr=b"")
+        with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]), \
+             mock.patch.object(server.subprocess, "run", return_value=help_run), \
+             mock.patch.object(server.subprocess, "Popen") as popen:
+            status, body = self.api("POST", "/api/cua/sandboxes/view",
+                                    {"name": "dev"})
+        self.assertEqual(status, 503)
+        self.assertIn("view", body["error"])
+        popen.assert_not_called()
+
+    def test_view_spawns_detached_viewer(self):
+        seen = []
+        help_run = mock.Mock(returncode=0,
+                             stdout=b"Usage: cua.exe sandbox view [OPTIONS] <NAME>",
+                             stderr=b"")
+
+        class Proc:
+            def __init__(self, cmd, **kwargs):
+                seen.append((list(cmd), kwargs))
+                self.pid = 424242
+
+        with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]), \
+             mock.patch.object(server.subprocess, "run", return_value=help_run), \
+             mock.patch.object(server.subprocess, "Popen", Proc):
+            status, body = self.api("POST", "/api/cua/sandboxes/view",
+                                    {"name": "dev"})
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True,
+                                "note": "opening the desktop viewer in a browser "
+                                        "window on this machine (serves ~1h)"})
+        self.assertEqual(seen[0][0], ["/fake/cua", "sb", "view", "ytl-dev"])
+        for stream in ("stdin", "stdout", "stderr"):
+            self.assertIs(seen[0][1][stream], server.subprocess.DEVNULL)
+        # fire-and-forget: no job record is created
+        with server.AGENT_JOBS_LOCK:
+            self.assertEqual(server.AGENT_JOBS, {})
+
     # -- VM nodes in GET /api/network
 
     def test_network_includes_vm_nodes(self):

@@ -90,6 +90,7 @@ function Task-Paths([string]$taskId) {
 }
 
 function Start-Task($task) {
+    Write-Host "Running task $($task.id) locally — progress appears here and in the master."
     $p = Task-Paths $task.id
     Set-Content -Path $p.script -Value $task.script -Encoding UTF8
     # launcher: run the task, then ALWAYS drop the exit code in the done file
@@ -131,8 +132,15 @@ function Stream-Tasks {
             if (Test-Path $f) {
                 $lines = @(Get-Content $f -ErrorAction SilentlyContinue)
                 if ($lines.Count -gt $st.sent) {
-                    for ($i = $st.sent; $i -lt $lines.Count; $i++) {
+                    $pending = $lines.Count - $st.sent
+                    $show = $pending
+                    if ($pending -gt 200) { $show = 200 }
+                    for ($i = $st.sent; $i -lt $st.sent + $show; $i++) {
                         Send-Output $taskId ([string]$lines[$i])
+                        Write-Host ("  " + $lines[$i])
+                    }
+                    if ($pending -gt $show) {
+                        Write-Host ("  … (" + ($pending - $show) + " more lines)")
                     }
                     $st.sent = $lines.Count
                 }
@@ -142,6 +150,10 @@ function Stream-Tasks {
             $code = 1
             try { $code = [int]((Get-Content $st.done -Raw).Trim()) } catch {}
             Finish-Task $taskId $code
+            Write-Host ("Task " + $taskId + " finished (exit " + $code + ")")
+            if ($code -ne 0) {
+                Write-Host "  check the master's transcript for details." -ForegroundColor Yellow
+            }
             Trace ("task " + $taskId + " finished, exit " + $code)
             $Streaming.Remove($taskId)
         }

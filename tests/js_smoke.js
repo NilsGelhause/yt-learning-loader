@@ -78,6 +78,11 @@ function cannedBody(url) {
   if (url.includes("/workspaces")) return { workspaces: [] };
   if (url.includes("/profile")) return { markdown: "" };
   if (url.includes("/learnings/")) return {};
+  /* cua installed with one running sandbox — exercises the Sandboxes table,
+     tutorial panes and devices pane, not just the not-installed state */
+  if (url.includes("/api/cua/status")) {
+    return { installed: true, version: "0.0.0", sandboxes: [{ name: "ytl-vm-1", status: "running", image: "ubuntu:latest" }] };
+  }
   return {};
 }
 

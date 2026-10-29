@@ -118,11 +118,56 @@
         el("span", { class: "chip sm dim" }, "Ubuntu"),
         el("span", { class: "muted small" },
           "created as ytl-<name> — the first creation downloads the image, which can take minutes")),
+      tutorialPanes(),
       tablePane(data),
       devicesPane(),
       el("div", { class: "agent-console scroll", id: "cua-job", style: "max-height:220px" }),
       usageHint(),
     );
+  }
+
+  /* ---------- how-to-get-onto-a-VM tutorial panes ---------- */
+
+  function howToPane(title, steps, note) {
+    const arrow = el("span", { class: "muted small" }, "▸");
+    const inner = el("div", { style: "display:none;flex-direction:column;gap:6px;padding-top:8px" },
+      steps.map((s, i) => el("div", { class: "row", style: "flex-wrap:wrap;align-items:baseline" },
+        el("span", { class: "chip sm dim" }, String(i + 1)),
+        el("span", { class: "small", style: "flex:1;min-width:240px" }, s))),
+      note ? el("div", { class: "muted small", style: "margin-top:4px" }, note) : null);
+    const head = el("div", { class: "pane-header", style: "cursor:pointer;user-select:none" }, arrow, " ", title);
+    head.addEventListener("click", () => {
+      const open = inner.style.display === "none";
+      inner.style.display = open ? "flex" : "none";
+      arrow.textContent = open ? "▾" : "▸";
+    });
+    return el("div", { class: "pane", style: "padding:0" },
+      el("div", { class: "pane-body", style: "display:flex;flex-direction:column" }, head, inner));
+  }
+
+  function tutorialPanes() {
+    const local = howToPane("Getting onto a local VM (on this PC)", [
+      [el("span", null, "Terminal button (in the Sandboxes table) — a bash shell right in the browser")],
+      [el("span", null, "Desktop button — this VM's Ubuntu desktop in a browser window (needs the VM running; serves ~1 h)")],
+      [el("span", null, "From any terminal: "), el("code", null, "cua sb exec <name> -- bash")],
+      [el("span", null, "GUI alternative: the Cua Spaces app, or "),
+        el("code", null, "cua sb port-forward <name> 5900:5901"),
+        el("span", null, " plus a VNC viewer at "), el("code", null, "127.0.0.1:5901")],
+    ],
+      "Inside QEMU VMs the app is reachable at http://10.0.2.2:8471 (the host); "
+      + "containers use the LAN IP http://192.168.50.111:8471.");
+    const laptop = howToPane("Getting onto a laptop VM", [
+      [el("span", null, "On the laptop run "), el("code", null, "cua sb view laptop-vm-1"),
+        el("span", null, " — opens the desktop in the laptop's browser")],
+      [el("span", null, "or "), el("code", null, "cua sb port-forward laptop-vm-1 5900:5901"),
+        el("span", null, " plus a VNC viewer at "), el("code", null, "127.0.0.1:5901")],
+      [el("span", null, "To use the webapp from inside the VM open "),
+        el("code", null, "http://192.168.50.111:8471"),
+        el("span", null, " (NOT 10.0.2.2 — that is the laptop itself) plus the LAN token")],
+    ],
+      "Viewing a laptop VM from the master's browser is a future step — "
+      + "the viewer runs where cua runs, so it must be started on the laptop.");
+    return el("div", { style: "display:flex;flex-direction:column;gap:10px" }, local, laptop);
   }
 
   /* ---------- devices (Connect device: reverse agent on a second laptop) --- */
@@ -235,12 +280,6 @@
             + (busy ? " — wait: a task is running on this device" : ""),
         { disabled: !dev.stack_done || busy || undefined },
         () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`)),
-      tipBtn("Start beacon",
-        !dev.stack_done ? "Locked — run 'Install VM stack' first"
-          : "Runs the beacon on the laptop so its VMs appear in the master's Network tab"
-            + (busy ? " — wait: a task is running on this device" : ""),
-        { disabled: !dev.stack_done || busy || undefined },
-        () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`)),
       dev.online ? null : tipBtn("🗑",
         "Remove this device from the list (it is offline)",
         { class: "icon-btn danger" },
@@ -313,6 +352,10 @@
         title: `Open a raw shell inside ${sb.name} (one terminal at a time)`,
         onclick: () => toggleTerm(sb.name),
       }, "Terminal");
+      const viewBtn = tipBtn("Desktop",
+        "Opens this VM's Ubuntu desktop in a browser window (cua's HTML5 viewer, ~1 h)",
+        { class: "btn-sm" },
+        () => doView(sb.name));
       const agent = agentMap.get(sb.name);
       /* agent ✓ = in-guest sidecar healthy with a key; ✗ = sidecar answers
          but no agent; — = VM offline (suspend keeps files, stop kills it) */
@@ -326,7 +369,7 @@
         el("span", { class: "chip sm dim" }, sb.status || "unknown"),
         agentChip,
         el("span", { class: "muted small", style: "flex:1;min-width:0;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", title: sb.image || "" }, sb.image || ""),
-        taskInput, delegateBtn, installBtn, termBtn,
+        taskInput, delegateBtn, installBtn, termBtn, viewBtn,
         el("button", {
           class: "icon-btn danger",
           title: `Delete ${sb.name}`,
@@ -488,6 +531,13 @@
       res = await api("/api/cua/sandboxes/remove", { method: "POST", body: { name } });
     } catch { return; }
     startJob(res.job_id, `remove ${name}`);
+  }
+
+  async function doView(name) {
+    try {
+      await api("/api/cua/sandboxes/view", { method: "POST", body: { name } });
+      toast("opening the desktop viewer in your browser (serves ~1 h)");
+    } catch { return; }  /* api() toasted the reason (400/404/503) */
   }
 
   async function doProvision(name) {

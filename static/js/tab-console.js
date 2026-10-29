@@ -43,26 +43,26 @@
       onchange: () => { runOnNode = runOnSel.value; refreshRunOnNote(); },
     });
     const runOnNote = el("span", { class: "muted small", id: "console-runon-note" });
-    const runOnRow = el("div", { class: "row", id: "console-runon-row", style: "display:none" },
+    const runOnRow = el("div", { class: "row", id: "console-runon-row" },
       el("span", { class: "muted small" }, "Run on"), runOnSel, runOnNote);
     function refreshRunOnNote() {
       runOnNote.textContent = runOnNode
         ? `conversation console:main on ${runOnNode} — that VM's own conversation (the master's is untouched)`
         : "master (this machine)";
     }
+    /* always show the row with the master option; VM options (nodes with a
+       healthy in-guest agent) are appended when /api/network answers */
+    runOnSel.appendChild(el("option", { value: "" }, "master (this machine)"));
+    refreshRunOnNote();
     (async () => {
       let data;
       try { data = await api("/api/network"); }
       catch { return; }
       const vms = (((data || {}).nodes) || []).filter(n => n.kind === "vm" && n.agent);
-      if (!vms.length) return;
-      runOnSel.appendChild(el("option", { value: "" }, "master (this machine)"));
       vms.forEach(n => runOnSel.appendChild(el("option", { value: n.name }, `${n.name} (this VM's agent)`)));
       if (runOnNode && !vms.some(n => n.name === runOnNode)) runOnNode = "";
       runOnSel.value = runOnNode;
       refreshRunOnNote();
-      const row = document.getElementById("console-runon-row");
-      if (row && row.isConnected) row.style.display = "";
     })();
     async function doSend() {
       const text = input.value.trim();
