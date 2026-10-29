@@ -51,6 +51,18 @@ function Write-Log {
 Write-Log ("beacon starting: master={0} host={1} interval={2}s once={3}" -f
     $MasterUrl, $HostLabel, $IntervalSeconds, [bool]$Once)
 
+$script:LastGoodNodes = $null
+try {
+    $stateFile = Join-Path $env:TEMP 'ytl-beacon\lastnodes.json'
+    if (Test-Path $stateFile) {
+        $loaded = Get-Content $stateFile -Raw | ConvertFrom-Json
+        if ($loaded) {
+            $script:LastGoodNodes = @($loaded)
+            Write-Log ("loaded {0} last known node(s) from state" -f $script:LastGoodNodes.Count)
+        }
+    }
+} catch {}
+
 function Get-SandboxNodes {
     <#
     .SYNOPSIS
@@ -82,6 +94,14 @@ function Get-SandboxNodes {
         }
         $script:CuaListOk = $true
         $script:LastGoodNodes = $nodes
+        # persist so a RESTARTED beacon (started while a VM runs and the list
+        # already fails) still knows the last nodes
+        try {
+            $dir = Join-Path $env:TEMP 'ytl-beacon'
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            $script:LastGoodNodes | ConvertTo-Json -Depth 4 |
+                Set-Content -Path (Join-Path $dir 'lastnodes.json') -Encoding UTF8
+        } catch {}
         return $nodes
     } catch {
         $script:CuaListOk = $false
