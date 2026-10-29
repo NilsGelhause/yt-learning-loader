@@ -454,7 +454,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "    exit 0",
             "}",
             "Write-Output \"[error] sidecar not healthy in ${name} — server.log tail:\"",
-            "cua sb exec $name -- 'tail -40 /home/cua/agentd-data/server.log 2>/dev/null' 2>$null",
+            "cua sb exec $name -- 'node -e \"console.log(require(\"fs\").readFileSync(\"/home/cua/agentd-data/server.log\",\"utf8\").slice(-2000))\"'",
             "exit 1",
             "",
         ])
@@ -550,7 +550,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "    exit 0",
             "}",
             "Write-Output \"[error] sidecar not running in ${name} - server.log tail:\"",
-            "cua sb exec $name -- 'tail -20 /home/cua/agentd-data/server.log 2>/dev/null' 2>$null",
+            "cua sb exec $name -- 'node -e \"console.log(require(\"fs\").readFileSync(\"/home/cua/agentd-data/server.log\",\"utf8\").slice(-2000))\"'",
             "exit 1",
             "",
         ])
