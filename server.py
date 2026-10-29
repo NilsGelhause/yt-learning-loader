@@ -3167,7 +3167,7 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, subprocess.SubprocessError):
             help_text = ""
         if (help_run is None or help_run.returncode != 0
-                or not re.search(r"sandbox view", help_text)):
+                or not re.search(r"\bsandbox view\b", help_text)):
             return self.send_error_json(503, "this cua version has no `sb view` desktop viewer — update cua")
         old = CUA_VIEW_PROCS.pop(name, None)
         if old and old.poll() is None:
@@ -3203,6 +3203,7 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             return self.send_error_json(502, "the viewer did not report a URL — run `cua sb view "
                                              + name + "` in a terminal to see why")
+        CUA_VIEW_PROCS[name] = proc
         threading.Thread(target=_drain_cua_view, args=(proc, name), daemon=True).start()
         self.send_json({"ok": True, "url": url,
                         "note": "viewer serves ~1 h; clicking again restarts it"})

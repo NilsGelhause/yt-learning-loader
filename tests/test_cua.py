@@ -494,14 +494,36 @@ class CuaApiTests(unittest.TestCase):
                              stdout=b"Usage: cua.exe sandbox view [OPTIONS] <NAME>",
                              stderr=b"")
 
+        class LiveStdout:
+            """Mimics a live process pipe: the first line, then blocks
+            until kill() closes it, then EOF."""
+            def __init__(self):
+                self._first = ("Viewer for ytl-dev: "
+                               "http://127.0.0.1:49352/viewer/#ticket=abc\n")
+                self._closed = False
+
+            def readline(self):
+                if self._first:
+                    line, self._first = self._first, None
+                    return line
+                while not self._closed:
+                    time.sleep(0.005)
+                return ""
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                line = self.readline()
+                if not line:
+                    raise StopIteration
+                return line
+
         class Proc:
             def __init__(self, cmd, **kwargs):
                 seen.append((list(cmd), kwargs))
                 self.pid = 424242
-                import io as _io
-                self.stdout = _io.StringIO(
-                    "Viewer for ytl-dev: "
-                    "http://127.0.0.1:49352/viewer/#ticket=abc\n")
+                self.stdout = LiveStdout()
                 self._alive = True
 
             def poll(self):
@@ -509,6 +531,7 @@ class CuaApiTests(unittest.TestCase):
 
             def kill(self):
                 self._alive = False
+                self.stdout._closed = True
 
         with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
                 {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]),              mock.patch.object(server.subprocess, "run", return_value=help_run),              mock.patch.object(server.subprocess, "Popen", Proc):

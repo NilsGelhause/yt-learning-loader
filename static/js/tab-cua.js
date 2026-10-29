@@ -11,7 +11,7 @@
   const jobs = new Map();    // running/polling create/remove/delegate/provision jobs
   let jobTimer = null;       // shared poller for everything in `jobs`
   let agentMap = new Map();  // sandbox name -> {online, agent, endpoint} from /api/vm-nodes
-  let term = null;           // the one open terminal pane {id, name, pane, out, input, idx, timer, atBottom}
+  let term = null;           // the one open terminal pane {id, name, pane, out, input, idx, timer, over}
 
   function render(screen) {
     stopPoll();
@@ -313,12 +313,18 @@
     /* the auto-refresh rebuilds the rows — carry an open terminal pane over
        to the new row of its sandbox (or drop it if that sandbox is gone) */
     const pane = term ? term.pane : null;
+    /* detaching the pane drops focus of whatever is focused inside it —
+       remember and restore so typing into the terminal input survives */
+    const inputHadFocus = !!(pane && term.input === document.activeElement);
     if (pane && pane.parentNode) pane.remove();
     clear(box);
     box.appendChild(tableBody(data.sandboxes || []));
     if (pane) {
       const row = findRow(box, term.name);
-      if (row) row.appendChild(pane);
+      if (row) {
+        row.appendChild(pane);
+        if (inputHadFocus) term.input.focus({ preventScroll: true });
+      }
       else destroyTermPane(false);
     }
   }
@@ -407,8 +413,11 @@
      stdin/stdout lines are the guest's — a persistent shell under the row. */
 
   function termLine(t, text, cls) {
+    /* stick to the bottom only when the output is already near it — never
+       yank the view (and risk focus) away from the user mid-read */
+    const stick = t.out.scrollHeight - t.out.scrollTop - t.out.clientHeight < 40;
     t.out.appendChild(el("div", { class: cls || "cl-out" }, text));
-    if (t.atBottom) t.out.scrollTop = t.out.scrollHeight;
+    if (stick) t.out.scrollTop = t.out.scrollHeight;
   }
 
   async function toggleTerm(name) {
@@ -442,10 +451,7 @@
       el("div", { class: "row" },
         el("span", { class: "mono small muted" }, "$"),
         input));
-    const t = { id: res.term_id, name, pane, out, input, idx: 0, atBottom: true, over: false };
-    out.addEventListener("scroll", () => {
-      t.atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 12;
-    });
+    const t = { id: res.term_id, name, pane, out, input, idx: 0, over: false };
     term = t;
     termLine(t, `connected to ${name} — raw shell, 15 min idle closes it`, "cl-meta");
     const box = document.getElementById("cua-table");
@@ -453,7 +459,7 @@
     if (row) row.appendChild(pane);
     t.timer = setInterval(pollTerm, 1000);
     pollTerm();
-    input.focus();
+    input.focus({ preventScroll: true });
   }
 
   async function sendTermLine() {
@@ -476,7 +482,14 @@
     try { d = await api(`/api/cua/term/${t.id}`); }
     catch { return; }
     if (term !== t) return;
-    (d.lines || []).slice(t.idx).forEach(l => termLine(t, l.x, l.t === "err" ? "cl-err" : "cl-out"));
+    const fresh = (d.lines || []).slice(t.idx);
+    if (fresh.length) {
+      /* appending must never steal focus — if the input had it before the
+         update, make sure it still has it afterwards */
+      const hadFocus = document.activeElement === t.input;
+      fresh.forEach(l => termLine(t, l.x, l.t === "err" ? "cl-err" : "cl-out"));
+      if (hadFocus && document.activeElement !== t.input) t.input.focus({ preventScroll: true });
+    }
     t.idx = (d.lines || []).length;
     if (d.status === "closed") {
       t.over = true;

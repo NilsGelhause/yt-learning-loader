@@ -8,7 +8,10 @@
   Runs the three fixups we discovered the hard way on the master PC:
     1. Ensures the `cua` CLI is installed (runs the official installer if not).
     2. Enables the Windows Hypervisor Platform feature (WHPX) and reboots if needed.
-    3. Provisions the QEMU runtime (`cua runtime setup`) if qemu is missing.
+    3. Provisions the QEMU runtime (`cua runtime setup`) if qemu is missing,
+       and adds QEMU's directory to the machine PATH if the installer left it
+       off (the weilnetz.de installer does not add it, and `cua runtime setup`
+       doesn't either — the doctor fails without it).
     4. Repairs the QEMU packaging bug (keymaps in share/keymaps instead of
        share/qemu/keymaps) — without it, VNC dies with "Could not open 'en-us'".
     5. Installs the qemu shim (QemuShim.cs next to this script): rewrites
@@ -75,9 +78,38 @@ if ($doctor -match "qemu\s+ok") {
     if ($doctor -match "qemu\s+ok") {
         Write-Host "qemu ready."
     } else {
-        # cua does NOT bundle QEMU on Windows ("which Cua does not install
-        # for you") — the user installs it manually, then re-runs this script.
-        throw "QEMU is not installed. Download QEMU for Windows from https://qemu.weilnetz.de/ (installs into C:\Program Files\qemu), then re-run this script"
+        # cua runtime setup does not put QEMU on PATH, and the weilnetz.de
+        # installer doesn't either — add it to the MACHINE PATH ourselves.
+        $qemuExe = Join-Path $QemuDir "qemu-system-x86_64.exe"
+        if (-not (Test-Path $qemuExe)) {
+            # Not at the default location — search Program Files for it.
+            $found = Get-ChildItem "C:\Program Files*\qemu*\qemu-system-x86_64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+                $QemuDir = $found.DirectoryName
+                $qemuExe = $found.FullName
+                Write-Host "found qemu at $QemuDir (nonstandard location)."
+            }
+        }
+        if (Test-Path $qemuExe) {
+            $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+            if ($machinePath.Split(';') -notcontains $QemuDir) {
+                [Environment]::SetEnvironmentVariable("Path", $machinePath + ";" + $QemuDir, "Machine")
+                Write-Host "added $QemuDir to the machine PATH."
+            } else {
+                Write-Host "$QemuDir already on the machine PATH."
+            }
+            $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
+            $doctor = & cua runtime doctor 2>&1 | Out-String
+            if ($doctor -match "qemu\s+ok") {
+                Write-Host "qemu found on PATH now."
+            } else {
+                throw "QEMU is on PATH but the doctor still fails — run 'cua runtime doctor' manually to see why."
+            }
+        } else {
+            # cua does NOT bundle QEMU on Windows ("which Cua does not install
+            # for you") — the user installs it manually, then re-runs this script.
+            throw "QEMU is not installed. Download QEMU for Windows from https://qemu.weilnetz.de/ (installs into C:\Program Files\qemu), then re-run this script"
+        }
     }
 }
 
