@@ -25,6 +25,8 @@ import urllib.parse
 import urllib.request
 import uuid
 import difflib
+import io
+import tarfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -1709,6 +1711,41 @@ setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev
 """
 
 
+# ---------------------------------------------------------------- /kit/agentd.tgz
+# The install-agent device task downloads this and unpacks it inside a VM.
+# Built on the fly from agentd/ (stdlib tarfile → gzipped bytes, ~60 s cache);
+# node_modules, data, .env and *.log never leave the host. LAN-public like the
+# rest of /kit — the sensitive API key rides the task script, not this archive.
+
+_AGENTD_TGZ: dict = {}
+
+
+def _agentd_tgz_filter(ti: tarfile.TarInfo):
+    """tarfile add() filter: drop node_modules/, data/, .env and *.log."""
+    parts = ti.name.split("/")
+    base = parts[-1]
+    if "node_modules" in parts or "data" in parts:
+        return None
+    if base == ".env" or base.endswith(".log"):
+        return None
+    return ti
+
+
+def build_agentd_tgz() -> bytes:
+    """Gzipped tar of agentd/, cached for ~60 s at module level."""
+    now = time.time()
+    if now - _AGENTD_TGZ.get("ts", 0) < 60:
+        return _AGENTD_TGZ["bytes"]
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        tf.add(str(ROOT / "agentd"), arcname="agentd",
+               filter=_agentd_tgz_filter)
+    data = buf.getvalue()
+    _AGENTD_TGZ["bytes"] = data
+    _AGENTD_TGZ["ts"] = now
+    return data
+
+
 def _job_line(job: dict, tag: str, text: str) -> None:
     with AGENT_JOBS_LOCK:
         job["lines"].append({"t": tag, "x": text[:1000]})
@@ -1747,6 +1784,20 @@ def _provision_step(job: dict, argv: list[str], label: str,
         _job_line(job, "err", f"{label} exited with code {proc.returncode}")
         return False
     return True
+
+
+def kimi_api_key() -> str:
+    """The KIMI_API_KEY value from agentd/.env ('' when unset or unreadable).
+    Device-bound: the install-agent task script embeds it, staged to a
+    one-line temp file on the laptop and never printed."""
+    env_path = ROOT / "agentd" / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    line = next((ln.strip() for ln in lines
+                 if ln.strip().startswith("KIMI_API_KEY=")), None)
+    return line.split("=", 1)[1].strip() if line else ""
 
 
 def _stage_key_env() -> Path | None:
@@ -2315,6 +2366,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.serve_file(ROOT / "cua-spaces-infographic.html", "text/html")
             if path == "/device-agent.ps1":
                 return self.serve_kit_file("Device-Agent.ps1")
+            if path == "/kit/agentd.tgz":
+                return self.serve_agentd_tgz()
             m = re.fullmatch(r"/kit/([A-Za-z0-9.-]+)", path)
             if m:
                 return self.serve_kit_file(m.group(1))
@@ -2527,6 +2580,20 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_error_json(404, "not_found")
         self.serve_file(target, "text/plain")
 
+    def serve_agentd_tgz(self):
+        """GET /kit/agentd.tgz — gzipped tar of agentd/ for the install-agent
+        device task (built on the fly, ~60 s cache; see build_agentd_tgz)."""
+        try:
+            data = build_agentd_tgz()
+        except OSError:
+            return self.send_error_json(404, "agentd/ not found")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/gzip")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
+
     def api_device_pair_codes(self):
         """Mint a pairing code for the Connect-device card (UI button)."""
         code, expires = devices.new_pair_code()
@@ -2640,9 +2707,19 @@ class Handler(BaseHTTPRequestHandler):
             ctx["name_prefix"] = str(params.get("name_prefix") or "laptop-vm")[:40]
         if kind == "open-desktop":
             vm = str(params.get("name") or "")
-            if not devices.REMOTE_NAME_RE.fullmatch(vm):
+            if not REMOTE_NAME_RE.fullmatch(vm):
                 return self.send_error_json(400, "bad vm name")
             ctx["vm_name"] = vm
+        if kind == "install-agent":
+            vm = str(params.get("name") or "")
+            if not REMOTE_NAME_RE.fullmatch(vm):
+                return self.send_error_json(400, "bad vm name")
+            key = kimi_api_key()
+            if not key:
+                return self.send_error_json(
+                    400, "agentd/.env has no KIMI_API_KEY — set one before installing")
+            ctx["vm_name"] = vm
+            ctx["kimi_key"] = key
         if kind == "start-beacon" and not ctx["lan_token"]:
             return self.send_error_json(400, "start-beacon needs a LAN token — set one in Settings → LAN / other devices")
         try:
@@ -2653,6 +2730,8 @@ class Handler(BaseHTTPRequestHandler):
             "install-stack": "install VM stack",
             "create-vm": f"create {ctx.get('count', 1)} VM(s)",
             "start-beacon": "start beacon",
+            "open-desktop": f"open desktop viewer for {ctx.get('vm_name', '')}",
+            "install-agent": f"install agent {ctx.get('vm_name', '')}",
         }[kind]
         task_id = devices.queue_task(device_id, kind, script, label)
         self.send_json({"task_id": task_id})

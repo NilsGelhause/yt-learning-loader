@@ -4,7 +4,8 @@ Windows has no remote-management protocol on by default, so a second laptop
 prepares itself: the master UI shows a short-lived pairing code, the laptop
 runs one line in PowerShell (download Device-Agent.ps1, pair with the code),
 and the agent then polls THIS module's data via the server every few seconds
-for pre-defined tasks (install-stack, create-vm, start-beacon). Task output
+for pre-defined tasks (install-stack, create-vm, start-beacon, open-desktop,
+install-agent). Task output
 streams back line by line and is mirrored into server.AGENT_JOBS so the
 existing /api/agent/job/<id> transcript endpoint shows device tasks like any
 other job. The device never accepts arbitrary commands from the wire: a task
@@ -43,7 +44,8 @@ ONLINE_WINDOW = 20.0        # last_seen younger than this = online
 TASK_MAX_LINES = 800        # same cap as agent jobs
 TASK_LINE_CHARS = 1000
 
-TASK_KINDS = ("install-stack", "create-vm", "start-beacon", "open-desktop")
+TASK_KINDS = ("install-stack", "create-vm", "start-beacon", "open-desktop",
+              "install-agent")
 
 # Crockford-ish alphabet: no I, L, O, 0, 1 — unambiguous over the phone.
 _PAIR_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -383,6 +385,77 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "Start-Process -FilePath $exe -ArgumentList 'sb','view',$name | Out-Null",
             'Write-Output "desktop viewer started on THIS machine\'s browser (the viewer runs where cua runs)"',
             "exit 0",
+            "",
+        ])
+    if kind == "install-agent":
+        # Runs ON THE LAPTOP: the agentd sidecar is pushed INTO one of its
+        # VMs so the VM becomes a full agent node. The KIMI_API_KEY comes
+        # device-bound in ctx, is staged to a one-line ASCII temp file,
+        # ships with `cua sb cp` into a chmod-600 guest .env and is NEVER
+        # printed. The health check runs INSIDE the guest (the embedded
+        # listing shows empty endpoints, so nothing host-side is parsed),
+        # matched with plain .Contains — no regex escapes. The guest start
+        # script is built as a here-string and written LF-only (CRLF in a
+        # copied sh script crashed the guest with ': not found').
+        vm = str(ctx.get("vm_name") or "")
+        key = str(ctx.get("kimi_key") or "")
+        return "\n".join([
+            "$ErrorActionPreference = 'Stop'",
+            tmp,
+            f"$name = {_ps(vm)}",
+            "$tgz = Join-Path $tmp 'agentd.tgz'",
+            f"Invoke-RestMethod -Uri {_ps(f'{master}/kit/agentd.tgz')} -OutFile $tgz",
+            "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
+            "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
+            # 1. ship the kit into the guest and unpack it
+            "Write-Output \"step: copy agentd.tgz into ${name}\"",
+            "cua sb cp $tgz \"${name}:/home/cua/agentd.tgz\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] cua sb cp agentd.tgz failed'; exit 1 }",
+            "cua sb exec $name -- 'mkdir -p /home/cua/agentd && tar xzf /home/cua/agentd.tgz -C /home/cua'",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] unpack failed'; exit 1 }",
+            # 2. the API key: staged locally, copied in, chmod 600 — the value
+            #    only ever exists in the temp file and the guest's .env
+            "Write-Output \"step: install the API key (chmod 600, never printed)\"",
+            "$keyFile = Join-Path $tmp 'agentd.env'",
+            f"Set-Content -Path $keyFile -Value {_ps('KIMI_API_KEY=' + key)} -Encoding ascii",
+            "cua sb cp $keyFile \"${name}:/home/cua/agentd/.env\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] key copy failed'; exit 1 }",
+            "Remove-Item $keyFile -Force -ErrorAction SilentlyContinue",
+            "cua sb exec $name -- 'chmod 600 /home/cua/agentd/.env'",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] chmod failed'; exit 1 }",
+            # 3. dependencies (full npm ci — tsx is a devDependency)
+            "Write-Output \"step: npm ci in the VM\"",
+            "cua sb exec $name -- 'cd /home/cua/agentd && npm ci --no-audit --no-fund'",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] npm ci failed'; exit 1 }",
+            # 4. start script (mirrors server.py's START_AGENTD_SH) + launch
+            "Write-Output \"step: start the sidecar detached\"",
+            "$startSh = Join-Path $tmp 'start-agentd.sh'",
+            "$here = @'",
+            "#!/bin/sh",
+            "# re-runnable after a VM restart (processes die on restart, files survive)",
+            "mkdir -p /home/cua/agentd-data",
+            "export YTL_AGENT_PORT=8472",
+            "export YTL_AGENT_HOST=0.0.0.0",
+            "export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite",
+            "cd /home/cua/agentd",
+            "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
+            "'@",
+            "[IO.File]::WriteAllText($startSh, ($here -replace \"`r`n\", \"`n\"))",
+            "cua sb cp $startSh \"${name}:/home/cua/start-agentd.sh\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script copy failed'; exit 1 }",
+            "cua sb exec $name -- 'sh /home/cua/start-agentd.sh'",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start failed'; exit 1 }",
+            "Start-Sleep -Seconds 4",
+            # 5. health check INSIDE the guest — no endpoints parsing
+            "Write-Output \"step: health check inside the guest\"",
+            "$health = cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health' 2>$null",
+            "if ($health -and $health.Contains('ok') -and $health.Contains('true')) {",
+            "    Write-Output \"agent installed on ${name} — healthy\"",
+            "    exit 0",
+            "}",
+            "Write-Output \"[error] sidecar not healthy in ${name} — server.log tail:\"",
+            "cua sb exec $name -- 'tail -40 /home/cua/agentd-data/server.log 2>/dev/null' 2>$null",
+            "exit 1",
             "",
         ])
     raise ValueError(f"unknown task kind: {kind}")

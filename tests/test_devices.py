@@ -283,6 +283,105 @@ class DeviceServerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             devices.build_task_script("format-c", {})
 
+    # -- install-agent (agentd sidecar into a laptop VM)
+
+    def test_install_agent_script_markers(self):
+        """The generated laptop script ships the tgz, keys, starts and health
+        checks the guest — LF-only, key staged never printed."""
+        script = devices.build_task_script(
+            "install-agent", {"master_url": "http://m:8471",
+                              "vm_name": "laptop-vm-1", "kimi_key": "sk-test"})
+        for marker in ("agentd.tgz", "cua sb cp", "setsid", "chmod 600",
+                       "Contains('ok')", "Contains('true')", "tail -40",
+                       "'KIMI_API_KEY=sk-test'"):
+            self.assertIn(marker, script)
+        # guest here-string must not carry CR (CRLF start script crashed sh)
+        self.assertNotIn("\r", script)
+        self.assertIn('-replace "`r`n", "`n"', script)
+        # health check runs INSIDE the guest; nothing parses endpoints
+        self.assertIn("cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health'",
+                      script)
+        self.assertNotIn("endpoints", script.lower())
+
+    def test_install_agent_locked_until_stack_done(self):
+        """install-agent needs the cua stack on the laptop: 409 first, then
+        200 once stack_done is set (with a key available)."""
+        device_id, _ = self.pair_device()
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "install-agent",
+                                 "params": {"name": "laptop-vm-1"}})
+        self.assertEqual(status, 409)
+        self.assertIn("Install VM stack", body["error"])
+        devices.DEVICES[device_id]["stack_done"] = True
+        with mock.patch.object(server, "kimi_api_key", return_value="sk-test"):
+            status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                    {"kind": "install-agent",
+                                     "params": {"name": "laptop-vm-1"}})
+        self.assertEqual(status, 200)
+        self.assertTrue(body["task_id"])
+
+    def test_install_agent_bad_vm_name(self):
+        """VM names must match the remote-node name rules."""
+        device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "install-agent",
+                                 "params": {"name": "Bad_Name!"}})
+        self.assertEqual(status, 400)
+        self.assertIn("vm name", body["error"])
+
+    def test_install_agent_requires_api_key(self):
+        """No KIMI_API_KEY in agentd/.env → a clear 400, no task queued."""
+        device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        with mock.patch.object(server, "kimi_api_key", return_value=""):
+            status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                    {"kind": "install-agent",
+                                     "params": {"name": "laptop-vm-1"}})
+        self.assertEqual(status, 400)
+        self.assertIn("KIMI_API_KEY", body["error"])
+        dev = devices.DEVICES[device_id]
+        self.assertEqual(dev["tasks"], {})
+
+    def test_install_agent_label(self):
+        """The queued task reads 'install agent <vm>'."""
+        device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        with mock.patch.object(server, "kimi_api_key", return_value="sk-test"):
+            _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                               {"kind": "install-agent",
+                                "params": {"name": "laptop-vm-1"}})
+        task_id = body["task_id"]
+        task = devices.DEVICES[device_id]["tasks"][task_id]
+        self.assertEqual(task["label"], "install agent laptop-vm-1")
+
+    def test_kit_agentd_tgz_served(self):
+        """/kit/agentd.tgz is a real gzipped tar of agentd/: 200, the right
+        content type, parseable, with package.json and without node_modules,
+        .env or *.log."""
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        conn.request("GET", "/kit/agentd.tgz",
+                     headers={"x-ytl-token": self.TOKEN})
+        resp = conn.getresponse()
+        raw = resp.read()
+        ctype = resp.getheader("Content-Type") or ""
+        status = resp.status
+        conn.close()
+        self.assertEqual(status, 200)
+        self.assertIn("application/gzip", ctype)
+        import io
+        import tarfile
+        with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tf:
+            names = tf.getnames()
+        self.assertIn("agentd/package.json", names)
+        self.assertFalse(any("node_modules" in n for n in names),
+                         "node_modules must be excluded")
+        self.assertFalse(any(n.rsplit("/", 1)[-1] == ".env" for n in names),
+                         ".env must be excluded")
+        self.assertFalse(any(n.endswith(".log") for n in names),
+                         "*.log must be excluded")
+
+
     def test_task_endpoint_rejects_unknown_kind(self):
         device_id, _ = self.pair_device()
         status, body = self.api("POST", f"/api/devices/{device_id}/task",
