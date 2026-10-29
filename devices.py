@@ -492,7 +492,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             #    fixed by construction.
             "Write-Output \"step: start host-side forward 28472 -> guest 8472\"",
             "Start-Process -FilePath $exe -ArgumentList 'sb','port-forward',$name,'28472:8472' -WindowStyle Hidden",
-            "Start-Sleep -Seconds 4",
+            "Start-Sleep -Seconds 12",
             "$health = curl.exe -s -m 8 http://127.0.0.1:28472/health",
             "if (-not ($health -and $health.Contains('ok') -and $health.Contains('true'))) {",
             "    Write-Output '[error] forward not healthy - run install-agent first'",
