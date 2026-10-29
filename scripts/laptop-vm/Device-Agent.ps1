@@ -88,10 +88,19 @@ function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
     return $p.ExitCode
 }
 
-$AgentLog = Join-Path $env:TEMP "ytl-agent.log"
+$AgentLog = Join-Path ([Environment]::GetFolderPath("Desktop")) "ytl-agent.log"
 function Trace([string]$msg) {
     Add-Content -Path $AgentLog -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -Encoding UTF8
 }
+
+# Last-resort crash net: exceptions on background threads (event handlers)
+# bypass the trap below and kill the process — this hook still sees them.
+[AppDomain]::CurrentDomain.add_UnhandledException({
+    try {
+        Add-Content -Path $AgentLog -Value ("{0}  UNHANDLED: {1}" -f (Get-Date -Format "HH:mm:ss"), $_.ExceptionObject) -Encoding UTF8
+    } catch {}
+})
+Trace ("agent starting, pid " + $PID + " admin=" + (Test-Admin))
 
 function Invoke-Task($task) {
     Trace ("task " + $task.id + " [" + $task.kind + "] starting")
