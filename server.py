@@ -482,21 +482,53 @@ def save_settings(settings: dict) -> None:
 
 # ---------------------------------------------------------------- lan
 
+_LAN_CACHE: tuple[float, list[str]] | None = None
+_LAN_CACHE_TTL = 60.0
+
+
 def lan_ipv4_addresses() -> list[str]:
-    """Non-loopback IPv4 addresses of this machine (best effort, may be empty)."""
-    addrs = set()
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            addrs.add(info[4][0])
-    except OSError:
+    """Non-loopback IPv4 addresses of this machine that LAN clients can
+    actually reach — physical-LAN adapters only (vEthernet/WSL/Hyper-V host
+    switches like 172.27.160.1 are machine-internal, offering them sends
+    devices to a dead address). Falls back to getaddrinfo when the adapter
+    query fails. Cached ~1 min: the adapter query shells out to powershell,
+    far too slow to run per request."""
+    global _LAN_CACHE
+    if _LAN_CACHE and time.monotonic() - _LAN_CACHE[0] < _LAN_CACHE_TTL:
+        return _LAN_CACHE[1]
+    addrs: set[str] = set()
+    try:  # adapter-aware enumeration; one powershell call, cached by the OS
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-NetIPAddress -AddressFamily IPv4 | Where-Object {"
+             " $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*'"
+             " -and (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue)"
+             ".Name -notmatch '^(vEthernet|WSL|Loopback|Hyper-V)' }"
+             " | Select-Object -ExpandProperty IPAddress"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=15, stdin=subprocess.DEVNULL)
+        if out.returncode == 0:
+            for line in (out.stdout or "").splitlines():
+                line = line.strip()
+                if line:
+                    addrs.add(line)
+    except (OSError, subprocess.SubprocessError):
         pass
-    try:  # UDP connect finds the address of the default route without traffic
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8", 80))
-            addrs.add(s.getsockname()[0])
-    except OSError:
-        pass
-    return sorted(a for a in addrs if not a.startswith("127."))
+    if not addrs:
+        try:
+            for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+                addrs.add(info[4][0])
+        except OSError:
+            pass
+        try:  # UDP connect finds the address of the default route without traffic
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                addrs.add(s.getsockname()[0])
+        except OSError:
+            pass
+    result = sorted(a for a in addrs if not a.startswith("127."))
+    _LAN_CACHE = (time.monotonic(), result)
+    return result
 
 
 def lan_urls(port: int) -> list[str]:
@@ -1507,6 +1539,62 @@ def run_agent_job_durable(job_id: str, cwd: Path, message: str, new_session: boo
             job["ended"] = int(time.time())
 
 
+DOCKER_DESKTOP = [
+    r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
+    r"C:\Program Files (x86)\Docker\Docker\Docker Desktop.exe",
+]
+DOCKER_PIPE = r"\.\pipe\dockerDesktopLinuxEngine"
+
+
+def docker_engine_running() -> bool:
+    return os.path.exists(DOCKER_PIPE)
+
+
+def ensure_container_engine(job: dict, timeout: int = 150) -> bool:
+    """Create VM uses the container engine; when Docker Desktop is not
+    running (e.g. after a reboot) start it and wait — the user should never
+    have to do this by hand. Streams progress lines into the job record."""
+    def push(text: str) -> None:
+        with AGENT_JOBS_LOCK:
+            job["lines"].append({"t": "out", "x": text[:1000]})
+            if len(job["lines"]) > AGENT_MAX_LINES:
+                del job["lines"][: len(job["lines"]) - AGENT_MAX_LINES]
+
+    if docker_engine_running():
+        return True
+    exe = next((c for c in DOCKER_DESKTOP if os.path.exists(c)), None)
+    if not exe:
+        push("container engine not running and Docker Desktop not found — "
+             "start it manually, then retry")
+        return False
+    push("container engine is off — starting Docker Desktop, please wait…")
+    try:
+        subprocess.Popen([exe], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as e:
+        push(f"could not start Docker Desktop: {e}")
+        return False
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if docker_engine_running():
+            push("container engine is up — creating the VM")
+            return True
+        time.sleep(2)
+    push("Docker Desktop did not become ready in time — start it manually, then retry")
+    return False
+
+
+def run_cua_create_job(job_id: str, argv: list[str]) -> None:
+    """Create jobs: make sure the container engine is up first, then run."""
+    if not ensure_container_engine(AGENT_JOBS[job_id]):
+        with AGENT_JOBS_LOCK:
+            AGENT_JOBS[job_id]["status"] = "error"
+            AGENT_JOBS[job_id]["exit_code"] = 1
+            AGENT_JOBS[job_id]["ended"] = int(time.time())
+        return
+    run_cua_job(job_id, argv)
+
+
 def run_cua_job(job_id: str, argv: list[str]) -> None:
     """Run a cua CLI command (`sb create …`, `sb rm …`) in a thread, streaming
     output lines into the job record like an agent job — image downloads take
@@ -2410,9 +2498,9 @@ class Handler(BaseHTTPRequestHandler):
             exit_code=body.get("exit_code"), needs_admin=bool(body.get("needs_admin")))
         if not ok:
             return self.send_error_json(401, "device auth failed")
-        self.send_json({"ok": True})
-        # Auto-chain: VMs were created on the laptop → start its beacon so the
+        # Auto-chain: VMs were created on the laptop -> start its beacon so the
         # new VMs show up in the master's Network tab without a manual click.
+        # Runs BEFORE the response so the next poll already sees the new task.
         if body.get("done") and not body.get("exit_code"):
             try:
                 task = devices.DEVICES.get(device_id, {}).get("tasks", {}).get(
@@ -2426,6 +2514,7 @@ class Handler(BaseHTTPRequestHandler):
                                            "start beacon (auto)")
             except Exception:  # noqa: BLE001 - chaining is best-effort
                 pass
+        self.send_json({"ok": True})
 
     def _device_task_ctx(self) -> dict:
         """Device-reachable master URL (first LAN url) + the LAN token, which
@@ -2949,7 +3038,8 @@ class Handler(BaseHTTPRequestHandler):
                 "lines": [], "exit_code": None, "pid": None,
                 "started": int(time.time()), "ended": None,
             }
-        threading.Thread(target=run_cua_job, args=(job_id, argv), daemon=True).start()
+        runner = run_cua_create_job if ("create" in argv) else run_cua_job
+        threading.Thread(target=runner, args=(job_id, argv), daemon=True).start()
         return job_id
 
     def api_cua_create(self):

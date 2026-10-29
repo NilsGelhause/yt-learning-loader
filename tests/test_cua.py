@@ -270,7 +270,7 @@ class CuaApiTests(unittest.TestCase):
     # -- POST /api/cua/sandboxes (create) and /remove
 
     def test_create_spawns_streaming_job(self):
-        with mock.patch.object(server.subprocess, "Popen",
+        with mock.patch.object(server, "docker_engine_running", return_value=True),              mock.patch.object(server.subprocess, "Popen",
                                fake_proc(["pulling image…\n", "created ytl-dev\n"])):
             status, body = self.api("POST", "/api/cua/sandboxes", {"name": "Dev"})
         self.assertEqual(status, 200)
@@ -288,6 +288,9 @@ class CuaApiTests(unittest.TestCase):
 
     def test_create_uses_cli_argv(self):
         seen = []
+        engine = mock.patch.object(server, "docker_engine_running", return_value=True)
+        engine.start()
+        self.addCleanup(engine.stop)
 
         class Proc(fake_proc()):
             def __init__(self, cmd, **kwargs):
@@ -348,7 +351,7 @@ class CuaApiTests(unittest.TestCase):
         self.assertEqual(status, 400)
 
     def test_create_job_failure_marks_error(self):
-        with mock.patch.object(server.subprocess, "Popen",
+        with mock.patch.object(server, "docker_engine_running", return_value=True),              mock.patch.object(server.subprocess, "Popen",
                                fake_proc(["boom\n"], returncode=1)):
             _, body = self.api("POST", "/api/cua/sandboxes", {"name": "dev"})
         job = self.wait_job(body["job_id"])
