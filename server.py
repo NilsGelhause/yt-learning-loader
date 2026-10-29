@@ -2659,12 +2659,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _device_task_ctx(self) -> dict:
         """Device-reachable master URL (first LAN url) + the LAN token, which
-        only ever travels device-bound inside a built task script."""
+        only ever travels device-bound inside a built task script. Also the
+        bare master LAN IP — the guest's relay dial-out target."""
         settings = load_settings()
         port = int(settings.get("port", 8471))
         urls = lan_urls(port)
         master = urls[0] if urls else f"http://{settings.get('host') or '127.0.0.1'}:{port}"
-        return {"master_url": master, "lan_token": settings.get("lan_token") or ""}
+        master_lan_ip = "127.0.0.1"
+        if urls:
+            master_lan_ip = urls[0].removeprefix("http://").split(":", 1)[0]
+        return {"master_url": master, "lan_token": settings.get("lan_token") or "",
+                "master_lan_ip": master_lan_ip}
 
     def api_device_remove(self, device_id: str):
         """Forget a device — only when it is offline (its agent is closed)."""
@@ -2721,8 +2726,9 @@ class Handler(BaseHTTPRequestHandler):
             ctx["vm_name"] = vm
             ctx["kimi_key"] = key
         if kind == "expose-agent":
-            # Publishes the in-guest agentd sidecar onto the LAN (netsh
-            # portproxy + firewall rule) — the device agent runs elevated.
+            # Points the in-guest agentd sidecar at the master's reverse
+            # relay (dial-out, slirp NAT) and verifies the guest process —
+            # no host-side portproxy needed.
             vm = str(params.get("name") or "")
             if not REMOTE_NAME_RE.fullmatch(vm):
                 return self.send_error_json(400, "bad vm name")
@@ -3717,9 +3723,235 @@ class Handler(BaseHTTPRequestHandler):
             TEST_RUN_LOCK.release()
 
 
+# ---------------------------------------------------------------- reverse relay
+# cua on Windows publishes no host port into QEMU guests and
+# `cua sb port-forward` cannot tunnel into them — but the guest CAN dial out
+# (slirp NAT). So the direction is reversed: the in-guest agentd sidecar
+# dials OUT to a relay listener on the master (RELAY_BASE_DIAL+i); the
+# master's local HTTP clients connect to the paired client port
+# (RELAY_BASE_CLIENT+i) and both ends are piped. All existing master-side
+# node logic (vm_nodes health/conversations, Console "Run on",
+# build_network) then works unchanged over http://<master-ip>:18473+i.
+# Pure in-memory plumbing: no persistence, no registry, inert when unused.
+
+RELAY_BASE_DIAL = 18472
+RELAY_BASE_CLIENT = 18473
+RELAY_COUNT = 10
+
+
+def relay_index_for(client_port: int) -> int:
+    """Client port (RELAY_BASE_CLIENT+i) -> relay index i."""
+    return int(client_port) - RELAY_BASE_CLIENT
+
+
+_RELAY_OFF = b"HTTP/1.1 502 Relay Off\r\nContent-Length: 0\r\n\r\n"
+
+
+class _Relay:
+    """One relay index: a dial-in listener (guest) + a client listener
+    (master-side HTTP). The most recent dial-in owns the channel; a new
+    dial-in replaces it (old socket closed). Clients are serialized: each
+    client connection pipes both ways against the current channel, and the
+    channel itself survives the client (closing it per request would force
+    the guest into a reconnect backoff on every health probe)."""
+
+    SHUTTLE_TIMEOUT = 1.0  # lets a session's shuttles notice "session over"
+
+    def __init__(self, index: int, dial_port: int, client_port: int):
+        self.index = index
+        self.dial_port = dial_port
+        self.client_port = client_port
+        self.lock = threading.Lock()
+        self.guest: socket.socket | None = None
+        self.session_lock = threading.Lock()
+        self.listeners: list[socket.socket] = []
+
+    # -- lifecycle ----------------------------------------------------------
+    def start(self) -> None:
+        self.listeners.append(self._listen(self.dial_port, self._run_dial))
+        self.listeners.append(self._listen(self.client_port, self._run_client))
+
+    def close(self) -> None:
+        for srv in self.listeners:
+            try:
+                srv.close()
+            except OSError:
+                pass
+        with self.lock:
+            guest, self.guest = self.guest, None
+        if guest is not None:
+            self._close(guest)
+
+    def _listen(self, port: int, handler) -> socket.socket:
+        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("0.0.0.0", port))
+            srv.listen(16)
+        except OSError:
+            srv.close()
+            raise
+        threading.Thread(target=self._accept_loop, args=(srv, handler),
+                         daemon=True).start()
+        return srv
+
+    def _accept_loop(self, srv: socket.socket, handler) -> None:
+        while True:
+            try:
+                conn, _addr = srv.accept()
+            except OSError:
+                return  # listener closed
+            threading.Thread(target=self._guarded, args=(handler, conn),
+                             daemon=True).start()
+
+    @staticmethod
+    def _guarded(handler, conn: socket.socket) -> None:
+        try:
+            handler(conn)
+        except OSError:
+            pass  # a peer vanished mid-handshake — never crash the listener
+        except Exception as e:  # noqa: BLE001 - the listener must survive
+            print(f"relay error: {e}")
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    @staticmethod
+    def _close(conn: socket.socket) -> None:
+        try:
+            conn.close()
+        except OSError:
+            pass
+
+    # -- guest dial-in ------------------------------------------------------
+    def _run_dial(self, conn: socket.socket) -> None:
+        conn.settimeout(self.SHUTTLE_TIMEOUT)
+        with self.lock:
+            old, self.guest = self.guest, conn
+        if old is not None:
+            self._close(old)  # newest dial-in wins
+        # Keep the handler (and ownership of the socket) alive until the
+        # guest hangs up or a newer dial-in replaces this channel — _guarded
+        # closes the socket only once this returns.
+        while True:
+            try:
+                if conn.recv(1, socket.MSG_PEEK) == b"":
+                    return  # guest hung up (or was closed by replacement)
+            except socket.timeout:
+                with self.lock:
+                    if self.guest is not conn:
+                        return  # replaced
+            except OSError:
+                return
+            time.sleep(0.05)  # data pending: let the shuttles consume it
+
+    # -- client sessions ------------------------------------------------------
+    def _run_client(self, conn: socket.socket) -> None:
+        # Both sockets get a short recv timeout: a parked recv must poll
+        # `alive` — on Windows shutdown() does NOT wake a blocked recv on
+        # another thread.
+        conn.settimeout(self.SHUTTLE_TIMEOUT)
+        with self.session_lock:  # one client at a time on the channel
+            with self.lock:
+                guest = self.guest
+            if guest is None:
+                # fast-fail: probe -> node offline. Shutdown the write side
+                # and drain the client's bytes first — closing a socket with
+                # unread received data makes Windows answer with RST, which
+                # would destroy the 502 the client is already reading.
+                conn.sendall(_RELAY_OFF)
+                try:
+                    conn.shutdown(socket.SHUT_WR)
+                    while conn.recv(1024):
+                        pass
+                except OSError:
+                    pass
+                return
+            alive = threading.Event()
+            alive.set()
+            guest_broken = threading.Event()
+            threads = [
+                threading.Thread(target=self._shuttle,
+                                 args=(conn, guest, alive, False, guest_broken),
+                                 daemon=True),
+                threading.Thread(target=self._shuttle,
+                                 args=(guest, conn, alive, True, guest_broken),
+                                 daemon=True),
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            if guest_broken.is_set():
+                # the channel itself died (VM suspended / agentd gone): drop
+                # it so the next client fails fast instead of hanging
+                with self.lock:
+                    if self.guest is guest:
+                        self.guest = None
+                self._close(guest)
+
+    def _shuttle(self, src: socket.socket, dst: socket.socket,
+                 alive: threading.Event, src_is_guest: bool,
+                 guest_broken: threading.Event) -> None:
+        broke = False  # True only when src (the guest channel) itself failed
+        try:
+            while alive.is_set():
+                try:
+                    chunk = src.recv(65536)
+                except socket.timeout:
+                    continue  # check alive, then keep reading the channel
+                except (OSError, ValueError):
+                    broke = True  # closed under us (e.g. channel replaced)
+                    break
+                if not chunk:
+                    broke = True  # src's peer sent FIN — src is dead
+                    break
+                try:
+                    dst.sendall(chunk)
+                except (OSError, ValueError):
+                    break  # dst vanished mid-session; src is fine
+        finally:
+            alive.clear()
+            if src_is_guest and broke:
+                guest_broken.set()
+            if src_is_guest:
+                # Unblock the sibling shuttle parked in recv on the client
+                # socket. The shared guest channel is never touched: a FIN
+                # to the guest would kill its persistent pipe.
+                try:
+                    dst.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+
+
+def start_relays(dial_base: int = RELAY_BASE_DIAL,
+                 client_base: int = RELAY_BASE_CLIENT,
+                 count: int = RELAY_COUNT) -> list[_Relay]:
+    """Bind `count` relay index pairs and return the started handles.
+    Bases are injectable so tests can use ephemeral port ranges."""
+    relays = []
+    for i in range(count):
+        relay = _Relay(i, dial_base + i, client_base + i)
+        try:
+            relay.start()
+        except OSError as e:
+            print(f"reverse relay: index {i} unavailable ({e}) — skipped")
+            relay.close()
+            continue
+        relays.append(relay)
+    return relays
+
+
 def main() -> None:
     restore_jobs()
     load_remote_nodes()
+    relays = start_relays()
+    if relays:
+        print(f"reverse relay up: guest dial {RELAY_BASE_DIAL}.."
+              f"{RELAY_BASE_DIAL + RELAY_COUNT - 1}, clients "
+              f"{RELAY_BASE_CLIENT}..{RELAY_BASE_CLIENT + RELAY_COUNT - 1}")
     try:
         agentd_client.ensure_running()  # best-effort: the CLI fallback covers absence
     except Exception as e:  # noqa: BLE001

@@ -459,22 +459,25 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "",
         ])
     if kind == "expose-agent":
-        # Runs ON THE LAPTOP (elevated): publishes the in-guest agentd
-        # sidecar onto the LAN so the MASTER can use the VM as an agent node.
-        # The guest listens on 8472 loopback-only, so the laptop (admin)
-        # opens a deterministic host-side cua port-forward
-        # (laptop 127.0.0.1:28472 -> guest :8472), a netsh portproxy
-        # (stable LAN port -> 127.0.0.1:28472) and one inbound firewall rule.
-        # The LAN port is stable per VM: kept in
-        # %TEMP%\ytl-beacon\endpoints.json (the map the beacon reads to
-        # rewrite registered node endpoints). Health is matched with plain
-        # .Contains - no regex escapes. ASCII only (PS 5.1 fallback).
+        # Runs ON THE LAPTOP (elevated): makes the in-guest agentd sidecar
+        # reachable from the MASTER via the master's reverse relay. cua on
+        # Windows publishes no host port into QEMU guests and
+        # `cua sb port-forward` cannot tunnel into them — but the guest CAN
+        # dial out (slirp NAT), so the guest sidecar is pointed at the
+        # master's relay dial port (18472+i) and the master's paired client
+        # port (18473+i) speaks HTTP to the sidecar. The stable per-VM client
+        # port lives in %TEMP%\ytl-beacon\endpoints.json (the map the beacon
+        # reads to rewrite registered node endpoints). Verification is guest
+        # process presence (pgrep), matched with plain .Contains — no regex
+        # escapes. ASCII only (PS 5.1 fallback).
         vm = str(ctx.get("vm_name") or "")
+        master_ip = str(ctx.get("master_lan_ip") or "127.0.0.1")
         return "\n".join([
             "$ErrorActionPreference = 'Stop'",
             f"$name = {_ps(vm)}",
-            # 0. netsh portproxy + firewall need elevation: the device agent
-            #    runs elevated, but fail loudly instead of half-configuring.
+            f"$masterIp = {_ps(master_ip)}",
+            # 0. the task reconfigures the guest through cua: the CLI must be
+            #    there and the device agent runs elevated (fail loudly)
             "$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)",
             "if (-not $isAdmin) {",
             "    Write-Output '[error] admin rights required - run the device agent elevated'",
@@ -482,33 +485,10 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "}",
             "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
             "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
-            # 1. reach the guest sidecar: prefer a cua port-forward (the
-            #    image ships spacesd); if it does not become healthy,
-            #    fall back to probing the qemu process' own listeners
-            #    (covers the create-time --service publish).
-            "Write-Output \"step: open a host-side forward to the guest agent\"",
-            "Get-CimInstance Win32_Process -Filter \"Name='cua.exe'\" |",
-            "    Where-Object { $_.CommandLine -like \"*port-forward*$name*28472*\" } |",
-            "    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
-            "Start-Process -FilePath $exe -ArgumentList 'sb','port-forward',$name,'28472:8472' -WindowStyle Hidden",
-            "Start-Sleep -Seconds 12",
-            "$health = curl.exe -s -m 8 http://127.0.0.1:28472/health",
-            "$published = 28472",
-            "if (-not ($health -and $health.Contains('ok') -and $health.Contains('true'))) {",
-            "    Write-Output \"forward not healthy - probing the qemu process listeners\"",
-            "    $qemuPids = @((Get-Process qemu-system-x86_64 -ErrorAction SilentlyContinue).Id)",
-            "    $published = 0",
-            "    $listeners = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |",
-            "        Where-Object { $_.OwningProcess -in $qemuPids -and $_.LocalAddress -eq '127.0.0.1' } |",
-            "        Select-Object -ExpandProperty LocalPort -Unique",
-            "    foreach ($p in @($listeners)) {",
-            "        $h = curl.exe -s -m 3 \"http://127.0.0.1:${p}/health\"",
-            "        if ($h -and $h.Contains('ok') -and $h.Contains('true')) { $published = [int]$p; break }",
-            "    }",
-            "    if ($published -le 0) { Write-Output \"[error] no healthy agent port found - run install-agent first\"; exit 1 }",
-            "}",
-            "Write-Output \"guest sidecar reachable at 127.0.0.1:${published}\"",
-            "Write-Output \"step: pick a stable LAN port\"",
+            # 1. reserve a relay index: client port 18473+i on the master,
+            #    dial port = client-1; index i is the first slot 0..9 neither
+            #    present in the beacon map nor bound locally
+            "Write-Output \"step: reserve a relay index\"",
             "$mapFile = Join-Path $env:TEMP 'ytl-beacon\\endpoints.json'",
             "$ports = @{}",
             "if (Test-Path $mapFile) {",
@@ -517,44 +497,61 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "        foreach ($prop in $raw.PSObject.Properties) { $ports[$prop.Name] = [int]$prop.Value }",
             "    } catch { }",
             "}",
-            "$lanPort = 0",
-            "if ($ports.ContainsKey($name)) { $lanPort = $ports[$name] }",
-            "if ($lanPort -le 0) {",
-            "    foreach ($candidate in 18472..18499) {",
+            "$clientPort = 0",
+            "if ($ports.ContainsKey($name)) { $clientPort = $ports[$name] }",
+            "if ($clientPort -le 0) {",
+            "    foreach ($i in 0..9) {",
+            "        $candidate = 18473 + $i",
             "        if ($ports.Values -contains $candidate) { continue }",
             "        $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $candidate)",
             "        try {",
             "            $probe.Start()",
-            "            $lanPort = $candidate",
+            "            $clientPort = $candidate",
             "            $probe.Stop()",
             "            break",
             "        } catch { }",
             "    }",
             "}",
-            "if ($lanPort -le 0) { Write-Output '[error] no free LAN port in 18472..18499'; exit 1 }",
-            "$ports[$name] = $lanPort",
+            "if ($clientPort -le 0) { Write-Output '[error] no free relay client port (18473..18482)'; exit 1 }",
+            "$dialPort = $clientPort - 1",
+            "$ports[$name] = $clientPort",
             "New-Item -ItemType Directory -Force -Path (Split-Path $mapFile) | Out-Null",
             "($ports | ConvertTo-Json) | Set-Content -Path $mapFile -Encoding ascii",
-            # 4. portproxy LAN port -> the local forward (delete first: re-runs)
-            "Write-Output \"step: netsh portproxy $lanPort -> 127.0.0.1:28472\"",
-            "netsh interface portproxy delete v4tov4 listenport=$lanPort listenaddress=0.0.0.0 | Out-Null",
-            "netsh interface portproxy add v4tov4 listenport=$lanPort listenaddress=0.0.0.0 connectport=`$published connectaddress=127.0.0.1 | Out-Null",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] portproxy add failed'; exit 1 }",
-            # 5. inbound firewall rule, idempotent by name
-            "Write-Output \"step: firewall rule\"",
-            "$ruleName = \"ytl-agent-$name\"",
-            "netsh advfirewall firewall show rule name=\"$ruleName\" | Out-Null",
-            "if ($LASTEXITCODE -ne 0) {",
-            "    netsh advfirewall firewall add rule name=\"$ruleName\" dir=in action=allow protocol=tcp localport=$lanPort | Out-Null",
+            # 2. push the guest start script: the install-agent exports plus
+            #    YTL_RELAY_OUT, so the sidecar dials OUT to the master relay
+            #    (here-string written LF-only — CRLF crashed sh before)
+            "Write-Output \"step: point the guest sidecar at the master relay\"",
+            "$startSh = Join-Path $env:TEMP 'start-agentd.sh'",
+            "$relayTarget = \"$masterIp`:$dialPort\"",
+            "$here = @'",
+            "#!/bin/sh",
+            "mkdir -p /home/cua/agentd-data",
+            "export YTL_AGENT_PORT=8472",
+            "export YTL_AGENT_HOST=127.0.0.1",
+            "export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite",
+            "export YTL_RELAY_OUT=__RELAY_TARGET__",
+            "cd /home/cua/agentd",
+            "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
+            "'@",
+            "$here = $here.Replace('__RELAY_TARGET__', $relayTarget)",
+            "[IO.File]::WriteAllText($startSh, ($here -replace \"`r`n\", \"`n\"))",
+            "cua sb cp $startSh \"${name}:/home/cua/start-agentd.sh\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script copy failed'; exit 1 }",
+            # 3. restart the guest sidecar with the relay env (pkill may find
+            #    nothing on a fresh VM — its exit code is ignored)
+            "Write-Output \"step: restart the guest sidecar\"",
+            "cua sb exec $name -- 'pkill -f \"[t]sx src/server.ts\"; sh /home/cua/start-agentd.sh'",
+            "Start-Sleep -Seconds 4",
+            # 4. verify the guest process runs — no endpoints parsing
+            "Write-Output \"step: verify the guest process\"",
+            "$pg = cua sb exec $name -- 'pgrep -f \"[t]sx src/server.ts\" || echo NO_PROCESS' 2>$null",
+            "if ($pg -and -not $pg.Contains('NO_PROCESS')) {",
+            "    Write-Output \"agent exposed at http://$masterIp`:$clientPort -- relay dial $masterIp`:$dialPort\"",
+            "    exit 0",
             "}",
-            # 6. report the LAN address (beacon rewrites node endpoints from
-            #    the same map, so the master learns this URL)
-            "$lanIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |",
-            "    Where-Object { $_.IPAddress -ne '127.0.0.1' -and -not $_.IPAddress.StartsWith('169.254.') } |",
-            "    Select-Object -First 1).IPAddress",
-            "if (-not $lanIp) { Write-Output '[error] no LAN IP found on this device'; exit 1 }",
-            "Write-Output \"agent exposed at http://$lanIp`:$lanPort\"",
-            "exit 0",
+            "Write-Output \"[error] sidecar not running in ${name} - server.log tail:\"",
+            "cua sb exec $name -- 'tail -20 /home/cua/agentd-data/server.log 2>/dev/null' 2>$null",
+            "exit 1",
             "",
         ])
     raise ValueError(f"unknown task kind: {kind}")

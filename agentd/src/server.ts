@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createConnection } from "node:net";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Context } from "@earendil-works/chord";
 import { createModels } from "@earendil-works/pi-ai/models";
@@ -485,3 +486,53 @@ const HOST = process.env.YTL_AGENT_HOST ?? "127.0.0.1";
 server.listen(PORT, HOST, () => {
   log(`agentd listening on http://${HOST}:${PORT}`);
 });
+
+// ---------- reverse relay (optional) ----------
+// YTL_RELAY_OUT="<host>:<port>": dial OUT to the master's reverse relay and
+// pipe bytes bidirectionally to the local sidecar. QEMU guests publish no
+// host-side port, but slirp NAT allows outbound — so the guest reaches the
+// master this way. Absent env = zero behavior change.
+const RELAY_OUT = (process.env.YTL_RELAY_OUT ?? "").trim();
+
+function startRelayOut(target: string): void {
+  const i = target.lastIndexOf(":");
+  const host = target.slice(0, i);
+  const port = Number(target.slice(i + 1));
+  if (!host || !Number.isInteger(port)) {
+    log(`relay-out: bad YTL_RELAY_OUT "${target}" (want host:port) — disabled`);
+    return;
+  }
+  let delay = 2000;
+  const dial = (): void => {
+    let settled = false;
+    const retry = (why: string): void => {
+      if (settled) return;
+      settled = true;
+      log(`relay-out: ${why} — retry in ${delay / 1000}s`);
+      const wait = delay;
+      delay = Math.min(delay * 2, 30000);
+      setTimeout(dial, wait);
+    };
+    const up = createConnection({ host, port }, () => {
+      delay = 2000;
+      log(`relay-out: connected to ${target}`);
+      const local = createConnection({ host: "127.0.0.1", port: PORT }, () => {
+        log("relay-out: piping to local sidecar");
+        up.pipe(local);
+        local.pipe(up);
+      });
+      local.on("error", (e) => {
+        up.destroy();
+        retry(`local error: ${e.message}`);
+      });
+    });
+    up.on("error", (e) => retry(`connect error: ${e.message}`));
+    up.on("close", () => {
+      up.destroy();
+      retry("disconnected");
+    });
+  };
+  dial();
+}
+
+if (RELAY_OUT) startRelayOut(RELAY_OUT);

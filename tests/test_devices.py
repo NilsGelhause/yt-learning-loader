@@ -355,27 +355,30 @@ class DeviceServerTests(unittest.TestCase):
         task = devices.DEVICES[device_id]["tasks"][task_id]
         self.assertEqual(task["label"], "install agent laptop-vm-1")
 
-    # -- expose-agent (LAN-publish the in-guest sidecar)
+    # -- expose-agent (reverse-relay the in-guest sidecar to the master)
 
     def test_expose_agent_script_markers(self):
-        """The generated admin script: kills old forwards, opens the fixed
-        host-side forward 28472:8472, health-checks it, reserves a stable
-        LAN port via the beacon's endpoints.json map, adds netsh portproxy +
-        firewall rule, prints the LAN URL. ASCII-only, Contains health."""
+        """The generated admin script: reserves a relay index via the
+        beacon's endpoints.json map (client port 18473+i, dial = client-1),
+        pushes a guest start script carrying YTL_RELAY_OUT (LF-only),
+        restarts the guest sidecar and verifies it with pgrep. No
+        portproxy / firewall / port-forward anywhere. ASCII-only."""
         script = devices.build_task_script(
             "expose-agent", {"master_url": "http://m:8471",
-                             "vm_name": "laptop-vm-1"})
-        for marker in ("port-forward", "28472:8472", "qemu-system-x86_64", "Get-NetTCPConnection",
-                       "guest sidecar published at", "connectport=`$published",
-                       "Contains('ok')", "Contains('true')",
-                       "run install-agent first",
+                             "vm_name": "laptop-vm-1",
+                             "master_lan_ip": "192.168.50.111"})
+        for marker in ("YTL_RELAY_OUT", "192.168.50.111", "endpoints.json",
+                       "18473 + $i", "0..9", "dialPort = $clientPort - 1",
+                       "Contains('NO_PROCESS')", "pgrep", "tail -20",
                        "WindowsBuiltInRole]::Administrator",  # admin gate
-                       "Get-Command cua", "endpoints.json", "18472..18499",
-                       "TcpListener", "portproxy", "advfirewall",
-                       "ytl-agent-", "agent exposed at http://"):
+                       "Get-Command cua", "TcpListener",
+                       "cua sb cp", "start-agentd.sh", "-replace \"`r`n\", \"`n\"",
+                       "agent exposed at http://$masterIp`:$clientPort -- relay dial $masterIp`:$dialPort"):
             self.assertIn(marker, script)
-        # the backtick escapes the colon after $lanIp in the final URL
-        self.assertIn("$lanIp`:$lanPort", script)
+        # the reverse relay replaces all host-side publishing machinery
+        for gone in ("portproxy", "advfirewall", "port-forward", "28472",
+                     "qemu-system", "Get-NetTCPConnection", "firewall rule"):
+            self.assertNotIn(gone, script)
         script.encode("ascii")  # PS 5.1 ANSI fallback: generated = ASCII only
 
     def test_expose_agent_locked_until_stack_done(self):
@@ -410,7 +413,7 @@ class DeviceServerTests(unittest.TestCase):
         status, body = self.api("GET", f"/api/devices/{device_id}/next?token={token}")
         self.assertEqual(status, 200)
         self.assertEqual(body["task"]["kind"], "expose-agent")
-        self.assertIn("portproxy", body["task"]["script"])
+        self.assertIn("YTL_RELAY_OUT", body["task"]["script"])
 
     def test_expose_agent_no_endpoints_parsing(self):
         """The binding lesson holds: the published port is fixed by the

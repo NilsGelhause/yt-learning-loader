@@ -9,11 +9,13 @@
 #
 # Optional: when a sandbox publishes endpoints.agent (its in-guest agentd
 # sidecar), the endpoint URL is passed through so the master can list that
-# node's agent/sessions. A published guest port is reachable from the laptop,
-# not necessarily from the master — so when the expose-agent device task has
-# mapped this sandbox in %TEMP%\ytl-beacon\endpoints.json ({name: lanPort}),
-# the registered URL is rewritten to http://<laptop-lan-ip>:<lanPort> (the
-# portproxy the task created forwards that to the guest sidecar). Sandboxes
+# node's agent/sessions. A QEMU guest port is not reachable from the master
+# directly — so when the expose-agent device task has mapped this sandbox in
+# %TEMP%\ytl-beacon\endpoints.json ({name: clientPort}), the registered URL
+# is rewritten to http://<master-host>:<clientPort> where <master-host> is
+# derived from this script's own -MasterUrl parameter: the guest sidecar
+# dials OUT to the master's reverse relay (slirp NAT allows outbound), and
+# the relay's paired client port speaks HTTP to the sidecar. Sandboxes
 # without a map entry keep the reported URL (often loopback) — presence is
 # still registered, reachability is just the master's problem then.
 #
@@ -54,7 +56,7 @@ Write-Log ("beacon starting: master={0} host={1} interval={2}s once={3}" -f
     $MasterUrl, $HostLabel, $IntervalSeconds, [bool]$Once)
 
 $script:LastGoodNodes = $null
-$script:LanIp = $null
+$script:MasterHost = $null
 $script:PortMap = @{}
 try {
     $stateFile = Join-Path $env:TEMP 'ytl-beacon\lastnodes.json'
@@ -67,17 +69,23 @@ try {
     }
 } catch {}
 
-function Get-LaptopLanIp {
+function Get-MasterHost {
     <#
     .SYNOPSIS
-      First non-loopback, non-APIPA IPv4 address - the address a netsh
-      portproxy listenaddress=0.0.0.0 is reachable at from the LAN.
+      Host part of -MasterUrl (scheme and port stripped) — the address the
+      master's reverse relay listens on. Pure string ops, no regex: find the
+      '//', take the substring after it, then cut at the first ':' or '/'.
     #>
-    $addr = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-        Where-Object { $_.IPAddress -ne '127.0.0.1' -and -not $_.IPAddress.StartsWith('169.254.') } |
-        Select-Object -First 1
-    if ($addr) { return [string]$addr.IPAddress }
-    return $null
+    $u = [string]$MasterUrl
+    $i = $u.IndexOf('//')
+    if ($i -ge 0) { $u = $u.Substring($i + 2) }
+    $end = $u.Length
+    $ci = $u.IndexOf(':')
+    $si = $u.IndexOf('/')
+    if ($ci -ge 0 -and $ci -lt $end) { $end = $ci }
+    if ($si -ge 0 -and $si -lt $end) { $end = $si }
+    if ($end -le 0) { return $null }
+    return $u.Substring(0, $end)
 }
 
 function Get-EndpointPortMap {
@@ -111,10 +119,11 @@ function Get-SandboxNodes {
       bogus empty list. Note: a legitimately EMPTY sandbox list also outputs
       nothing (PowerShell unrolls empty arrays), so the caller must consult
       $script:CuaListOk, never $null -eq $nodes.
-      When endpoints.agent is present the URL is rewritten to the laptop LAN
-      address when (and only when) the expose-agent task mapped this sandbox
-      in endpoints.json; a per-cycle cache keeps the map + LAN IP to one
-      lookup each. No map entry -> the reported URL is kept as-is.
+      When endpoints.agent is present the URL is rewritten to the master's
+      relay client address when (and only when) the expose-agent task mapped
+      this sandbox in endpoints.json; a per-cycle cache keeps the map +
+      master host to one lookup each. No map entry -> the reported URL is
+      kept as-is.
     #>
     try {
         # Embedded FIRST: while a QEMU VM runs, its runtime daemon owns the
@@ -130,7 +139,7 @@ function Get-SandboxNodes {
         if ($null -eq $list) { $script:CuaListOk = $false; $script:ListError = "unparseable output: $($raw | Out-String | Select-Object -First 1)".Trim(); return }
         if ($list -isnot [System.Array]) { $list = @($list) }
         # one lookup per cycle, shared by every sandbox below
-        $script:LanIp = Get-LaptopLanIp
+        $script:MasterHost = Get-MasterHost
         $script:PortMap = Get-EndpointPortMap
         $rewrites = 0
         $nodes = @()
@@ -147,8 +156,8 @@ function Get-SandboxNodes {
             }
             if ($agent -and ([string]$agent).StartsWith('http')) {
                 $endpoint = [string]$agent
-                if ($script:LanIp -and $script:PortMap.ContainsKey($node.name)) {
-                    $endpoint = "http://{0}:{1}" -f $script:LanIp, $script:PortMap[$node.name]
+                if ($script:MasterHost -and $script:PortMap.ContainsKey($node.name)) {
+                    $endpoint = "http://{0}:{1}" -f $script:MasterHost, $script:PortMap[$node.name]
                     $rewrites++
                 }
                 $node.endpoint = $endpoint
@@ -156,7 +165,7 @@ function Get-SandboxNodes {
             $nodes += $node
         }
         if ($rewrites -gt 0) {
-            Write-Log ("rewrote {0} agent endpoint(s) to the laptop LAN address" -f $rewrites)
+            Write-Log ("rewrote {0} agent endpoint(s) to the master relay address" -f $rewrites)
         }
         $script:CuaListOk = $true
         $script:LastGoodNodes = $nodes
