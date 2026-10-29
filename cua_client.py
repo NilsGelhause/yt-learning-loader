@@ -219,26 +219,26 @@ def _parse_table(text: str) -> list[dict]:
 
 def list_sandboxes(exe: str | None = None) -> list[dict]:
     """Sandboxes as [{"name", "status", "image", "kind", "endpoints"}]. Tries
-    `sb list`/`sb ls` (JSON first); any failure or unparseable output -> [].
-    Results (including failures) are cached for a few seconds — the UI polls
-    several endpoints every few seconds and each poll must not spawn a fresh
-    cua subprocess."""
+    `sb list --json` then the table form of `sb ls`; any failure or unparseable
+    output -> []. Results (including failures) are cached for a few seconds,
+    and the fetch itself is serialized — the UI polls several endpoints every
+    few seconds and concurrent callers must not each spawn a cua subprocess
+    (a cold cua daemon makes every attempt eat its timeout)."""
     global _list_cache
     with _list_lock:
         if _list_cache and time.monotonic() - _list_cache[0] < _LIST_CACHE_TTL:
             return _list_cache[1]
-    exe = exe or find_cua()
-    result: list[dict] = []
-    if exe:
-        for args in _LIST_ARGV:
-            text = _run_list(exe, args)
-            if text is None:
-                continue  # command failed — maybe this build lacks it; try the next
-            parsed = _parse_json(text) if "--json" in args else None
-            if parsed is None:
-                parsed = _parse_table(text)
-            result = parsed  # the list command answered; trust its shape
-            break
-    with _list_lock:
+        exe = exe or find_cua()
+        result: list[dict] = []
+        if exe:
+            for args in _LIST_ARGV:
+                text = _run_list(exe, args)
+                if text is None:
+                    continue  # command failed — maybe this build lacks it; try the next
+                parsed = _parse_json(text) if "--json" in args else None
+                if parsed is None:
+                    parsed = _parse_table(text)
+                result = parsed  # the list command answered; trust its shape
+                break
         _list_cache = (time.monotonic(), result)
-    return result
+        return result
