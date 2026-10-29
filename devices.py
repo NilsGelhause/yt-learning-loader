@@ -103,6 +103,7 @@ def register_device(code: str, hostname: str):
             "token": token,
             "paired_at": now,
             "last_seen": now,
+            "stack_done": False,
             "tasks": {},
         }
         _save_devices()
@@ -182,6 +183,11 @@ def push_task_output(device_id: str, token: str, task_id: str, line=None,
             task["exit_code"] = exit_code
             task["status"] = "done" if not exit_code else "error"
             task["ended"] = time.time()
+            # Wizard gating: only a successful install-stack (no pending
+            # reboot) unlocks the create-vm / beacon tasks for this device.
+            if task.get("kind") == "install-stack":
+                dev["stack_done"] = (not exit_code
+                                     and not task.get("reboot_required"))
         _save_devices()
         _mirror_to_agent_jobs(task_id, task)
         return True
@@ -224,6 +230,7 @@ def list_devices() -> list[dict]:
                 "paired_at": dev.get("paired_at"),
                 "last_seen": dev.get("last_seen"),
                 "online": now - (dev.get("last_seen") or 0) < ONLINE_WINDOW,
+                "stack_done": bool(dev.get("stack_done")),
                 "tasks": [
                     {"id": tid, "kind": t.get("kind"), "label": t.get("label"),
                      "status": t.get("status"),

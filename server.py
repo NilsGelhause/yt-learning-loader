@@ -2428,6 +2428,14 @@ class Handler(BaseHTTPRequestHandler):
         kind = str(body.get("kind") or "")
         if kind not in devices.TASK_KINDS:
             return self.send_error_json(400, f"unknown task kind — one of {', '.join(devices.TASK_KINDS)}")
+        # Wizard gating: creating VMs / running the beacon needs the cua stack
+        # the install-stack task puts on the device.
+        if kind != "install-stack":
+            with devices.DEVICES_LOCK:
+                if not devices.DEVICES[device_id].get("stack_done"):
+                    return self.send_error_json(
+                        409, "run 'Install VM stack' on this device first — "
+                             "it is still missing cua/QEMU")
         params = body.get("params") if isinstance(body.get("params"), dict) else {}
         ctx = self._device_task_ctx()
         if kind == "create-vm":

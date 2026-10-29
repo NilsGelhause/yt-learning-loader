@@ -200,17 +200,26 @@
       }, "Install VM stack"),
       el("button", {
         class: "btn-sm",
-        title: "Create one laptop-vm VM on the laptop",
+        disabled: !dev.stack_done || undefined,
+        title: dev.stack_done
+          ? "Create one laptop-vm VM on the laptop"
+          : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`),
       }, "Create VM"),
       el("button", {
         class: "btn-sm",
-        title: "Create laptop-vm-1..3 on the laptop (existing ones are skipped)",
+        disabled: !dev.stack_done || undefined,
+        title: dev.stack_done
+          ? "Create laptop-vm-1..3 on the laptop (existing ones are skipped)"
+          : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`),
       }, "Create 3 VMs"),
       el("button", {
         class: "btn-sm",
-        title: "Start the beacon so the laptop's VMs appear in the Network tab",
+        disabled: !dev.stack_done || undefined,
+        title: dev.stack_done
+          ? "Start the beacon so the laptop's VMs appear in the Network tab"
+          : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`),
       }, "Start beacon"),
       rebootNote);

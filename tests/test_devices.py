@@ -181,6 +181,7 @@ class DeviceServerTests(unittest.TestCase):
         """Pair → queue create-vm → device fetches it → streams lines → done,
         with the AGENT_JOBS mirror feeding /api/agent/job/<id>."""
         device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
         status, body = self.api("POST", f"/api/devices/{device_id}/task", {
             "kind": "create-vm", "params": {"count": 2, "name_prefix": "demo"}})
         self.assertEqual(status, 200)
@@ -242,6 +243,7 @@ class DeviceServerTests(unittest.TestCase):
 
     def test_done_with_nonzero_exit_is_error(self):
         device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
         _, body = self.api("POST", f"/api/devices/{device_id}/task",
                            {"kind": "create-vm"})
         task_id = body["task_id"]
@@ -298,6 +300,7 @@ class DeviceServerTests(unittest.TestCase):
         self.write_settings({"lan_token": "", "host": "127.0.0.1",
                              "port": self.port})
         device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
         status, body = self.api("POST", f"/api/devices/{device_id}/task",
                                 {"kind": "start-beacon"})
         self.assertEqual(status, 400)
@@ -308,6 +311,7 @@ class DeviceServerTests(unittest.TestCase):
     def test_devices_list_shape_and_online_freshness(self):
         """The list carries hostname/online/tasks; online follows last_seen."""
         device_id, token = self.pair_device(hostname="LAPTOP-A")
+        devices.DEVICES[device_id]["stack_done"] = True
         _, body = self.api("POST", f"/api/devices/{device_id}/task",
                            {"kind": "create-vm"})
         _, listing = self.api("GET", "/api/devices")
@@ -326,6 +330,7 @@ class DeviceServerTests(unittest.TestCase):
     def test_persistence_file_written(self):
         """Devices and their tasks land in data/devices.json."""
         device_id, _ = self.pair_device(hostname="LAPTOP-P")
+        devices.DEVICES[device_id]["stack_done"] = True
         self.api("POST", f"/api/devices/{device_id}/task", {"kind": "create-vm"})
         raw = json.loads((self.data / "devices.json").read_text("utf-8"))
         self.assertIn(device_id, raw)
@@ -377,3 +382,49 @@ class DeviceServerTests(unittest.TestCase):
         self.assertIn("text/plain", ctype)
         self.assertIn("param", raw)
         self.assertIn("MasterUrl", raw)
+
+    # -- wizard gating (stack_done)
+
+    def test_create_vm_locked_until_stack_installed(self):
+        """create-vm/beacon tasks are rejected with 409 until an install-stack
+        task finished successfully on that device."""
+        device_id, _ = self.pair_device()
+        for kind in ("create-vm", "start-beacon"):
+            status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                    {"kind": kind, "params": {"count": 1}})
+            self.assertEqual(status, 409, f"{kind} should be locked")
+            self.assertIn("Install VM stack", body["error"])
+
+    def test_stack_done_unlocks_after_successful_install(self):
+        """A successful install-stack (no reboot flag) sets stack_done; the
+        devices list exposes it and follow-up tasks are accepted."""
+        device_id, token = self.pair_device()
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "install-stack"})
+        self.assertEqual(status, 200)
+        task_id = body["task_id"]
+        self.api("POST", f"/api/devices/{device_id}/output",
+                 {"token": token, "task_id": task_id, "done": True, "exit_code": 0})
+        status, body = self.api("GET", "/api/devices")
+        dev = next(d for d in body["devices"] if d["id"] == device_id)
+        self.assertTrue(dev["stack_done"])
+        status, _ = self.api("POST", f"/api/devices/{device_id}/task",
+                             {"kind": "create-vm", "params": {"count": 1}})
+        self.assertEqual(status, 200)
+
+    def test_reboot_required_keeps_device_locked(self):
+        """An install that ends with [REBOOT-REQUIRED] does NOT unlock the
+        device — the laptop must reboot and the stack re-verify."""
+        device_id, token = self.pair_device()
+        _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                           {"kind": "install-stack"})
+        task_id = body["task_id"]
+        self.api("POST", f"/api/devices/{device_id}/output",
+                 {"token": token, "task_id": task_id,
+                  "line": "done [REBOOT-REQUIRED]", "done": True, "exit_code": 0})
+        status, body = self.api("GET", "/api/devices")
+        dev = next(d for d in body["devices"] if d["id"] == device_id)
+        self.assertFalse(dev["stack_done"])
+        status, _ = self.api("POST", f"/api/devices/{device_id}/task",
+                             {"kind": "create-vm", "params": {"count": 1}})
+        self.assertEqual(status, 409)
