@@ -81,6 +81,7 @@ function Get-SandboxNodes {
             $nodes += $node
         }
         $script:CuaListOk = $true
+        $script:LastGoodNodes = $nodes
         return $nodes
     } catch {
         $script:CuaListOk = $false
@@ -120,7 +121,15 @@ while ($true) {
     $script:CuaListOk = $true
     $nodes = @(Get-SandboxNodes)
     if (-not $script:CuaListOk) {
-        Write-Log "cua list failed (N=-1)"
+        # While a QEMU VM runs, `cua sb list` can fail (daemon busy) — keep
+        # registering the last known nodes so the master keeps the laptop's
+        # VMs visible instead of letting them vanish.
+        if ($script:LastGoodNodes) {
+            Write-Log ("cua list failed — re-registering {0} last known node(s)" -f $script:LastGoodNodes.Count)
+            Send-Registration -Nodes $script:LastGoodNodes
+        } else {
+            Write-Log "cua list failed (N=-1)"
+        }
     } else {
         Send-Registration -Nodes $nodes
     }
