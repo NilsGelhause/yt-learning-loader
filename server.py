@@ -2720,6 +2720,13 @@ class Handler(BaseHTTPRequestHandler):
                     400, "agentd/.env has no KIMI_API_KEY — set one before installing")
             ctx["vm_name"] = vm
             ctx["kimi_key"] = key
+        if kind == "expose-agent":
+            # Publishes the in-guest agentd sidecar onto the LAN (netsh
+            # portproxy + firewall rule) — the device agent runs elevated.
+            vm = str(params.get("name") or "")
+            if not REMOTE_NAME_RE.fullmatch(vm):
+                return self.send_error_json(400, "bad vm name")
+            ctx["vm_name"] = vm
         if kind == "start-beacon" and not ctx["lan_token"]:
             return self.send_error_json(400, "start-beacon needs a LAN token — set one in Settings → LAN / other devices")
         try:
@@ -2732,6 +2739,7 @@ class Handler(BaseHTTPRequestHandler):
             "start-beacon": "start beacon",
             "open-desktop": f"open desktop viewer for {ctx.get('vm_name', '')}",
             "install-agent": f"install agent {ctx.get('vm_name', '')}",
+            "expose-agent": f"expose agent {ctx.get('vm_name', '')}",
         }[kind]
         task_id = devices.queue_task(device_id, kind, script, label)
         self.send_json({"task_id": task_id})

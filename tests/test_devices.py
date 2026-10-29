@@ -355,6 +355,73 @@ class DeviceServerTests(unittest.TestCase):
         task = devices.DEVICES[device_id]["tasks"][task_id]
         self.assertEqual(task["label"], "install agent laptop-vm-1")
 
+    # -- expose-agent (LAN-publish the in-guest sidecar)
+
+    def test_expose_agent_script_markers(self):
+        """The generated admin script: kills old forwards, opens the fixed
+        host-side forward 28472:8472, health-checks it, reserves a stable
+        LAN port via the beacon's endpoints.json map, adds netsh portproxy +
+        firewall rule, prints the LAN URL. ASCII-only, Contains health."""
+        script = devices.build_task_script(
+            "expose-agent", {"master_url": "http://m:8471",
+                             "vm_name": "laptop-vm-1"})
+        for marker in ("'sb','port-forward'", "28472:8472",
+                       "port-forward*$name*28472*",
+                       "http://127.0.0.1:28472/health",
+                       "Contains('ok')", "Contains('true')",
+                       "run install-agent first",
+                       "WindowsBuiltInRole]::Administrator",  # admin gate
+                       "Get-Command cua", "endpoints.json", "18472..18499",
+                       "TcpListener", "portproxy", "advfirewall",
+                       "ytl-agent-", "agent exposed at http://"):
+            self.assertIn(marker, script)
+        # the backtick escapes the colon after $lanIp in the final URL
+        self.assertIn("$lanIp`:$lanPort", script)
+        script.encode("ascii")  # PS 5.1 ANSI fallback: generated = ASCII only
+
+    def test_expose_agent_locked_until_stack_done(self):
+        """expose-agent touches cua + netsh: 409 until the stack is proven."""
+        device_id, _ = self.pair_device()
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "expose-agent",
+                                 "params": {"name": "laptop-vm-1"}})
+        self.assertEqual(status, 409)
+        self.assertIn("Install VM stack", body["error"])
+
+    def test_expose_agent_bad_vm_name(self):
+        """VM names must match the remote-node name rules."""
+        device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "expose-agent",
+                                 "params": {"name": "Bad_Name!"}})
+        self.assertEqual(status, 400)
+        self.assertIn("vm name", body["error"])
+
+    def test_expose_agent_label_and_queued_script(self):
+        """The queued task reads 'expose agent <vm>' and carries the script."""
+        device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                           {"kind": "expose-agent",
+                            "params": {"name": "laptop-vm-1"}})
+        task_id = body["task_id"]
+        task = devices.DEVICES[device_id]["tasks"][task_id]
+        self.assertEqual(task["label"], "expose agent laptop-vm-1")
+        status, body = self.api("GET", f"/api/devices/{device_id}/next?token={token}")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["task"]["kind"], "expose-agent")
+        self.assertIn("portproxy", body["task"]["script"])
+
+    def test_expose_agent_no_endpoints_parsing(self):
+        """The binding lesson holds: the published port is fixed by the
+        forward, never parsed from cua sb list output."""
+        script = devices.build_task_script(
+            "expose-agent", {"master_url": "http://m:8471",
+                             "vm_name": "laptop-vm-1"})
+        self.assertNotIn("sb list", script)
+        self.assertNotIn("endpoints.agent", script)
+
     def test_kit_agentd_tgz_served(self):
         """/kit/agentd.tgz is a real gzipped tar of agentd/: 200, the right
         content type, parseable, with package.json and without node_modules,

@@ -5,7 +5,7 @@ prepares itself: the master UI shows a short-lived pairing code, the laptop
 runs one line in PowerShell (download Device-Agent.ps1, pair with the code),
 and the agent then polls THIS module's data via the server every few seconds
 for pre-defined tasks (install-stack, create-vm, start-beacon, open-desktop,
-install-agent). Task output
+install-agent, expose-agent). Task output
 streams back line by line and is mirrored into server.AGENT_JOBS so the
 existing /api/agent/job/<id> transcript endpoint shows device tasks like any
 other job. The device never accepts arbitrary commands from the wire: a task
@@ -45,7 +45,7 @@ TASK_MAX_LINES = 800        # same cap as agent jobs
 TASK_LINE_CHARS = 1000
 
 TASK_KINDS = ("install-stack", "create-vm", "start-beacon", "open-desktop",
-              "install-agent")
+              "install-agent", "expose-agent")
 
 # Crockford-ish alphabet: no I, L, O, 0, 1 — unambiguous over the phone.
 _PAIR_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -456,6 +456,96 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "Write-Output \"[error] sidecar not healthy in ${name} — server.log tail:\"",
             "cua sb exec $name -- 'tail -40 /home/cua/agentd-data/server.log 2>/dev/null' 2>$null",
             "exit 1",
+            "",
+        ])
+    if kind == "expose-agent":
+        # Runs ON THE LAPTOP (elevated): publishes the in-guest agentd
+        # sidecar onto the LAN so the MASTER can use the VM as an agent node.
+        # The guest listens on 8472 loopback-only, so the laptop (admin)
+        # opens a deterministic host-side cua port-forward
+        # (laptop 127.0.0.1:28472 -> guest :8472), a netsh portproxy
+        # (stable LAN port -> 127.0.0.1:28472) and one inbound firewall rule.
+        # The LAN port is stable per VM: kept in
+        # %TEMP%\ytl-beacon\endpoints.json (the map the beacon reads to
+        # rewrite registered node endpoints). Health is matched with plain
+        # .Contains - no regex escapes. ASCII only (PS 5.1 fallback).
+        vm = str(ctx.get("vm_name") or "")
+        return "\n".join([
+            "$ErrorActionPreference = 'Stop'",
+            f"$name = {_ps(vm)}",
+            # 0. netsh portproxy + firewall need elevation: the device agent
+            #    runs elevated, but fail loudly instead of half-configuring.
+            "$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)",
+            "if (-not $isAdmin) {",
+            "    Write-Output '[error] admin rights required - run the device agent elevated'",
+            "    exit 1",
+            "}",
+            "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
+            "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
+            # 1. kill any previous forward for this VM (re-runs must be clean)
+            "Write-Output \"step: stop any existing forward for ${name}\"",
+            "Get-CimInstance Win32_Process -Filter \"Name='cua.exe'\" |",
+            "    Where-Object { $_.CommandLine -like \"*port-forward*$name*28472*\" } |",
+            "    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+            # 2. deterministic host-side forward; NEVER parse `cua sb list`
+            #    endpoints (empty while the VM runs) - the published port is
+            #    fixed by construction.
+            "Write-Output \"step: start host-side forward 28472 -> guest 8472\"",
+            "Start-Process -FilePath $exe -ArgumentList 'sb','port-forward',$name,'28472:8472' -WindowStyle Hidden",
+            "Start-Sleep -Seconds 4",
+            "$health = curl.exe -s -m 8 http://127.0.0.1:28472/health",
+            "if (-not ($health -and $health.Contains('ok') -and $health.Contains('true'))) {",
+            "    Write-Output '[error] forward not healthy - run install-agent first'",
+            "    exit 1",
+            "}",
+            # 3. stable LAN port per VM, shared with the beacon via the map
+            "Write-Output \"step: pick a stable LAN port\"",
+            "$mapFile = Join-Path $env:TEMP 'ytl-beacon\\endpoints.json'",
+            "$ports = @{}",
+            "if (Test-Path $mapFile) {",
+            "    try {",
+            "        $raw = Get-Content $mapFile -Raw | ConvertFrom-Json",
+            "        foreach ($prop in $raw.PSObject.Properties) { $ports[$prop.Name] = [int]$prop.Value }",
+            "    } catch { }",
+            "}",
+            "$lanPort = 0",
+            "if ($ports.ContainsKey($name)) { $lanPort = $ports[$name] }",
+            "if ($lanPort -le 0) {",
+            "    foreach ($candidate in 18472..18499) {",
+            "        if ($ports.Values -contains $candidate) { continue }",
+            "        $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $candidate)",
+            "        try {",
+            "            $probe.Start()",
+            "            $lanPort = $candidate",
+            "            $probe.Stop()",
+            "            break",
+            "        } catch { }",
+            "    }",
+            "}",
+            "if ($lanPort -le 0) { Write-Output '[error] no free LAN port in 18472..18499'; exit 1 }",
+            "$ports[$name] = $lanPort",
+            "New-Item -ItemType Directory -Force -Path (Split-Path $mapFile) | Out-Null",
+            "($ports | ConvertTo-Json) | Set-Content -Path $mapFile -Encoding ascii",
+            # 4. portproxy LAN port -> the local forward (delete first: re-runs)
+            "Write-Output \"step: netsh portproxy $lanPort -> 127.0.0.1:28472\"",
+            "netsh interface portproxy delete v4tov4 listenport=$lanPort listenaddress=0.0.0.0 | Out-Null",
+            "netsh interface portproxy add v4tov4 listenport=$lanPort listenaddress=0.0.0.0 connectport=28472 connectaddress=127.0.0.1 | Out-Null",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] portproxy add failed'; exit 1 }",
+            # 5. inbound firewall rule, idempotent by name
+            "Write-Output \"step: firewall rule\"",
+            "$ruleName = \"ytl-agent-$name\"",
+            "netsh advfirewall firewall show rule name=\"$ruleName\" | Out-Null",
+            "if ($LASTEXITCODE -ne 0) {",
+            "    netsh advfirewall firewall add rule name=\"$ruleName\" dir=in action=allow protocol=tcp localport=$lanPort | Out-Null",
+            "}",
+            # 6. report the LAN address (beacon rewrites node endpoints from
+            #    the same map, so the master learns this URL)
+            "$lanIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |",
+            "    Where-Object { $_.IPAddress -ne '127.0.0.1' -and -not $_.IPAddress.StartsWith('169.254.') } |",
+            "    Select-Object -First 1).IPAddress",
+            "if (-not $lanIp) { Write-Output '[error] no LAN IP found on this device'; exit 1 }",
+            "Write-Output \"agent exposed at http://$lanIp`:$lanPort\"",
+            "exit 0",
             "",
         ])
     raise ValueError(f"unknown task kind: {kind}")

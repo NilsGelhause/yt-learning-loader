@@ -9,11 +9,13 @@
 #
 # Optional: when a sandbox publishes endpoints.agent (its in-guest agentd
 # sidecar), the endpoint URL is passed through so the master can list that
-# node's agent/sessions — but only if the master can actually reach it
-# (a published guest port is reachable from the laptop, not necessarily from
-# the master; reachability is your job: LAN IP / port-forward / relay).
-# Without an endpoint the node is presence-only, which is enough for the
-# Network tab.
+# node's agent/sessions. A published guest port is reachable from the laptop,
+# not necessarily from the master — so when the expose-agent device task has
+# mapped this sandbox in %TEMP%\ytl-beacon\endpoints.json ({name: lanPort}),
+# the registered URL is rewritten to http://<laptop-lan-ip>:<lanPort> (the
+# portproxy the task created forwards that to the guest sidecar). Sandboxes
+# without a map entry keep the reported URL (often loopback) — presence is
+# still registered, reachability is just the master's problem then.
 #
 # Plain window (runs until closed):
 #   powershell -File .\Register-Nodes.ps1 -MasterUrl http://192.168.50.111:8471 -Token <your-LAN-token>
@@ -52,6 +54,8 @@ Write-Log ("beacon starting: master={0} host={1} interval={2}s once={3}" -f
     $MasterUrl, $HostLabel, $IntervalSeconds, [bool]$Once)
 
 $script:LastGoodNodes = $null
+$script:LanIp = $null
+$script:PortMap = @{}
 try {
     $stateFile = Join-Path $env:TEMP 'ytl-beacon\lastnodes.json'
     if (Test-Path $stateFile) {
@@ -63,6 +67,41 @@ try {
     }
 } catch {}
 
+function Get-LaptopLanIp {
+    <#
+    .SYNOPSIS
+      First non-loopback, non-APIPA IPv4 address - the address a netsh
+      portproxy listenaddress=0.0.0.0 is reachable at from the LAN.
+    #>
+    $addr = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.IPAddress -ne '127.0.0.1' -and -not $_.IPAddress.StartsWith('169.254.') } |
+        Select-Object -First 1
+    if ($addr) { return [string]$addr.IPAddress }
+    return $null
+}
+
+function Get-EndpointPortMap {
+    <#
+    .SYNOPSIS
+      Reads %TEMP%\ytl-beacon\endpoints.json ({sandboxName: lanPort}) which
+      the expose-agent device task writes/maintains. Returns a hashtable;
+      missing or broken file yields an empty map (endpoints stay as reported).
+    #>
+    $map = @{}
+    try {
+        $mapFile = Join-Path $env:TEMP 'ytl-beacon\endpoints.json'
+        if (Test-Path $mapFile) {
+            $raw = Get-Content $mapFile -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+            if ($raw) {
+                foreach ($prop in $raw.PSObject.Properties) {
+                    $map[$prop.Name] = [int]$prop.Value
+                }
+            }
+        }
+    } catch {}
+    return $map
+}
+
 function Get-SandboxNodes {
     <#
     .SYNOPSIS
@@ -72,6 +111,10 @@ function Get-SandboxNodes {
       bogus empty list. Note: a legitimately EMPTY sandbox list also outputs
       nothing (PowerShell unrolls empty arrays), so the caller must consult
       $script:CuaListOk, never $null -eq $nodes.
+      When endpoints.agent is present the URL is rewritten to the laptop LAN
+      address when (and only when) the expose-agent task mapped this sandbox
+      in endpoints.json; a per-cycle cache keeps the map + LAN IP to one
+      lookup each. No map entry -> the reported URL is kept as-is.
     #>
     try {
         # Embedded FIRST: while a QEMU VM runs, its runtime daemon owns the
@@ -86,6 +129,10 @@ function Get-SandboxNodes {
         $list = $raw | Out-String | ConvertFrom-Json
         if ($null -eq $list) { $script:CuaListOk = $false; $script:ListError = "unparseable output: $($raw | Out-String | Select-Object -First 1)".Trim(); return }
         if ($list -isnot [System.Array]) { $list = @($list) }
+        # one lookup per cycle, shared by every sandbox below
+        $script:LanIp = Get-LaptopLanIp
+        $script:PortMap = Get-EndpointPortMap
+        $rewrites = 0
         $nodes = @()
         foreach ($sb in $list) {
             if (-not $sb.name) { continue }
@@ -99,9 +146,17 @@ function Get-SandboxNodes {
                 $agent = $sb.endpoints.agent
             }
             if ($agent -and ([string]$agent).StartsWith('http')) {
-                $node.endpoint = [string]$agent
+                $endpoint = [string]$agent
+                if ($script:LanIp -and $script:PortMap.ContainsKey($node.name)) {
+                    $endpoint = "http://{0}:{1}" -f $script:LanIp, $script:PortMap[$node.name]
+                    $rewrites++
+                }
+                $node.endpoint = $endpoint
             }
             $nodes += $node
+        }
+        if ($rewrites -gt 0) {
+            Write-Log ("rewrote {0} agent endpoint(s) to the laptop LAN address" -f $rewrites)
         }
         $script:CuaListOk = $true
         $script:LastGoodNodes = $nodes
