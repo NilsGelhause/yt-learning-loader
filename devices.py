@@ -223,21 +223,31 @@ def _mirror_to_agent_jobs(task_id: str, task: dict) -> None:
 TASK_STALE_SECONDS = 600.0
 
 
+DEVICE_OFFLINE_GRACE = 90.0
+
+
 def _reap_stale_tasks() -> None:
-    """Running tasks that produced no output for TASK_STALE_SECONDS are
-    marked errored (e.g. the laptop was closed mid-install) so devices don't
-    stay 'running' forever and the UI unlocks."""
+    """Running tasks that cannot make progress are marked errored so the UI
+    unlocks: (a) the device went offline (agent closed / laptop shut) — its
+    running tasks are interrupted at once; (b) no output for
+    TASK_STALE_SECONDS (e.g. the laptop was closed mid-install)."""
     now = time.time()
     changed = False
     for dev in DEVICES.values():
+        device_offline = now - (dev.get("last_seen") or 0) > DEVICE_OFFLINE_GRACE
         for task in dev.get("tasks", {}).values():
-            if (task.get("status") == "running"
-                    and now - (task.get("updated") or 0) > TASK_STALE_SECONDS):
+            if task.get("status") != "running":
+                continue
+            interrupted = None
+            if device_offline:
+                interrupted = "[device went offline — task interrupted; re-run it]"
+            elif now - (task.get("updated") or 0) > TASK_STALE_SECONDS:
+                interrupted = "[timed out — no output for 10 min]"
+            if interrupted:
                 task["status"] = "error"
                 task["exit_code"] = task.get("exit_code") or 1
                 task["ended"] = now
-                task["lines"].append(
-                    {"t": "out", "x": "[timed out — no output for 10 min]"})
+                task["lines"].append({"t": "out", "x": interrupted})
                 changed = True
     if changed:
         _save_devices()

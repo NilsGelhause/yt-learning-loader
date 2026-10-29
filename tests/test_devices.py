@@ -428,3 +428,29 @@ class DeviceServerTests(unittest.TestCase):
         status, _ = self.api("POST", f"/api/devices/{device_id}/task",
                              {"kind": "create-vm", "params": {"count": 1}})
         self.assertEqual(status, 409)
+
+    def test_offline_device_interrupts_running_tasks(self):
+        """A device that stops polling (agent closed) immediately fails its
+        running tasks on the next listing — no 10-minute wait."""
+        import devices as devmod
+        device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        _, body = self.api("POST", f"/api/devices/{device_id}/task",
+                           {"kind": "install-stack"})
+        task_id = body["task_id"]
+        # agent fetched it (running), sent one line, then went silent
+        status, body = self.api("GET",
+                                f"/api/devices/{device_id}/next?token={token}")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["task"]["id"], task_id)
+        self.api("POST", f"/api/devices/{device_id}/output",
+                 {"token": token, "task_id": task_id, "line": "working…"})
+        devices.DEVICES[device_id]["last_seen"] = (
+            __import__("time").time() - devmod.DEVICE_OFFLINE_GRACE - 5)
+        status, body = self.api("GET", "/api/devices")
+        self.assertEqual(status, 200)
+        dev = next(d for d in body["devices"] if d["id"] == device_id)
+        self.assertFalse(dev["online"])
+        self.assertEqual(dev["tasks"][0]["status"], "error")
+        _, job = self.api("GET", f"/api/agent/job/{task_id}")
+        self.assertEqual(job["status"], "error")
