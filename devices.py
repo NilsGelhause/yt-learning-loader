@@ -408,6 +408,14 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
             "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
             # 1. ship the kit into the guest and unpack it
+            # 0. the exec/cp channel needs a moment after a VM (re)boot
+            "$ready = $false",
+            "foreach ($try in 1..12) {",
+            "    $probe = cua sb exec $name -- 'echo CHANNEL_OK' 2>$null",
+            "    if ($probe -and $probe.Contains('CHANNEL_OK')) { $ready = $true; break }",
+            "    Start-Sleep -Seconds 3",
+            "}",
+            "if (-not $ready) { Write-Output \"[error] guest channel not answering - is ${name} running?\"; exit 1 }",
             "Write-Output \"step: copy agentd.tgz into ${name}\"",
             "cua sb cp $tgz \"${name}:/home/cua/agentd.tgz\"",
             "if ($LASTEXITCODE -ne 0) { Write-Output '[error] cua sb cp agentd.tgz failed'; exit 1 }",
