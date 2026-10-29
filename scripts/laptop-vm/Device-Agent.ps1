@@ -72,7 +72,11 @@ function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
+    # ::Start(psi) creates AND starts the child in one call (a second
+    # $p.Start() would throw and previously killed the agent silently).
+    Trace "spawning child process"
     $p = [System.Diagnostics.Process]::Start($psi)
+    Trace ("child started, pid " + $p.Id)
     if ($logFile) {
         $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
         $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
@@ -80,11 +84,12 @@ function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
         $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
         $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
     }
-    $null = $p.Start()
     $p.StandardInput.Close()   # EOF: no prompt may wait for input
+    Trace "stdin closed, reading output"
     $p.BeginOutputReadLine()
     $p.BeginErrorReadLine()
     $p.WaitForExit()
+    Trace ("child exited, code " + $p.ExitCode)
     return $p.ExitCode
 }
 
@@ -126,7 +131,6 @@ function Invoke-Task($task) {
 `$p = [System.Diagnostics.Process]::Start(`$psi)
 `$p.add_OutputDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
 `$p.add_ErrorDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
-`$null = `$p.Start()
 `$p.StandardInput.Close()
 `$p.BeginOutputReadLine()
 `$p.BeginErrorReadLine()
