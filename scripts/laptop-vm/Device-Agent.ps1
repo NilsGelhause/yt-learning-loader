@@ -61,7 +61,7 @@ function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
-    $p = [System.Diagnostics.Process]::new($psi)
+    $p = [System.Diagnostics.Process]::Start($psi)
     if ($logFile) {
         $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
         $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
@@ -96,7 +96,7 @@ function Invoke-Task($task) {
 `$psi.RedirectStandardError = `$true
 `$psi.UseShellExecute = `$false
 `$psi.CreateNoWindow = `$true
-`$p = [System.Diagnostics.Process]::new(`$psi)
+`$p = [System.Diagnostics.Process]::Start(`$psi)
 `$p.add_OutputDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
 `$p.add_ErrorDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
 `$null = `$p.Start()

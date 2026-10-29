@@ -454,3 +454,20 @@ class DeviceServerTests(unittest.TestCase):
         self.assertEqual(dev["tasks"][0]["status"], "error")
         _, job = self.api("GET", f"/api/agent/job/{task_id}")
         self.assertEqual(job["status"], "error")
+
+    def test_remove_device_offline_only(self):
+        """Offline devices can be forgotten; online ones are refused."""
+        device_id, token = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        # online -> 409
+        status, _ = self.api("POST", f"/api/devices/{device_id}/remove", {})
+        self.assertEqual(status, 409)
+        # goes offline -> 200 and gone
+        devices.DEVICES[device_id]["last_seen"] = __import__("time").time() - 120
+        status, _ = self.api("POST", f"/api/devices/{device_id}/remove", {})
+        self.assertEqual(status, 200)
+        _, listing = self.api("GET", "/api/devices")
+        self.assertEqual(listing["devices"], [])
+        # unknown id -> 404
+        status, _ = self.api("POST", f"/api/devices/{device_id}/remove", {})
+        self.assertEqual(status, 404)

@@ -2300,6 +2300,9 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/devices/([^/]+)/task", path)
             if m:
                 return self.api_device_task(m.group(1))
+            m = re.fullmatch(r"/api/devices/([^/]+)/remove", path)
+            if m:
+                return self.api_device_remove(m.group(1))
             if path == "/api/skill/from_workspace":
                 return self.api_skill_from_workspace()
             if path == "/api/skill/install":
@@ -2412,6 +2415,17 @@ class Handler(BaseHTTPRequestHandler):
         urls = lan_urls(port)
         master = urls[0] if urls else f"http://{settings.get('host') or '127.0.0.1'}:{port}"
         return {"master_url": master, "lan_token": settings.get("lan_token") or ""}
+
+    def api_device_remove(self, device_id: str):
+        """Forget a device — only when it is offline (its agent is closed)."""
+        with devices.DEVICES_LOCK:
+            dev = devices.DEVICES.get(device_id)
+            online = bool(dev and time.time() - (dev.get("last_seen") or 0)
+                          < devices.ONLINE_WINDOW)
+        err = devices.remove_device(device_id, online)
+        if err:
+            return self.send_error_json(409 if online else 404, err)
+        self.send_json({"ok": True})
 
     def api_device_task(self, device_id: str):
         """Queue a pre-defined task from the UI. Only the three known kinds —

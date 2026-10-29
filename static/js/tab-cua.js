@@ -177,6 +177,25 @@
     list.forEach(dev => box.appendChild(deviceRow(dev)));
   }
 
+  /* Buttons wrapped in a titled span: disabled buttons don't fire hover
+     events, so the explanation lives on the wrapper and shows either way. */
+  function tipBtn(label, tooltip, attrs, onclick) {
+    const attrs2 = Object.assign({}, attrs);
+    delete attrs2.onclick;
+    const btn = el("button", Object.assign({ class: "btn-sm" }, attrs2), label);
+    if (onclick) btn.onclick = onclick;
+    return el("span", { title: tooltip, style: "display:inline-flex" }, btn);
+  }
+
+  async function doRemoveDevice(dev) {
+    if (!confirm(`Remove device "${dev.hostname}" from the list?`)) return;
+    try {
+      await api(`/api/devices/${dev.id}/remove`, { method: "POST" });
+      toast(`device ${dev.hostname} removed`);
+    } catch { /* api() toasted the reason */ }
+    refreshDevices();
+  }
+
   function deviceRow(dev) {
     const taskChips = (dev.tasks || []).slice(-4).map(t =>
       el("span", {
@@ -200,36 +219,32 @@
       runningNote,
       el("span", { class: "spacer" }),
       taskChips,
-      el("button", {
-        class: "btn-sm",
-        disabled: busy || undefined,
-        title: busy ? "A task is running on this device" : "Install cua/QEMU/shim on the laptop (elevated — one UAC click there)",
-        onclick: () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`),
-      }, "Install VM stack"),
-      el("button", {
-        class: "btn-sm",
-        disabled: !dev.stack_done || busy || undefined,
-        title: busy ? "A task is running on this device" : dev.stack_done
-          ? "Create one laptop-vm VM on the laptop"
+      tipBtn("Install VM stack",
+        "Installs cua CLI, the Windows hypervisor feature, QEMU, the keymaps fix and the shim on the laptop — needs one UAC click there; a reboot may be required",
+        { disabled: busy || undefined },
+        () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`)),
+      tipBtn("Create VM",
+        busy ? "A task is running on this device"
+          : dev.stack_done ? "Creates one Ubuntu desktop VM (laptop-vm-N) on the laptop"
           : "Locked — run 'Install VM stack' first",
-        onclick: () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`),
-      }, "Create VM"),
-      el("button", {
-        class: "btn-sm",
-        disabled: !dev.stack_done || busy || undefined,
-        title: busy ? "A task is running on this device" : dev.stack_done
-          ? "Create laptop-vm-1..3 on the laptop (existing ones are skipped)"
+        { disabled: !dev.stack_done || busy || undefined },
+        () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`)),
+      tipBtn("Create 3 VMs",
+        busy ? "A task is running on this device"
+          : dev.stack_done ? "Creates laptop-vm-1..3 on the laptop (existing ones are skipped)"
           : "Locked — run 'Install VM stack' first",
-        onclick: () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`),
-      }, "Create 3 VMs"),
-      el("button", {
-        class: "btn-sm",
-        disabled: !dev.stack_done || busy || undefined,
-        title: busy ? "A task is running on this device" : dev.stack_done
-          ? "Start the beacon so the laptop's VMs appear in the Network tab"
+        { disabled: !dev.stack_done || busy || undefined },
+        () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`)),
+      tipBtn("Start beacon",
+        busy ? "A task is running on this device"
+          : dev.stack_done ? "Runs the beacon on the laptop so its VMs appear in the master's Network tab"
           : "Locked — run 'Install VM stack' first",
-        onclick: () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`),
-      }, "Start beacon"),
+        { disabled: !dev.stack_done || busy || undefined },
+        () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`)),
+      dev.online ? null : tipBtn("🗑",
+        "Remove this device from the list (it is offline)",
+        { class: "icon-btn danger" },
+        () => doRemoveDevice(dev)),
       rebootNote);
   }
 

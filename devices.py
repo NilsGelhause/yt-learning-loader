@@ -129,6 +129,7 @@ def queue_task(device_id: str, kind: str, script: str, label: str) -> str:
     with DEVICES_LOCK:
         dev = DEVICES[device_id]
         dev["tasks"][task_id] = {
+            "device_id": device_id,
             "kind": kind, "label": label, "script": script,
             "status": "pending", "lines": [], "exit_code": None,
             "created": time.time(), "updated": time.time(), "ended": None,
@@ -208,7 +209,8 @@ def _mirror_to_agent_jobs(task_id: str, task: dict) -> None:
         if job is None:
             job = {
                 "id": task_id, "workspace": None, "status": task["status"],
-                "backend": "device", "cmd_preview": task.get("label") or task["kind"],
+                "backend": "device", "device_id": task.get("device_id"),
+                "cmd_preview": task.get("label") or task["kind"],
                 "lines": [], "exit_code": None,
                 "started": int(task.get("created") or time.time()), "ended": None,
             }
@@ -348,3 +350,26 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "",
         ])
     raise ValueError(f"unknown task kind: {kind}")
+
+
+def remove_device(device_id: str, online: bool) -> str | None:
+    """Forget a device (and its task history). Only offline devices may be
+    removed — an online one is still connected and must be unpaired by
+    closing its agent. Returns None on success or an error string."""
+    with DEVICES_LOCK:
+        dev = DEVICES.get(device_id)
+        if not dev:
+            return "device not found"
+        if online:
+            return "device is still online — close its agent on the laptop first"
+        del DEVICES[device_id]
+        _save_devices()
+    try:
+        import server
+        with server.AGENT_JOBS_LOCK:
+            for jid, job in list(server.AGENT_JOBS.items()):
+                if job.get("backend") == "device" and job.get("device_id") == device_id:
+                    del server.AGENT_JOBS[jid]
+    except Exception:  # noqa: BLE001 - mirror cleanup is best-effort
+        pass
+    return None
