@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
   Prepares a Windows laptop to host cua QEMU VMs (with desktops) that join the
