@@ -21,3 +21,4 @@ teach/
 agentd/node_modules/
 agentd/.env
 data/agent/
+data/devices.json
