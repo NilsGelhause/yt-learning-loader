@@ -171,13 +171,18 @@ async function api(path, options) {
   try {
     res = await fetch(path, init);
   } catch (err) {
-    toast(`Network error: ${path}`, "error");
+    if (!options.quiet) toast(`Network error: ${path}`, "error");
     throw err;
   }
   let data = null;
   const text = await res.text();
   if (text) { try { data = JSON.parse(text); } catch { data = null; } }
   if (!res.ok) {
+    if (options.quiet) {
+      const e = new Error((data && data.error) || res.statusText);
+      e.status = res.status;
+      throw e;
+    }
     if (res.status === 401 && data && data.error === "token_required") {
       const saved = await promptForToken();
       if (saved) return api(path, options);  // retry once with the new token

@@ -531,8 +531,16 @@
     await Promise.all([...jobs.keys()].map(async (jobId) => {
       const state = jobs.get(jobId);
       let j;
-      try { j = await api(`/api/agent/job/${jobId}`); }
-      catch { return; }
+      try { j = await api(`/api/agent/job/${jobId}`, { quiet: true }); }
+      catch (e) {
+        if (e && e.status === 404) {
+          /* job gone (e.g. its device was removed) — stop silently */
+          jobs.delete(jobId);
+          appendJob({ t: "err", x: `─ ${state.label}: ended (job no longer exists)` });
+          refreshStatus();
+        } /* other errors: retry quietly, no toast spam */
+        return;
+      }
       if (!jobs.has(jobId)) return;
       (j.lines || []).slice(state.rendered).forEach(l => appendJob(l));
       state.rendered = (j.lines || []).length;
