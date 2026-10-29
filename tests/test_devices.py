@@ -365,9 +365,8 @@ class DeviceServerTests(unittest.TestCase):
         script = devices.build_task_script(
             "expose-agent", {"master_url": "http://m:8471",
                              "vm_name": "laptop-vm-1"})
-        for marker in ("'sb','port-forward'", "28472:8472",
-                       "port-forward*$name*28472*",
-                       "http://127.0.0.1:28472/health",
+        for marker in ("hostfwd=tcp:127.0.0.1:", "cmdline",
+                       "guest sidecar published at", "connectport=`$published",
                        "Contains('ok')", "Contains('true')",
                        "run install-agent first",
                        "WindowsBuiltInRole]::Administrator",  # admin gate

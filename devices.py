@@ -482,23 +482,29 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "}",
             "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
             "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
-            # 1. kill any previous forward for this VM (re-runs must be clean)
-            "Write-Output \"step: stop any existing forward for ${name}\"",
-            "Get-CimInstance Win32_Process -Filter \"Name='cua.exe'\" |",
-            "    Where-Object { $_.CommandLine -like \"*port-forward*$name*28472*\" } |",
-            "    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
-            # 2. deterministic host-side forward; NEVER parse `cua sb list`
-            #    endpoints (empty while the VM runs) - the published port is
-            #    fixed by construction.
-            "Write-Output \"step: start host-side forward 28472 -> guest 8472\"",
-            "Start-Process -FilePath $exe -ArgumentList 'sb','port-forward',$name,'28472:8472' -WindowStyle Hidden",
-            "Start-Sleep -Seconds 12",
-            "$health = curl.exe -s -m 8 http://127.0.0.1:28472/health",
+            # 1. QEMU VMs publish guest 8472 via hostfwd, recorded in the VM
+            #    cmdline (port-forward only works for spacesd/Lume sandboxes).
+            "Write-Output \"step: read the published agent port from the VM cmdline\"",
+            "$vmmDir = Join-Path $env:USERPROFILE \".cua\\vmm\\qemu\\${name}\"",
+            "$cmdline = $null",
+            "if (Test-Path $vmmDir) {",
+            "    $cmd = Get-ChildItem $vmmDir -Filter cmdline -ErrorAction SilentlyContinue | Select-Object -First 1",
+            "    if ($cmd) { $cmdline = Get-Content $cmd.FullName -Raw -ErrorAction SilentlyContinue }",
+            "}",
+            "$fwd = $null",
+            "if ($cmdline) {",
+            "    foreach ($tok in $cmdline.Split(' ')) {",
+            "        if ($tok -like 'hostfwd=tcp:127.0.0.1:*-:8472') { $fwd = $tok }",
+            "    }",
+            "}",
+            "if (-not $fwd) { Write-Output \"[error] no hostfwd for guest 8472 in the VM cmdline\"; exit 1 }",
+            "$published = [int](($fwd.Split(':')[2]).TrimEnd('-'))",
+            "Write-Output \"guest sidecar published at 127.0.0.1:${published}\"",
+            "$health = curl.exe -s -m 8 \"http://127.0.0.1:${published}/health\"",
             "if (-not ($health -and $health.Contains('ok') -and $health.Contains('true'))) {",
-            "    Write-Output '[error] forward not healthy - run install-agent first'",
+            "    Write-Output \"[error] no healthy agent at 127.0.0.1:${published} - run install-agent first\"",
             "    exit 1",
             "}",
-            # 3. stable LAN port per VM, shared with the beacon via the map
             "Write-Output \"step: pick a stable LAN port\"",
             "$mapFile = Join-Path $env:TEMP 'ytl-beacon\\endpoints.json'",
             "$ports = @{}",
@@ -529,7 +535,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             # 4. portproxy LAN port -> the local forward (delete first: re-runs)
             "Write-Output \"step: netsh portproxy $lanPort -> 127.0.0.1:28472\"",
             "netsh interface portproxy delete v4tov4 listenport=$lanPort listenaddress=0.0.0.0 | Out-Null",
-            "netsh interface portproxy add v4tov4 listenport=$lanPort listenaddress=0.0.0.0 connectport=28472 connectaddress=127.0.0.1 | Out-Null",
+            "netsh interface portproxy add v4tov4 listenport=$lanPort listenaddress=0.0.0.0 connectport=`$published connectaddress=127.0.0.1 | Out-Null",
             "if ($LASTEXITCODE -ne 0) { Write-Output '[error] portproxy add failed'; exit 1 }",
             # 5. inbound firewall rule, idempotent by name
             "Write-Output \"step: firewall rule\"",
