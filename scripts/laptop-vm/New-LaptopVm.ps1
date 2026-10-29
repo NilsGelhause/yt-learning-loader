@@ -28,6 +28,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# The install task may have added QEMU to the Machine PATH after this shell
+# was started — running processes never see that, so prepend it if present.
+foreach ($qemuDir in @("C:\Program Files\qemu", "C:\Program Files (x86)\qemu")) {
+    if ((Test-Path (Join-Path $qemuDir "qemu-system-x86_64.exe")) -and
+        ($env:Path -notlike "*$qemuDir*")) {
+        $env:Path = "$qemuDir;" + $env:Path
+    }
+}
 
 Write-Host "Planning $Count VM(s) named $Name-1 .. $Name-$Count" -ForegroundColor Cyan
 Write-Host "Master (open inside each VM's browser): $MasterUrl"

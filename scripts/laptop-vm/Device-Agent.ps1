@@ -47,6 +47,13 @@ function Trace([string]$msg) {
     } catch {}
 })
 
+function Refresh-Path {
+    # Machine PATH changes (e.g. the install task adding QEMU) do NOT reach
+    # running processes — pick them up before every task.
+    $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" +
+                [Environment]::GetEnvironmentVariable("Path","User")
+}
+
 function Test-Admin {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
@@ -90,6 +97,7 @@ function Task-Paths([string]$taskId) {
 }
 
 function Start-Task($task) {
+    Refresh-Path
     Write-Host "Running task $($task.id) locally — progress appears here and in the master."
     $p = Task-Paths $task.id
     Set-Content -Path $p.script -Value $task.script -Encoding UTF8
@@ -166,6 +174,7 @@ $hostname = $env:COMPUTERNAME
 $pairBody = @{ code = $Code; hostname = $hostname } | ConvertTo-Json
 $DeviceId = $null
 $DeviceToken = $null
+Refresh-Path
 Trace ("agent starting, pid " + $PID + " admin=" + (Test-Admin))
 for ($attempt = 1; $attempt -le 4 -and -not $DeviceId; $attempt++) {
     try {
