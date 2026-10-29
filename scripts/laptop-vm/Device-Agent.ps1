@@ -34,17 +34,28 @@ function Test-Admin {
 }
 
 function Send-Output([string]$taskId, [string]$line) {
-    Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/devices/$DeviceId/output" `
-        -Headers @{ 'x-ytl-token' = $LanToken } `
-        -Body (@{ token = $DeviceToken; task_id = $taskId; line = $line } | ConvertTo-Json) `
-        -ContentType 'application/json' | Out-Null
+    # Never throw from here: this runs inside .NET event handlers, and an
+    # unhandled exception on those threads kills the whole agent process
+    # (the PowerShell window just vanishes, e.g. while the master restarts).
+    try {
+        Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/devices/$DeviceId/output" `
+            -Headers @{ 'x-ytl-token' = $LanToken } `
+            -Body (@{ token = $DeviceToken; task_id = $taskId; line = $line } | ConvertTo-Json) `
+            -ContentType 'application/json' | Out-Null
+    } catch {
+        Write-Host "report failed (master unreachable?): $($_.Exception.Message)"
+    }
 }
 
 function Finish-Task([string]$taskId, [int]$exitCode) {
-    Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/devices/$DeviceId/output" `
-        -Headers @{ 'x-ytl-token' = $LanToken } `
-        -Body (@{ token = $DeviceToken; task_id = $taskId; done = $true; exit_code = $exitCode } | ConvertTo-Json) `
-        -ContentType 'application/json' | Out-Null
+    try {
+        Invoke-RestMethod -Method Post -Uri "$MasterUrl/api/devices/$DeviceId/output" `
+            -Headers @{ 'x-ytl-token' = $LanToken } `
+            -Body (@{ token = $DeviceToken; task_id = $taskId; done = $true; exit_code = $exitCode } | ConvertTo-Json) `
+            -ContentType 'application/json' | Out-Null
+    } catch {
+        Write-Host "finish report failed (master unreachable?): $($_.Exception.Message)"
+    }
 }
 
 function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {

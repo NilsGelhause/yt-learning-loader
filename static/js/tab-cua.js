@@ -224,21 +224,21 @@
         { disabled: busy || undefined },
         () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`)),
       tipBtn("Create VM",
-        busy ? "A task is running on this device"
-          : dev.stack_done ? "Creates one Ubuntu desktop VM (laptop-vm-N) on the laptop"
-          : "Locked — run 'Install VM stack' first",
+        !dev.stack_done ? "Locked — run 'Install VM stack' first"
+          : "Creates one Ubuntu desktop VM (laptop-vm-N) on the laptop"
+            + (busy ? " — wait: a task is running on this device" : ""),
         { disabled: !dev.stack_done || busy || undefined },
         () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`)),
       tipBtn("Create 3 VMs",
-        busy ? "A task is running on this device"
-          : dev.stack_done ? "Creates laptop-vm-1..3 on the laptop (existing ones are skipped)"
-          : "Locked — run 'Install VM stack' first",
+        !dev.stack_done ? "Locked — run 'Install VM stack' first"
+          : "Creates laptop-vm-1..3 on the laptop (existing ones are skipped)"
+            + (busy ? " — wait: a task is running on this device" : ""),
         { disabled: !dev.stack_done || busy || undefined },
         () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`)),
       tipBtn("Start beacon",
-        busy ? "A task is running on this device"
-          : dev.stack_done ? "Runs the beacon on the laptop so its VMs appear in the master's Network tab"
-          : "Locked — run 'Install VM stack' first",
+        !dev.stack_done ? "Locked — run 'Install VM stack' first"
+          : "Runs the beacon on the laptop so its VMs appear in the master's Network tab"
+            + (busy ? " — wait: a task is running on this device" : ""),
         { disabled: !dev.stack_done || busy || undefined },
         () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`)),
       dev.online ? null : tipBtn("🗑",
