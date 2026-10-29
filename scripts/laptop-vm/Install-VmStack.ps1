@@ -50,9 +50,12 @@ if ($cua) {
 
 # --- 2. Windows Hypervisor Platform ----------------------------------------
 Step "Windows Hypervisor Platform (WHPX)"
-$feat = dism /online /get-featureinfo /featurename:HypervisorPlatform 2>$null | Select-String "State : Enabled"
-if ($feat) {
+$feat = dism /online /get-featureinfo /featurename:HypervisorPlatform 2>$null | Out-String
+if ($feat -match "State : Enabled") {
     Write-Host "already enabled."
+} elseif ($feat -match "State : Enable Pending") {
+    Write-Host "enabled but pending — a reboot is still required." -ForegroundColor Yellow
+    $global:needsReboot = $true
 } else {
     dism /online /enable-feature /featurename:HypervisorPlatform /all /norestart | Out-Null
     Write-Host "ENABLED — a reboot is required before VMs will start." -ForegroundColor Yellow
@@ -67,6 +70,12 @@ if ($doctor -match "qemu\s+ok") {
 } else {
     Write-Host "provisioning via 'cua runtime setup' ..."
     & cua runtime setup
+    $doctor = & cua runtime doctor 2>&1 | Out-String
+    if ($doctor -match "qemu\s+ok") {
+        Write-Host "qemu ready."
+    } else {
+        Write-Host "qemu still not ready after 'cua runtime setup' — see 'cua runtime doctor'." -ForegroundColor Yellow
+    }
 }
 
 # --- 4. keymaps packaging bug -------------------------------------------------
@@ -89,15 +98,20 @@ $real = Join-Path $QemuDir "qemu-system-x86_64.real.exe"
 $shimInstalled = Join-Path $QemuDir "qemu-system-x86_64.exe"
 if ((Test-Path $real) -and (Test-Path $shimInstalled)) {
     Write-Host "shim already installed."
-} elseif (Test-Path (Join-Path $QemuDir "qemu-system-x86_64.exe")) {
+} elseif (-not (Test-Path $shimInstalled) -and -not (Test-Path $real)) {
+    Write-Host "qemu-system-x86_64.exe not found at $QemuDir — install QEMU first (step 3)."
+} else {
+    # Partial state from an earlier run: only the original exe (fresh install)
+    # or only the .real.exe (shim lost) — both are repaired here.
     $tmp = Join-Path $env:TEMP "qemu-shim-build"
     New-Item -ItemType Directory -Force $tmp | Out-Null
     Add-Type -TypeDefinition (Get-Content -Raw $ShimSrc) -OutputAssembly (Join-Path $tmp "qemu-system-x86_64.exe") -ReferencedAssemblies System.dll
-    Rename-Item $shimInstalled "qemu-system-x86_64.real.exe"
-    Copy-Item (Join-Path $tmp "qemu-system-x86_64.exe") $shimInstalled
-    Write-Host "shim installed (original kept as qemu-system-x86_64.real.exe)."
-} else {
-    Write-Host "qemu-system-x86_64.exe not found at $QemuDir — install QEMU first."
+    if ((Test-Path $shimInstalled) -and -not (Test-Path $real)) {
+        Rename-Item $shimInstalled "qemu-system-x86_64.real.exe"
+        Write-Host "original renamed to qemu-system-x86_64.real.exe."
+    }
+    Copy-Item (Join-Path $tmp "qemu-system-x86_64.exe") $shimInstalled -Force
+    Write-Host "shim installed."
 }
 
 # --- done ---------------------------------------------------------------------
