@@ -292,7 +292,7 @@ class DeviceServerTests(unittest.TestCase):
             "install-agent", {"master_url": "http://m:8471",
                               "vm_name": "laptop-vm-1", "kimi_key": "sk-test"})
         for marker in ("agentd.tgz", "cua sb cp", "setsid", "chmod 600",
-                       "Contains('ok')", "Contains('true')", "tail -40",
+                       "Contains('ok')", "Contains('true')", "node -e",
                        "'KIMI_API_KEY=sk-test'"):
             self.assertIn(marker, script)
         # guest here-string must not carry CR (CRLF start script crashed sh)
@@ -369,7 +369,7 @@ class DeviceServerTests(unittest.TestCase):
                              "master_lan_ip": "192.168.50.111"})
         for marker in ("YTL_RELAY_OUT", "192.168.50.111", "endpoints.json",
                        "18473 + $i", "0..9", "dialPort = $clientPort - 1",
-                       "Contains('NO_PROCESS')", "pgrep", "tail -20",
+                       "Contains('NO_PROCESS')", "pgrep", "node -e",
                        "WindowsBuiltInRole]::Administrator",  # admin gate
                        "Get-Command cua", "TcpListener",
                        "cua sb cp", "start-agentd.sh", "-replace \"`r`n\", \"`n\"",
