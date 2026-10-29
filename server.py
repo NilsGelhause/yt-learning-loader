@@ -1603,6 +1603,21 @@ def ensure_container_engine(job: dict, timeout: int = 150) -> bool:
     return False
 
 
+CUA_VIEW_PROCS: dict[str, subprocess.Popen] = {}
+"""Sandbox name -> running `cua sb view` process (one per sandbox)."""
+
+
+def _drain_cua_view(proc: subprocess.Popen, name: str) -> None:
+    """Keep the viewer's stdout drained so it can never block on a full
+    pipe; reap it when it exits."""
+    try:
+        for _ in proc.stdout:
+            pass
+    except Exception:  # noqa: BLE001
+        pass
+    CUA_VIEW_PROCS.pop(name, None)
+
+
 def run_cua_create_job(job_id: str, argv: list[str]) -> None:
     """Create jobs: make sure the container engine is up first, then run."""
     if not ensure_container_engine(AGENT_JOBS[job_id]):
@@ -3129,9 +3144,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({"job_id": result})
 
     def api_cua_view(self):
-        """Fire-and-forget desktop viewer: opens `cua sb view <name>` detached
-        on this machine — the CLI serves the HTML5 viewer and opens a browser
-        window (~1h link TTL). No job record; the POST just kicks it off."""
+        """Desktop viewer: starts `cua sb view <name>`, captures the Viewer
+        URL it prints, keeps the process serving, and returns the URL so the
+        UI opens it in the user's browser. One viewer per sandbox (a second
+        click replaces the first)."""
         body = self.read_body()
         if not isinstance(body, dict) or not body.get("name"):
             return self.send_error_json(400, 'body must be {"name": ...}')
@@ -3151,15 +3167,45 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, subprocess.SubprocessError):
             help_text = ""
         if (help_run is None or help_run.returncode != 0
-                or not re.search(r"\bsandbox view\b", help_text)):
+                or not re.search(r"sandbox view", help_text)):
             return self.send_error_json(503, "this cua version has no `sb view` desktop viewer — update cua")
-        subprocess.Popen([exe, "sb", "view", name],
-                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, close_fds=True)
-        self.send_json({"ok": True,
-                        "note": "opening the desktop viewer in a browser window "
-                                "on this machine (serves ~1h)"})
-
+        old = CUA_VIEW_PROCS.pop(name, None)
+        if old and old.poll() is None:
+            try:
+                old.kill()
+            except OSError:
+                pass
+        try:
+            proc = subprocess.Popen([exe, "sb", "view", name],
+                                    stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL,
+                                    text=True, encoding="utf-8", errors="replace")
+        except OSError as e:
+            return self.send_error_json(500, f"could not start the viewer: {e}")
+        url = None
+        try:
+            deadline = time.time() + 20
+            while time.time() < deadline:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                m = re.search(r"https?://\S+", line)
+                if m:
+                    url = m.group(0)
+                    break
+        except OSError:
+            pass
+        if not url:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            return self.send_error_json(502, "the viewer did not report a URL — run `cua sb view "
+                                             + name + "` in a terminal to see why")
+        threading.Thread(target=_drain_cua_view, args=(proc, name), daemon=True).start()
+        self.send_json({"ok": True, "url": url,
+                        "note": "viewer serves ~1 h; clicking again restarts it"})
     def api_vm_nodes(self):
         """The CUA tab's per-VM agent state: name, whether the in-guest
         sidecar answers /health (online), whether it has a key (agent), and

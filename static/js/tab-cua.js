@@ -542,8 +542,9 @@
 
   async function doView(name) {
     try {
-      await api("/api/cua/sandboxes/view", { method: "POST", body: { name } });
-      toast("opening the desktop viewer in your browser (serves ~1 h)");
+      const res = await api("/api/cua/sandboxes/view", { method: "POST", body: { name } });
+      if (res && res.url) window.open(res.url, "_blank", "noopener");
+      toast("opening the desktop viewer in a new tab (serves ~1 h)");
     } catch { return; }  /* api() toasted the reason (400/404/503) */
   }
 

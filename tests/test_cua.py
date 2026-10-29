@@ -488,7 +488,7 @@ class CuaApiTests(unittest.TestCase):
         self.assertIn("view", body["error"])
         popen.assert_not_called()
 
-    def test_view_spawns_detached_viewer(self):
+    def test_view_captures_url_and_keeps_serving(self):
         seen = []
         help_run = mock.Mock(returncode=0,
                              stdout=b"Usage: cua.exe sandbox view [OPTIONS] <NAME>",
@@ -498,25 +498,55 @@ class CuaApiTests(unittest.TestCase):
             def __init__(self, cmd, **kwargs):
                 seen.append((list(cmd), kwargs))
                 self.pid = 424242
+                import io as _io
+                self.stdout = _io.StringIO(
+                    "Viewer for ytl-dev: "
+                    "http://127.0.0.1:49352/viewer/#ticket=abc\n")
+                self._alive = True
+
+            def poll(self):
+                return None if self._alive else 0
+
+            def kill(self):
+                self._alive = False
 
         with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
-                {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]), \
-             mock.patch.object(server.subprocess, "run", return_value=help_run), \
-             mock.patch.object(server.subprocess, "Popen", Proc):
+                {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]),              mock.patch.object(server.subprocess, "run", return_value=help_run),              mock.patch.object(server.subprocess, "Popen", Proc):
             status, body = self.api("POST", "/api/cua/sandboxes/view",
                                     {"name": "dev"})
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"ok": True,
-                                "note": "opening the desktop viewer in a browser "
-                                        "window on this machine (serves ~1h)"})
+        self.assertEqual(body["url"], "http://127.0.0.1:49352/viewer/#ticket=abc")
         self.assertEqual(seen[0][0], ["/fake/cua", "sb", "view", "ytl-dev"])
-        for stream in ("stdin", "stdout", "stderr"):
-            self.assertIs(seen[0][1][stream], server.subprocess.DEVNULL)
-        # fire-and-forget: no job record is created
+        self.assertIs(seen[0][1]["stdin"], server.subprocess.DEVNULL)
+        self.assertIs(seen[0][1]["stderr"], server.subprocess.DEVNULL)
+        # no job record; the serving process stays in the registry
         with server.AGENT_JOBS_LOCK:
             self.assertEqual(server.AGENT_JOBS, {})
+        self.assertIn("ytl-dev", server.CUA_VIEW_PROCS)
+        server.CUA_VIEW_PROCS.clear()
 
-    # -- VM nodes in GET /api/network
+    def test_view_without_url_is_an_error(self):
+        help_run = mock.Mock(returncode=0,
+                             stdout=b"Usage: cua.exe sandbox view [OPTIONS] <NAME>",
+                             stderr=b"")
+
+        class Proc:
+            def __init__(self, cmd, **kwargs):
+                import io as _io
+                self.stdout = _io.StringIO("some log without a url\n")
+                self.pid = 1
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                pass
+
+        with mock.patch.object(server.cua_client, "list_sandboxes", return_value=[
+                {"name": "ytl-dev", "status": "running", "image": "ubuntu"}]),              mock.patch.object(server.subprocess, "run", return_value=help_run),              mock.patch.object(server.subprocess, "Popen", Proc):
+            status, body = self.api("POST", "/api/cua/sandboxes/view",
+                                    {"name": "dev"})
+        self.assertEqual(status, 502)
 
     def test_network_includes_vm_nodes(self):
         with mock.patch.object(server.cua_client, "find_cua", return_value="/fake/cua"), \
