@@ -88,9 +88,16 @@ function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
     return $p.ExitCode
 }
 
+$AgentLog = Join-Path $env:TEMP "ytl-agent.log"
+function Trace([string]$msg) {
+    Add-Content -Path $AgentLog -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $msg) -Encoding UTF8
+}
+
 function Invoke-Task($task) {
+    Trace ("task " + $task.id + " [" + $task.kind + "] starting")
     $tmp = Join-Path $env:TEMP ("ytl-task-" + $task.id + ".ps1")
     Set-Content -Path $tmp -Value $task.script -Encoding UTF8
+    Trace "task script written"
     if ($task.kind -eq 'install-stack' -and -not (Test-Admin)) {
         # Elevation v1: re-run just this task elevated and stream the child's
         # log back — the standard Start-Process -Verb RunAs + log-tail pattern.
@@ -118,8 +125,17 @@ function Invoke-Task($task) {
 [System.IO.File]::WriteAllText('$codeFile', [string]`$p.ExitCode)
 "@
         Write-Host "Task $($task.id) needs admin — accept the UAC prompt to continue."
-        Start-Process powershell -Verb RunAs -Wait -ArgumentList `
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wrapper
+        Trace "requesting elevation (UAC)"
+        try {
+            Start-Process powershell -Verb RunAs -Wait -ArgumentList `
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $wrapper
+        } catch {
+            Trace ("UAC failed: " + $_.Exception.Message)
+            Send-Output $task.id "[error] elevation failed: $($_.Exception.Message)"
+            Finish-Task $task.id 1
+            return
+        }
+        Trace "elevated child returned"
         $exitCode = 1
         if (Test-Path $codeFile) { $exitCode = [int](Get-Content $codeFile -Raw).Trim() }
         $sent = 0
@@ -133,7 +149,9 @@ function Invoke-Task($task) {
         return
     }
     # Unprivileged tasks (and already-elevated agents) stream line by line.
+    Trace "running task in-process"
     $exitCode = Invoke-Script -path $tmp -taskId $task.id -logFile $null
+    Trace ("task exited with " + $exitCode)
     Finish-Task $task.id $exitCode
 }
 
@@ -180,6 +198,11 @@ if (-not (Test-Admin)) {
 }
 
 # ---- poll loop ----
+trap {
+    Trace ("TRAP: " + $_.Exception.Message + " | " + $_.ScriptStackTrace)
+    Write-Host "AGENT ERROR: $($_.Exception.Message) — see $AgentLog"
+    continue
+}
 
 while ($true) {
     try {
@@ -189,6 +212,7 @@ while ($true) {
             Write-Host "Task $($res.task.id) [$($res.task.kind)] received."
             Invoke-Task $res.task
             Write-Host "Task $($res.task.id) finished."
+            Trace ("task " + $res.task.id + " finished")
         }
     } catch {
         Write-Host "Poll failed: $($_.Exception.Message)"
