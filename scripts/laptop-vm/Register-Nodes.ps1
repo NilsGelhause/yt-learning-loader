@@ -82,9 +82,9 @@ function Get-SandboxNodes {
         if ($LASTEXITCODE -ne 0 -or -not $raw) {
             $raw = & cua sb list --json 2>$null
         }
-        if (-not $raw) { $script:CuaListOk = $false; return }
+        if (-not $raw) { $script:CuaListOk = $false; $script:ListError = "no output (exit $LASTEXITCODE)"; return }
         $list = $raw | Out-String | ConvertFrom-Json
-        if ($null -eq $list) { $script:CuaListOk = $false; return }
+        if ($null -eq $list) { $script:CuaListOk = $false; $script:ListError = "unparseable output: $($raw | Out-String | Select-Object -First 1)".Trim(); return }
         if ($list -isnot [System.Array]) { $list = @($list) }
         $nodes = @()
         foreach ($sb in $list) {
@@ -113,6 +113,7 @@ function Get-SandboxNodes {
         return $nodes
     } catch {
         $script:CuaListOk = $false
+        $script:ListError = $_.Exception.Message
         return
     }
 }
@@ -156,7 +157,7 @@ while ($true) {
             Write-Log ("cua list failed — re-registering {0} last known node(s)" -f $script:LastGoodNodes.Count)
             Send-Registration -Nodes $script:LastGoodNodes
         } else {
-            Write-Log "cua list failed (N=-1)"
+            Write-Log ("cua list failed: " + $script:ListError)
         }
     } else {
         Send-Registration -Nodes $nodes
