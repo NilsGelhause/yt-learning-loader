@@ -1,4 +1,4 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
   Prepares a Windows laptop to host cua QEMU VMs (with desktops) that join the
@@ -34,14 +34,18 @@ function Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }
 Step "cua CLI"
 $cua = Get-Command cua -ErrorAction SilentlyContinue
 if ($cua) {
-    Write-Host ("found: " + $cua.Source)
+    Write-Host "found: " + $cua.Source
 } else {
-    Write-Host "not found — running the official installer ..."
-    irm https://cua.ai/install.ps1 | iex
+    Write-Host "not found — downloading the official installer (CLI only, no prompts) ..."
+    $inst = Join-Path $env:TEMP "cua-install.ps1"
+    Invoke-RestMethod -Uri "https://cua.ai/install.ps1" -OutFile $inst
+    # -CliOnly installs only the cua CLI: no interactive menu, no sign-in
+    powershell -NoProfile -ExecutionPolicy Bypass -File $inst -CliOnly -Yes
     $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [Environment]::GetEnvironmentVariable("Path","User")
     if (-not (Get-Command cua -ErrorAction SilentlyContinue)) {
         throw "cua still not on PATH — open a NEW terminal and re-run this script."
     }
+    Write-Host "cua installed."
 }
 
 # --- 2. Windows Hypervisor Platform ----------------------------------------

@@ -1,4 +1,4 @@
-﻿# Device-Agent.ps1 — pairing-based reverse agent ("Connect device").
+# Device-Agent.ps1 — pairing-based reverse agent ("Connect device").
 #
 # Runs ON THE LAPTOP (PowerShell 5.1+). The master app shows a pairing code;
 # the laptop runs ONE line:
@@ -47,6 +47,36 @@ function Finish-Task([string]$taskId, [int]$exitCode) {
         -ContentType 'application/json' | Out-Null
 }
 
+function Invoke-Script([string]$path, [string]$taskId, [string]$logFile) {
+    # Run a task script with stdin closed: any interactive prompt gets EOF and
+    # fails fast instead of hanging the agent forever (the cua installer used
+    # to wait on "Type a number..." and starve the task).
+    $script:TaskId = $taskId
+    $script:TaskLog = $logFile
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "powershell.exe"
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$path`""
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $p = [System.Diagnostics.Process]::new($psi)
+    if ($logFile) {
+        $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
+        $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Add-Content -Path $script:TaskLog -Value $_.Data -Encoding UTF8 } })
+    } else {
+        $p.add_OutputDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
+        $p.add_ErrorDataReceived({ if ($null -ne $_.Data) { Send-Output $script:TaskId ([string]$_.Data) } })
+    }
+    $null = $p.Start()
+    $p.StandardInput.Close()   # EOF: no prompt may wait for input
+    $p.BeginOutputReadLine()
+    $p.BeginErrorReadLine()
+    $p.WaitForExit()
+    return $p.ExitCode
+}
+
 function Invoke-Task($task) {
     $tmp = Join-Path $env:TEMP ("ytl-task-" + $task.id + ".ps1")
     Set-Content -Path $tmp -Value $task.script -Encoding UTF8
@@ -58,8 +88,23 @@ function Invoke-Task($task) {
         Remove-Item $log, $codeFile -Force -ErrorAction SilentlyContinue
         $wrapper = Join-Path $env:TEMP ("ytl-elevated-" + $task.id + ".ps1")
         Set-Content -Path $wrapper -Encoding UTF8 -Value @"
-powershell -ExecutionPolicy Bypass -File "$tmp" *>&1 | Out-File -FilePath "$log" -Encoding utf8
-[System.IO.File]::WriteAllText("$codeFile", [string]`$LASTEXITCODE)
+`$psi = New-Object System.Diagnostics.ProcessStartInfo
+`$psi.FileName = 'powershell.exe'
+`$psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "$tmp"'
+`$psi.RedirectStandardInput = `$true
+`$psi.RedirectStandardOutput = `$true
+`$psi.RedirectStandardError = `$true
+`$psi.UseShellExecute = `$false
+`$psi.CreateNoWindow = `$true
+`$p = [System.Diagnostics.Process]::new(`$psi)
+`$p.add_OutputDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
+`$p.add_ErrorDataReceived({ if (`$null -ne `$_.Data) { Add-Content -Path '$log' -Value `$_.Data -Encoding UTF8 } })
+`$null = `$p.Start()
+`$p.StandardInput.Close()
+`$p.BeginOutputReadLine()
+`$p.BeginErrorReadLine()
+`$p.WaitForExit()
+[System.IO.File]::WriteAllText('$codeFile', [string]`$p.ExitCode)
 "@
         Write-Host "Task $($task.id) needs admin — accept the UAC prompt to continue."
         Start-Process powershell -Verb RunAs -Wait -ArgumentList `
@@ -70,19 +115,15 @@ powershell -ExecutionPolicy Bypass -File "$tmp" *>&1 | Out-File -FilePath "$log"
         if (Test-Path $log) {
             $lines = @(Get-Content $log -ErrorAction SilentlyContinue)
             if ($sent -lt $lines.Count) {
-                $lines[$sent..($lines.Count - 1)] | ForEach-Object { Send-Output $task.id ([string]$_) }
-                $sent = $lines.Count
+                $lines[$sent..($lines.Count - 1)] | ForEach-Object { Send-Output $task.id ([string]$_); $sent++ }
             }
         }
         Finish-Task $task.id $exitCode
         return
     }
-    # Unprivileged tasks (and already-elevated agents) stream line by line:
-    # the ForEach-Object body POSTs each line as it arrives.
-    powershell -NoProfile -ExecutionPolicy Bypass -File $tmp *>&1 | ForEach-Object {
-        Send-Output $task.id ([string]$_)
-    }
-    Finish-Task $task.id $LASTEXITCODE
+    # Unprivileged tasks (and already-elevated agents) stream line by line.
+    $exitCode = Invoke-Script -path $tmp -taskId $task.id -logFile $null
+    Finish-Task $task.id $exitCode
 }
 
 # ---- pair (a few friendly retries, then give up) ----

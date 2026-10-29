@@ -131,7 +131,8 @@ def queue_task(device_id: str, kind: str, script: str, label: str) -> str:
         dev["tasks"][task_id] = {
             "kind": kind, "label": label, "script": script,
             "status": "pending", "lines": [], "exit_code": None,
-            "created": time.time(), "ended": None, "reboot_required": False,
+            "created": time.time(), "updated": time.time(), "ended": None,
+            "reboot_required": False,
         }
         _save_devices()
         _mirror_to_agent_jobs(task_id, dev["tasks"][task_id])
@@ -154,6 +155,7 @@ def next_task(device_id: str, token: str):
         task_id = min(pending)[1]
         task = dev["tasks"][task_id]
         task["status"] = "running"
+        task["updated"] = time.time()
         _save_devices()
         _mirror_to_agent_jobs(task_id, task)
         return {"id": task_id, "kind": task["kind"], "script": task["script"]}
@@ -172,6 +174,7 @@ def push_task_output(device_id: str, token: str, task_id: str, line=None,
         task = dev["tasks"].get(task_id)
         if not task:
             return False
+        task["updated"] = time.time()
         if line:
             text = str(line)[:TASK_LINE_CHARS]
             task["lines"].append({"t": "out", "x": text})
@@ -217,7 +220,31 @@ def _mirror_to_agent_jobs(task_id: str, task: dict) -> None:
             job["ended"] = int(task["ended"])
 
 
+TASK_STALE_SECONDS = 600.0
+
+
+def _reap_stale_tasks() -> None:
+    """Running tasks that produced no output for TASK_STALE_SECONDS are
+    marked errored (e.g. the laptop was closed mid-install) so devices don't
+    stay 'running' forever and the UI unlocks."""
+    now = time.time()
+    changed = False
+    for dev in DEVICES.values():
+        for task in dev.get("tasks", {}).values():
+            if (task.get("status") == "running"
+                    and now - (task.get("updated") or 0) > TASK_STALE_SECONDS):
+                task["status"] = "error"
+                task["exit_code"] = task.get("exit_code") or 1
+                task["ended"] = now
+                task["lines"].append(
+                    {"t": "out", "x": "[timed out — no output for 10 min]"})
+                changed = True
+    if changed:
+        _save_devices()
+
+
 def list_devices() -> list[dict]:
+    _reap_stale_tasks()
     now = time.time()
     with DEVICES_LOCK:
         out = []

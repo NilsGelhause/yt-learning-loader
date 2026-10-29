@@ -183,6 +183,12 @@
         class: `chip sm${t.status === "done" ? "" : " dim"}`,
         title: t.label || t.kind,
       }, `${t.label || t.kind}: ${t.status}`));
+    const running = (dev.tasks || []).find(t => t.status === "running");
+    const busy = Boolean(running);
+    const runningNote = busy
+      ? el("span", { class: "chip sm", title: "task in progress — output streams into the transcript below" },
+          `⏳ ${running.label || running.kind}…`)
+      : null;
     const rebootNote = (dev.tasks || []).some(t => t.reboot_required)
       ? el("div", { class: "muted small", style: "flex-basis:100%" },
           "[REBOOT-REQUIRED] reboot the laptop, then re-run the connect line.")
@@ -191,33 +197,35 @@
       el("span", { class: `pulse-dot${dev.online ? "" : " off"}`, title: dev.online ? "online" : "offline" }),
       el("strong", { style: "min-width:140px" }, dev.hostname || dev.id),
       el("span", { class: "muted small" }, dev.online ? "online" : "offline"),
+      runningNote,
       el("span", { class: "spacer" }),
       taskChips,
       el("button", {
         class: "btn-sm",
-        title: "Install cua/QEMU/shim on the laptop (elevated — one UAC click there)",
+        disabled: busy || undefined,
+        title: busy ? "A task is running on this device" : "Install cua/QEMU/shim on the laptop (elevated — one UAC click there)",
         onclick: () => doDeviceTask(dev.id, "install-stack", null, `install stack ${dev.hostname}`),
       }, "Install VM stack"),
       el("button", {
         class: "btn-sm",
-        disabled: !dev.stack_done || undefined,
-        title: dev.stack_done
+        disabled: !dev.stack_done || busy || undefined,
+        title: busy ? "A task is running on this device" : dev.stack_done
           ? "Create one laptop-vm VM on the laptop"
           : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "create-vm", { count: 1 }, `create VM ${dev.hostname}`),
       }, "Create VM"),
       el("button", {
         class: "btn-sm",
-        disabled: !dev.stack_done || undefined,
-        title: dev.stack_done
+        disabled: !dev.stack_done || busy || undefined,
+        title: busy ? "A task is running on this device" : dev.stack_done
           ? "Create laptop-vm-1..3 on the laptop (existing ones are skipped)"
           : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "create-vm", { count: 3 }, `create 3 VMs ${dev.hostname}`),
       }, "Create 3 VMs"),
       el("button", {
         class: "btn-sm",
-        disabled: !dev.stack_done || undefined,
-        title: dev.stack_done
+        disabled: !dev.stack_done || busy || undefined,
+        title: busy ? "A task is running on this device" : dev.stack_done
           ? "Start the beacon so the laptop's VMs appear in the Network tab"
           : "Locked — run 'Install VM stack' first",
         onclick: () => doDeviceTask(dev.id, "start-beacon", null, `start beacon ${dev.hostname}`),
