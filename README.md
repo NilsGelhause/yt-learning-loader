@@ -290,7 +290,9 @@ static/js/           one file per tab + core.js (shared helpers, no framework)
 static/styles.css    the whole design system
 data/                videos.json index, learnings/, (gitignored: thumbs,
                      transcripts, logs, devices.json, remote_nodes.json,
-                     runtime state)
+                     settings.json, runtime state). `data/settings.json` is
+                     machine-local (host binding, LAN token) — set it on each
+                     host, it is never committed.
 teach/<id>/          teaching workspaces (MISSION.md, lessons/, agent console
                      state) — gitignored, personal
 skills/<slug>/       reusable SKILL.md files created from videos/workspaces

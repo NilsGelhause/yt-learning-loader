@@ -28,3 +28,6 @@ data/hidden_sessions.json
 # master-side restart helper logs
 data/server-restart.out.log
 data/server-restart.err.log
+
+# machine-local settings (host binding, LAN token) — never tracked
+data/settings.json
