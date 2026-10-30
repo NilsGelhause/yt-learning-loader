@@ -457,7 +457,8 @@ class DeviceServerTests(unittest.TestCase):
                               "vm_name": "laptop-vm-1",
                               "relay_target": "192.168.50.111:18472"})
         for marker in ("kill stale sidecar", "drop stale WAL files",
-                       "write start script", "start + verify",
+                       "write start script (relay from master registry)",
+                       "start + verify",
                        "YTL_RELAY_OUT=192.168.50.111:18472",
                        "harness.sqlite", "SIGKILL",
                        "curl -s -m 8 http://127.0.0.1:8472/health",
@@ -468,12 +469,15 @@ class DeviceServerTests(unittest.TestCase):
             self.assertNotIn(gone, script)
         script.encode("ascii")
 
-    def test_restart_agent_without_relay_target(self):
-        """No registry entry (e.g. first install) -> script without relay."""
+    def test_restart_agent_without_relay_target_keeps_guest_script(self):
+        """No registry entry -> do NOT rewrite the guest start script (the
+        existing one may already carry a relay target from expose-agent)."""
         script = devices.build_task_script(
             "restart-agent", {"master_url": "http://m:8471",
                               "vm_name": "laptop-vm-1"})
         self.assertNotIn("YTL_RELAY_OUT", script)
+        self.assertIn("no relay target in registry", script)
+        self.assertNotIn("writeFileSync", script)
         script.encode("ascii")
 
     def test_restart_agent_bad_vm_name(self):

@@ -373,7 +373,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "if (Test-Path $pidFile) {",
             "    $oldPid = (Get-Content $pidFile -Raw).Trim()",
             "    if ($oldPid -match '^[0-9]+$') {",
-            "        Stop-Process -Id [int]$oldPid -Force -ErrorAction SilentlyContinue",
+            "        Stop-Process -Id ([int]$oldPid) -Force -ErrorAction SilentlyContinue",
             "    }",
             "    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue",
             "}",
@@ -608,32 +608,36 @@ def build_task_script(kind: str, ctx: dict) -> str:
             # 2. drop stale WAL/SHM (next sidecar blocks on the DB open)
             "Write-Output \"step: drop stale WAL files\"",
             "cua sb exec $name -- \"node -e 'const fs=require(``fs``);for(const s of [``-wal``,``-shm``])try{fs.unlinkSync(``/home/cua/agentd-data/harness.sqlite``+s);console.log(``removed ``+s)}catch(e){}'\"",
-            # 3. rewrite the start script (relay target from the master)
-            "Write-Output \"step: write start script\"",
-        ]
-        script_lines = [
-            "#!/bin/sh",
-            "mkdir -p /home/cua/agentd-data",
-            "export YTL_AGENT_PORT=8472",
-            "export YTL_AGENT_HOST=0.0.0.0",
-            "export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite",
+            # 3. rewrite the start script ONLY when the registry knows a
+            #    relay target — without one, the guest's existing script
+            #    (which expose-agent may already have given a relay target)
+            #    is the better source; blindly rewriting would strip it.
         ]
         if relay:
-            script_lines.append(f"export YTL_RELAY_OUT={relay}")
-        script_lines += [
-            "cd /home/cua/agentd",
-            "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
-        ]
-        here = "\n".join(script_lines)
+            lines.append("Write-Output \"step: write start script (relay from master registry)\"")
+            script_lines = [
+                "#!/bin/sh",
+                "mkdir -p /home/cua/agentd-data",
+                "export YTL_AGENT_PORT=8472",
+                "export YTL_AGENT_HOST=0.0.0.0",
+                "export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite",
+                f"export YTL_RELAY_OUT={relay}",
+                "cd /home/cua/agentd",
+                "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
+            ]
+            lines += [
+                "$here = @'",
+                *script_lines,
+                "'@",
+                "$startSh = ($here -replace \"`r`n\", \"`n\")",
+                "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
+                "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
+                "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
+            ]
+        else:
+            lines.append("Write-Output \"step: no relay target in registry - keeping the guest's existing start script\"")
+        # 4. start + verify (npx boot can outlast a short window — retry)
         lines += [
-            "$here = @'",
-            *script_lines,
-            "'@",
-            "$startSh = ($here -replace \"`r`n\", \"`n\")",
-            "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
-            "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
-            # 4. start + verify (npx boot can outlast a short window — retry)
             "Write-Output \"step: start + verify\"",
             "cua sb exec $name -- 'sh /home/cua/start-agentd.sh'",
             "$health = $null",

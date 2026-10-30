@@ -112,6 +112,9 @@ try { & '$($p.script)' } catch {
     `$code = 1
     # separate file: the .err path is held open by cmd's 2> redirection
     try { [IO.File]::AppendAllText('$($p.launchlog)', "LAUNCHER: " + `$_.Exception.Message + [Environment]::NewLine) } catch { }
+    # ... and on stdout too, so the exception streams to the master's task
+    # transcript instead of living only in a local temp file
+    Write-Output ("LAUNCHER: " + `$_.Exception.Message)
 }
 if (`$global:LASTEXITCODE) { `$code = `$global:LASTEXITCODE }
 # the done marker is unconditional - a throw must never stall the queue

@@ -53,8 +53,20 @@ for ($i = 1; $i -le $Count; $i++) {
     $vm = "{0}-{1}" -f $Name, $i
     $exists = & cua sb list --json 2>$null | ConvertFrom-Json | Where-Object { $_.name -eq $vm }
     if ($exists) {
-        Write-Host "[$vm] already exists — skipping." -ForegroundColor Yellow
-        continue
+        $state = [string]$exists.state
+        if ($state -eq "running") {
+            Write-Host "[$vm] already exists and is running — skipping." -ForegroundColor Yellow
+            continue
+        }
+        # A stopped/suspended QEMU VM cannot be resumed (its disk would be
+        # reused but the sandbox stays unusable) — replace it with a fresh one.
+        Write-Host "[$vm] exists but is '$state' — removing and recreating..." -ForegroundColor Yellow
+        & cua sb rm $vm --force *>&1 | ForEach-Object { Write-Host "  $_" }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[$vm] could not remove the stale VM — remove it by hand: cua sb rm $vm --force" -ForegroundColor Red
+            $failed += $vm
+            continue
+        }
     }
     Write-Host "[$vm] creating (first run downloads the image, can take minutes) ..."
     $log = Join-Path $env:TEMP ("cua-create-{0}.log" -f $vm)
