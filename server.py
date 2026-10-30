@@ -2733,6 +2733,20 @@ class Handler(BaseHTTPRequestHandler):
             if not REMOTE_NAME_RE.fullmatch(vm):
                 return self.send_error_json(400, "bad vm name")
             ctx["vm_name"] = vm
+        if kind == "restart-agent":
+            vm = str(params.get("name") or "")
+            if not REMOTE_NAME_RE.fullmatch(vm):
+                return self.send_error_json(400, "bad vm name")
+            ctx["vm_name"] = vm
+            # The dial target lives in the master's remote-node registry
+            # (http://<ip>:<clientPort> -> dial = clientPort-1). install-agent
+            # rewrites the guest start script without it, so a restart must
+            # re-establish it from here.
+            ep = remote_node_endpoint(vm)
+            if ep:
+                m = re.fullmatch(r"http://([^:/]+):(\d+)", ep)
+                if m:
+                    ctx["relay_target"] = f"{m.group(1)}:{int(m.group(2)) - 1}"
         if kind == "start-beacon" and not ctx["lan_token"]:
             return self.send_error_json(400, "start-beacon needs a LAN token — set one in Settings → LAN / other devices")
         try:
@@ -2746,6 +2760,7 @@ class Handler(BaseHTTPRequestHandler):
             "open-desktop": f"open desktop viewer for {ctx.get('vm_name', '')}",
             "install-agent": f"install agent {ctx.get('vm_name', '')}",
             "expose-agent": f"expose agent {ctx.get('vm_name', '')}",
+            "restart-agent": f"restart agent {ctx.get('vm_name', '')}",
         }[kind]
         task_id = devices.queue_task(device_id, kind, script, label)
         self.send_json({"task_id": task_id})
@@ -3838,12 +3853,15 @@ class _Relay:
         while True:
             try:
                 if conn.recv(1, socket.MSG_PEEK) == b"":
+                    print(f"relay[{self.index}]: dial recv returned EOF — "
+                          f"guest closed the dial socket", flush=True)
                     return  # guest hung up (or was closed by replacement)
             except socket.timeout:
                 with self.lock:
                     if self.guest is not conn:
                         return  # replaced
-            except OSError:
+            except OSError as e:
+                print(f"relay[{self.index}]: dial recv error {e}", flush=True)
                 return
             time.sleep(0.05)  # data pending: let the shuttles consume it
 
@@ -3887,6 +3905,8 @@ class _Relay:
             if guest_broken.is_set():
                 # the channel itself died (VM suspended / agentd gone): drop
                 # it so the next client fails fast instead of hanging
+                print(f"relay[{self.index}]: guest channel broken by "
+                      f"client session — dropping it", flush=True)
                 with self.lock:
                     if self.guest is guest:
                         self.guest = None
@@ -3926,6 +3946,21 @@ class _Relay:
                     pass
 
 
+def remote_node_endpoint(name: str) -> str | None:
+    """vm_nodes fallback resolver: endpoint of a beacon-registered remote
+    node, fresh enough to be online. Lets console/vmtask reach a laptop VM's
+    sidecar through the reverse relay (REMOTE_NODES never raises)."""
+    with REMOTE_NODES_LOCK:
+        entry = REMOTE_NODES.get(name)
+        if not entry:
+            return None
+        if time.time() - float(entry.get("seen") or 0) > REMOTE_ONLINE_WINDOW:
+            return None
+        endpoint = entry.get("endpoint")
+        return (endpoint if isinstance(endpoint, str)
+                and endpoint.startswith("http") else None)
+
+
 def start_relays(dial_base: int = RELAY_BASE_DIAL,
                  client_base: int = RELAY_BASE_CLIENT,
                  count: int = RELAY_COUNT) -> list[_Relay]:
@@ -3947,6 +3982,7 @@ def start_relays(dial_base: int = RELAY_BASE_DIAL,
 def main() -> None:
     restore_jobs()
     load_remote_nodes()
+    vm_nodes.set_remote_endpoint_resolver(remote_node_endpoint)
     relays = start_relays()
     if relays:
         print(f"reverse relay up: guest dial {RELAY_BASE_DIAL}.."

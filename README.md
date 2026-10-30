@@ -152,6 +152,24 @@ on the laptop. Each sandbox row on this machine also has a **Desktop** button
 and opens it in a browser tab, ~1 h ticket; use Chrome/Edge if a codec error
 appears) and a **Terminal** button (raw bash in the browser).
 
+**Agents inside laptop VMs (reverse relay).** The same per-device buttons can
+turn a laptop QEMU VM into a full agent node that the master drives like any
+local sandbox: *Install agent* downloads the agentd bundle into the guest
+(curl + tar over `cua sb exec` — the guest image has no `cp`/`tail`/`base64`),
+*Expose agent* points the in-guest sidecar at the master's reverse relay, and
+*Restart agent* reboots it cleanly (kills stale processes via a `/proc` scan,
+drops stale SQLite WAL files, rewrites the start script with the relay target
+from the master's registry, then health-checks). The relay pairs a guest
+dial-in port (18472+i — QEMU publishes no host port, but the guest dials out
+through slirp NAT) with a master client port (18473+i); the laptop's beacon
+rewrites the registered node endpoint to `http://<master>:<clientPort>`, so
+the Network tab shows the VM as an agent node with sessions, and Console /
+VM-task conversations run over the relay unchanged. Two hard-won guest
+details: `Connection: close` responses end the sidecar's local leg, so the
+relay-out re-attaches it without touching the dial (`{end: false}` pipes);
+and a SIGKILLed sidecar leaves WAL locks that block the next start, so a
+restart always cleans them first.
+
 **Delegate a task to a VM (v1).** The CUA Spaces tab can hand a task to a
 sandbox so the agent's *commands* execute on the VM while its thinking and
 memory stay in this machine's durable agent conversation: the conversation is

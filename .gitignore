@@ -24,3 +24,7 @@ data/agent/
 data/devices.json
 data/remote_nodes.json
 data/hidden_sessions.json
+
+# master-side restart helper logs
+data/server-restart.out.log
+data/server-restart.err.log

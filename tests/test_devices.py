@@ -377,15 +377,18 @@ class DeviceServerTests(unittest.TestCase):
         """The generated admin script: reserves a relay index via the
         beacon's endpoints.json map (client port 18473+i, dial = client-1),
         pushes a guest start script carrying YTL_RELAY_OUT (LF-only),
-        restarts the guest sidecar and verifies it with pgrep. No
-        portproxy / firewall / port-forward anywhere. ASCII-only."""
+        restarts the guest sidecar (kill via node /proc SIGKILL + curl
+        health verify — pkill/pgrep are missing on the guest image) and
+        No portproxy / firewall / port-forward anywhere. ASCII-only."""
         script = devices.build_task_script(
             "expose-agent", {"master_url": "http://m:8471",
                              "vm_name": "laptop-vm-1",
                              "master_lan_ip": "192.168.50.111"})
         for marker in ("YTL_RELAY_OUT", "192.168.50.111", "endpoints.json",
                        "18473 + $i", "0..9", "dialPort = $clientPort - 1",
-                       "Contains('NO_PROCESS')", "pgrep", "node -e",
+                       "SIGKILL", "readdirSync(``/proc``)",
+                       "curl -s -m 8 http://127.0.0.1:8472/health",
+                       "Contains('\"ok\":true')", "node -e",
                        "WindowsBuiltInRole]::Administrator",  # admin gate
                        "Get-Command cua", "TcpListener",
                        "start-agentd.sh", "-replace \"`r`n\", \"`n\"",
@@ -394,12 +397,11 @@ class DeviceServerTests(unittest.TestCase):
             self.assertIn(marker, script)
         # the reverse relay replaces all host-side publishing machinery
         for gone in ("portproxy", "advfirewall", "port-forward", "28472",
-                     "qemu-system", "Get-NetTCPConnection", "firewall rule"):
+                     "qemu-system", "Get-NetTCPConnection", "firewall rule",
+                     "pgrep", "pkill", "NO_PROCESS"):
             self.assertNotIn(gone, script)
         # transport is exec-only: no `cua sb cp` anywhere (the start script
-        # goes base64+node like install-agent). pkill/pgrep keep their
-        # field-proven lines verbatim — PS 5.1 strips their double quotes,
-        # leaving two OR'd -f patterns, which still matches the sidecar.
+        # goes base64+node like install-agent).
         self.assertNotIn("cua sb cp", script)
         script.encode("ascii")  # PS 5.1 ANSI fallback: generated = ASCII only
 
@@ -445,6 +447,42 @@ class DeviceServerTests(unittest.TestCase):
                              "vm_name": "laptop-vm-1"})
         self.assertNotIn("sb list", script)
         self.assertNotIn("endpoints.agent", script)
+
+    def test_restart_agent_script_full_lifecycle(self):
+        """restart-agent = kill + WAL clean + rewrite start script + start +
+        curl-health verify, all through cua sb exec. The relay target comes
+        from the master context, never from the guest."""
+        script = devices.build_task_script(
+            "restart-agent", {"master_url": "http://m:8471",
+                              "vm_name": "laptop-vm-1",
+                              "relay_target": "192.168.50.111:18472"})
+        for marker in ("kill stale sidecar", "drop stale WAL files",
+                       "write start script", "start + verify",
+                       "YTL_RELAY_OUT=192.168.50.111:18472",
+                       "harness.sqlite", "SIGKILL",
+                       "curl -s -m 8 http://127.0.0.1:8472/health",
+                       "sidecar restarted on"):
+            self.assertIn(marker, script)
+        # no pkill/pgrep on the guest image; exec-only transport
+        for gone in ("pkill", "pgrep", "cua sb cp"):
+            self.assertNotIn(gone, script)
+        script.encode("ascii")
+
+    def test_restart_agent_without_relay_target(self):
+        """No registry entry (e.g. first install) -> script without relay."""
+        script = devices.build_task_script(
+            "restart-agent", {"master_url": "http://m:8471",
+                              "vm_name": "laptop-vm-1"})
+        self.assertNotIn("YTL_RELAY_OUT", script)
+        script.encode("ascii")
+
+    def test_restart_agent_bad_vm_name(self):
+        device_id, _ = self.pair_device()
+        devices.DEVICES[device_id]["stack_done"] = True
+        status, body = self.api("POST", f"/api/devices/{device_id}/task",
+                                {"kind": "restart-agent",
+                                 "params": {"name": "Bad_Name!"}})
+        self.assertEqual(status, 400)
 
     def test_kit_agentd_tgz_served(self):
         """/kit/agentd.tgz is a real gzipped tar of agentd/: 200, the right

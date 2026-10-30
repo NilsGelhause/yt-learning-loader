@@ -45,7 +45,7 @@ TASK_MAX_LINES = 800        # same cap as agent jobs
 TASK_LINE_CHARS = 1000
 
 TASK_KINDS = ("install-stack", "create-vm", "start-beacon", "open-desktop",
-              "install-agent", "expose-agent")
+              "install-agent", "expose-agent", "restart-agent")
 
 # Crockford-ish alphabet: no I, L, O, 0, 1 — unambiguous over the phone.
 _PAIR_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
@@ -365,10 +365,23 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "$script = Join-Path $dir 'Register-Nodes.ps1'",
             download.format(url=_ps(f"{master}/kit/Register-Nodes.ps1"),
                             dest="$script"),
-            # idempotent: stop any previous beacon before starting a new one",
-            "Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" |",
-            "    Where-Object { $_.CommandLine -like '*Register-Nodes.ps1*' } |",
-            "    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+            # idempotent: stop any previous beacon before starting a new one.
+            # Primary signal is the beacon's own PID file (its WMI may be
+            # broken — Get-CimInstance then fails with 0x80041010); the CIM
+            # scan is only a fallback for pre-PID-file instances.
+            "$pidFile = Join-Path $dir 'beacon.pid'",
+            "if (Test-Path $pidFile) {",
+            "    $oldPid = (Get-Content $pidFile -Raw).Trim()",
+            "    if ($oldPid -match '^[0-9]+$') {",
+            "        Stop-Process -Id [int]$oldPid -Force -ErrorAction SilentlyContinue",
+            "    }",
+            "    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue",
+            "}",
+            "try {",
+            "    Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" |",
+            "        Where-Object { $_.CommandLine -like '*Register-Nodes.ps1*' } |",
+            "        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+            "} catch { }",
             "Start-Process powershell -ArgumentList '-NoProfile','-WindowStyle','Hidden',"
             "'-ExecutionPolicy','Bypass','-File',$script,'-MasterUrl',"
             f"{_ps(master)},'-Token',{_ps(token)} -WindowStyle Hidden",
@@ -443,7 +456,6 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "Write-Output \"step: start the sidecar detached\"",
             "$here = @'",
             "#!/bin/sh",
-            "# re-runnable after a VM restart (processes die on restart, files survive)",
             "mkdir -p /home/cua/agentd-data",
             "export YTL_AGENT_PORT=8472",
             "export YTL_AGENT_HOST=0.0.0.0",
@@ -550,23 +562,96 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
             "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
             "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
-            # 3. restart the guest sidecar with the relay env (pkill may find
-            #    nothing on a fresh VM — its exit code is ignored)
+            # 3. restart the guest sidecar with the relay env. pkill/pgrep
+            #    are MISSING on the guest image — kill stale sidecars via a
+            #    /proc scan (node SIGKILL, like fix-agentd.js) so the fresh
+            #    sidecar never dies on EADDRINUSE, then start via the script
             "Write-Output \"step: restart the guest sidecar\"",
-            "cua sb exec $name -- 'pkill -f \"[t]sx src/server.ts\"; sh /home/cua/start-agentd.sh'",
-            "Start-Sleep -Seconds 4",
-            # 4. verify the guest process runs — no endpoints parsing
-            "Write-Output \"step: verify the guest process\"",
-            "$pg = cua sb exec $name -- 'pgrep -f \"[t]sx src/server.ts\" || echo NO_PROCESS' 2>$null",
-            "if ($pg -and -not $pg.Contains('NO_PROCESS')) {",
+            "cua sb exec $name -- \"node -e 'const fs=require(``fs``);for(const p of fs.readdirSync(``/proc``)){if(!/^[0-9]+$/.test(p))continue;try{const c=fs.readFileSync(``/proc/``+p+``/cmdline``,``utf8``);if(c.includes(``src/server.ts``))process.kill(parseInt(p),``SIGKILL``)}catch(e){}}' && sh /home/cua/start-agentd.sh\"",
+            # 4. verify by health INSIDE the guest (curl exists there; the
+            #    sidecar binds 8472 before it dials out, so ok:true proves
+            #    the relay sidecar is up) — retry while npx/tsx boots
+            "Write-Output \"step: verify the guest sidecar health\"",
+            "$health = $null",
+            "foreach ($try in 1..5) {",
+            "    Start-Sleep -Seconds 3",
+            "    $health = cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health' 2>$null",
+            "    if ($health -and $health.Contains('\"ok\":true')) { break }",
+            "}",
+            "if ($health -and $health.Contains('\"ok\":true')) {",
             "    Write-Output \"agent exposed at http://$masterIp`:$clientPort -- relay dial $masterIp`:$dialPort\"",
             "    exit 0",
             "}",
-            "Write-Output \"[error] sidecar not running in ${name} - server.log tail:\"",
+            "Write-Output \"[error] sidecar not healthy in ${name} - server.log tail:\"",
             "cua sb exec $name -- 'node -e ''console.log(require(`fs`).readFileSync(`/home/cua/agentd-data/server.log`,`utf8`).slice(-2000))'''",
             "exit 1",
             "",
         ])
+    if kind == "restart-agent":
+        # Runs ON THE LAPTOP: restarts the in-guest sidecar with a clean
+        # slate — kill stale processes (pkill/pgrep are missing on the
+        # guest), drop stale SQLite WAL files (a SIGKILLed sidecar blocks
+        # the next one on the DB open), rewrite the start script and start.
+        # The relay target comes from the MASTER's remote-node registry
+        # (ctx relay_target): install-agent overwrites the script without
+        # it, so a restart must re-establish it rather than preserve it.
+        vm = str(ctx.get("vm_name") or "")
+        relay = str(ctx.get("relay_target") or "")
+        lines = [
+            "$ErrorActionPreference = 'Stop'",
+            f"$name = {_ps(vm)}",
+            "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
+            "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
+            # 1. kill stale sidecars via /proc scan (like fix-agentd.js)
+            "Write-Output \"step: kill stale sidecar\"",
+            "cua sb exec $name -- \"node -e 'const fs=require(``fs``);for(const p of fs.readdirSync(``/proc``)){if(!/^[0-9]+$/.test(p))continue;try{const c=fs.readFileSync(``/proc/``+p+``/cmdline``,``utf8``);if(c.includes(``src/server.ts``))process.kill(parseInt(p),``SIGKILL``)}catch(e){}}'\"",
+            # 2. drop stale WAL/SHM (next sidecar blocks on the DB open)
+            "Write-Output \"step: drop stale WAL files\"",
+            "cua sb exec $name -- \"node -e 'const fs=require(``fs``);for(const s of [``-wal``,``-shm``])try{fs.unlinkSync(``/home/cua/agentd-data/harness.sqlite``+s);console.log(``removed ``+s)}catch(e){}'\"",
+            # 3. rewrite the start script (relay target from the master)
+            "Write-Output \"step: write start script\"",
+        ]
+        script_lines = [
+            "#!/bin/sh",
+            "mkdir -p /home/cua/agentd-data",
+            "export YTL_AGENT_PORT=8472",
+            "export YTL_AGENT_HOST=0.0.0.0",
+            "export YTL_AGENT_DB=/home/cua/agentd-data/harness.sqlite",
+        ]
+        if relay:
+            script_lines.append(f"export YTL_RELAY_OUT={relay}")
+        script_lines += [
+            "cd /home/cua/agentd",
+            "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
+        ]
+        here = "\n".join(script_lines)
+        lines += [
+            "$here = @'",
+            *script_lines,
+            "'@",
+            "$startSh = ($here -replace \"`r`n\", \"`n\")",
+            "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
+            "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
+            # 4. start + verify (npx boot can outlast a short window — retry)
+            "Write-Output \"step: start + verify\"",
+            "cua sb exec $name -- 'sh /home/cua/start-agentd.sh'",
+            "$health = $null",
+            "foreach ($try in 1..10) {",
+            "    Start-Sleep -Seconds 3",
+            "    $health = cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health' 2>$null",
+            "    if ($health -and $health.Contains('\"ok\":true')) { break }",
+            "}",
+            "if ($health -and $health.Contains('\"ok\":true')) {",
+            "    Write-Output \"sidecar restarted on ${name}\"",
+            "    exit 0",
+            "}",
+            "Write-Output \"[error] sidecar not healthy in ${name} - server.log tail:\"",
+            "cua sb exec $name -- 'node -e ''console.log(require(`fs`).readFileSync(`/home/cua/agentd-data/server.log`,`utf8`).slice(-2000))'''",
+            "exit 1",
+            "",
+        ]
+        return "\n".join(lines)
     raise ValueError(f"unknown task kind: {kind}")
 
 

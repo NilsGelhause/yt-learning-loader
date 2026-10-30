@@ -22,6 +22,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -247,6 +248,58 @@ class RelayTests(unittest.TestCase):
         finally:
             for relay in again:
                 relay.close()
+
+
+class RemoteEndpointResolverTests(unittest.TestCase):
+    """server.remote_node_endpoint + the vm_nodes fallback it injects:
+    beacon-registered laptop VMs answer console/vmtask through the relay."""
+
+    def setUp(self):
+        self._saved = dict(server.REMOTE_NODES)
+        server.REMOTE_NODES.clear()
+
+    def tearDown(self):
+        server.REMOTE_NODES.clear()
+        server.REMOTE_NODES.update(self._saved)
+        server.vm_nodes.set_remote_endpoint_resolver(None)
+
+    def _register(self, name="laptop-vm-1", endpoint="http://192.168.50.111:18473",
+                  seen=None):
+        with server.REMOTE_NODES_LOCK:
+            server.REMOTE_NODES[name] = {
+                "host": "LAPTOP-TEST", "name": name, "kind": "vm",
+                "state": "ready", "endpoint": endpoint,
+                "seen": seen if seen is not None else time.time(),
+            }
+
+    def test_fresh_registration_with_endpoint_resolves(self):
+        self._register()
+        self.assertEqual(server.remote_node_endpoint("laptop-vm-1"),
+                         "http://192.168.50.111:18473")
+
+    def test_stale_registration_does_not_resolve(self):
+        self._register(seen=time.time() - server.REMOTE_ONLINE_WINDOW - 1)
+        self.assertIsNone(server.remote_node_endpoint("laptop-vm-1"))
+
+    def test_registration_without_endpoint_does_not_resolve(self):
+        self._register(endpoint=None)
+        self.assertIsNone(server.remote_node_endpoint("laptop-vm-1"))
+
+    def test_unknown_node_does_not_resolve(self):
+        self.assertIsNone(server.remote_node_endpoint("nope"))
+
+    def test_vm_nodes_falls_back_to_resolver_for_nonlocal_names(self):
+        """node_endpoint must NOT spawn a port-forward for a name that is not
+        a local sandbox — it asks the remote resolver instead."""
+        self._register()
+        server.vm_nodes.set_remote_endpoint_resolver(
+            server.remote_node_endpoint)
+        with mock.patch.object(server.vm_nodes.cua_client, "find_cua",
+                               return_value=None):
+            self.assertEqual(
+                server.vm_nodes.node_endpoint("laptop-vm-1"),
+                "http://192.168.50.111:18473")
+            self.assertIsNone(server.vm_nodes.node_endpoint("nope"))
 
 
 if __name__ == "__main__":

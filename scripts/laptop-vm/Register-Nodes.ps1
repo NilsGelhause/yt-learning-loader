@@ -55,6 +55,16 @@ function Write-Log {
 Write-Log ("beacon starting: master={0} host={1} interval={2}s once={3}" -f
     $MasterUrl, $HostLabel, $IntervalSeconds, [bool]$Once)
 
+# Remember our own PID: the start-beacon device task (and manual restarts)
+# stop a previous instance via this file — `Get-CimInstance Win32_Process`
+# is not reliable on every host (broken WMI repositories fail with
+# HRESULT 0x80041010), so the PID file is the primary stop signal.
+$PidFile = Join-Path $env:TEMP 'ytl-beacon\beacon.pid'
+try {
+    New-Item -ItemType Directory -Force -Path (Split-Path $PidFile) | Out-Null
+    [string]$PID | Set-Content -Path $PidFile -Encoding ascii
+} catch {}
+
 $script:LastGoodNodes = $null
 $script:MasterHost = $null
 $script:PortMap = @{}
@@ -154,13 +164,14 @@ function Get-SandboxNodes {
             if ($sb.endpoints -and $sb.endpoints.PSObject.Properties['agent']) {
                 $agent = $sb.endpoints.agent
             }
-            if ($agent -and ([string]$agent).StartsWith('http')) {
-                $endpoint = [string]$agent
-                if ($script:MasterHost -and $script:PortMap.ContainsKey($node.name)) {
-                    $endpoint = "http://{0}:{1}" -f $script:MasterHost, $script:PortMap[$node.name]
-                    $rewrites++
-                }
-                $node.endpoint = $endpoint
+            # The expose-agent map alone is enough for the relay rewrite:
+            # QEMU guests report an empty endpoints map, but their sidecar
+            # dials out to the master relay all the same.
+            if ($script:MasterHost -and $script:PortMap.ContainsKey($node.name)) {
+                $node.endpoint = "http://{0}:{1}" -f $script:MasterHost, $script:PortMap[$node.name]
+                $rewrites++
+            } elseif ($agent -and ([string]$agent).StartsWith('http')) {
+                $node.endpoint = [string]$agent
             }
             $nodes += $node
         }

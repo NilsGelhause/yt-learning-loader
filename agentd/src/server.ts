@@ -515,16 +515,34 @@ function startRelayOut(target: string): void {
     };
     const up = createConnection({ host, port }, () => {
       delay = 2000;
+      // keep the NAT entry alive: QEMU's slirp drops ~1s-idle TCP streams,
+      // and without traffic the pipe reconnects in a storm (502 races).
+      // 1s beats the drop; anything longer races it.
+      up.setKeepAlive(true, 1000);
       log(`relay-out: connected to ${target}`);
-      const local = createConnection({ host: "127.0.0.1", port: PORT }, () => {
-        log("relay-out: piping to local sidecar");
-        up.pipe(local);
-        local.pipe(up);
-      });
-      local.on("error", (e) => {
-        up.destroy();
-        retry(`local error: ${e.message}`);
-      });
+      // Pipe into the local sidecar. Clients on the relay frequently send
+      // Connection: close, so the local sidecar ends its connection after
+      // each response — Node's pipe would end `up` with it and drop the
+      // whole relay channel (reconnect storm, 502 races). Reattach a fresh
+      // local connection instead; bytes arriving mid-gap buffer in `up`
+      // and flush once the new local pipe is attached.
+      const attach = (): void => {
+        const local = createConnection({ host: "127.0.0.1", port: PORT }, () => {
+          log("relay-out: piping to local sidecar");
+          // end:false both ways: when the local sidecar closes after a
+          // Connection: close response, only the LOCAL leg may end — the
+          // relay dial must survive (a FIN here drops the whole channel).
+          up.pipe(local, { end: false });
+          local.pipe(up, { end: false });
+        });
+        const reattach = (): void => {
+          local.destroy();
+          setTimeout(attach, 300);
+        };
+        local.once("error", reattach);
+        local.once("close", reattach);
+      };
+      attach();
     });
     up.on("error", (e) => retry(`connect error: ${e.message}`));
     up.on("close", () => {

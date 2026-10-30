@@ -131,13 +131,31 @@ def reap_dead_forwards(sandboxes: list[dict]) -> None:
                 del _pf_procs[name]
 
 
+_remote_endpoint_resolver = None   # injected by the server (remote nodes)
+
+
+def set_remote_endpoint_resolver(fn) -> None:
+    """Inject a fallback resolver for nodes that are NOT local sandboxes —
+    the server passes a lookup into its REMOTE_NODES registry so
+    beacon-registered laptop VMs answer console/vmtask through the relay."""
+    global _remote_endpoint_resolver
+    _remote_endpoint_resolver = fn
+
+
 def node_endpoint(name: str) -> str | None:
     """URL of the sandbox's in-guest agentd sidecar: the published endpoint
-    when present, else a managed port-forward. None when unreachable."""
-    published = _published_endpoint(_sandbox(name))
-    if published:
-        return published
-    return _ensure_port_forward(name)
+    when present, else a managed port-forward. For names that are not local
+    sandboxes, falls back to the injected remote resolver (laptop VMs behind
+    the reverse relay). None when unreachable."""
+    sb = _sandbox(name)
+    if sb is not None:
+        published = _published_endpoint(sb)
+        if published:
+            return published
+        return _ensure_port_forward(name)
+    if _remote_endpoint_resolver is not None:
+        return _remote_endpoint_resolver(name)
+    return None
 
 
 def node_health(name: str) -> dict | None:
