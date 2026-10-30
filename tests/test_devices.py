@@ -286,18 +286,34 @@ class DeviceServerTests(unittest.TestCase):
     # -- install-agent (agentd sidecar into a laptop VM)
 
     def test_install_agent_script_markers(self):
-        """The generated laptop script ships the tgz, keys, starts and health
-        checks the guest — LF-only, key staged never printed."""
+        """The generated laptop script ships the tgz (guest curl), keys
+        (base64 via node), starts and health checks the guest — LF-only,
+        key base64'd never printed, NO `cua sb cp` anywhere (it fails on
+        the recreated QEMU VM) and NO double quotes in any exec argument
+        (PS 5.1 strips them; the JS uses backtick template literals)."""
         script = devices.build_task_script(
             "install-agent", {"master_url": "http://m:8471",
                               "vm_name": "laptop-vm-1", "kimi_key": "sk-test"})
-        for marker in ("agentd.tgz", "cua sb cp", "setsid", "chmod 600",
+        for marker in ("agentd.tgz", "setsid", "0o600", "0o755",
                        "Contains('ok')", "Contains('true')", "node -e",
-                       "'KIMI_API_KEY=sk-test'"):
+                       "curl -sL -o /home/cua/agentd.tgz",
+                       "ToBase64String", "Buffer.from", "chmodSync",
+                       "'KIMI_API_KEY=' + $key",
+                       "-replace \"`r`n\", \"`n\""):
             self.assertIn(marker, script)
         # guest here-string must not carry CR (CRLF start script crashed sh)
         self.assertNotIn("\r", script)
-        self.assertIn('-replace "`r`n", "`n"', script)
+        # transport is exec-only; no cp, and no double quote inside any
+        # guest command (PS 5.1 strips/mangles them on native arg passing)
+        self.assertNotIn("cua sb cp", script)
+        for line in script.split("\n"):
+            s = line.strip()
+            if not s.startswith("cua sb exec"):
+                continue
+            arg = s.split("-- ", 1)[1]
+            if arg.startswith('"') and arg.endswith('"'):
+                arg = arg[1:-1]
+            self.assertNotIn('"', arg)
         # health check runs INSIDE the guest; nothing parses endpoints
         self.assertIn("cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health'",
                       script)
@@ -372,13 +388,19 @@ class DeviceServerTests(unittest.TestCase):
                        "Contains('NO_PROCESS')", "pgrep", "node -e",
                        "WindowsBuiltInRole]::Administrator",  # admin gate
                        "Get-Command cua", "TcpListener",
-                       "cua sb cp", "start-agentd.sh", "-replace \"`r`n\", \"`n\"",
+                       "start-agentd.sh", "-replace \"`r`n\", \"`n\"",
+                       "ToBase64String", "Buffer.from", "chmodSync",
                        "agent exposed at http://$masterIp`:$clientPort -- relay dial $masterIp`:$dialPort"):
             self.assertIn(marker, script)
         # the reverse relay replaces all host-side publishing machinery
         for gone in ("portproxy", "advfirewall", "port-forward", "28472",
                      "qemu-system", "Get-NetTCPConnection", "firewall rule"):
             self.assertNotIn(gone, script)
+        # transport is exec-only: no `cua sb cp` anywhere (the start script
+        # goes base64+node like install-agent). pkill/pgrep keep their
+        # field-proven lines verbatim — PS 5.1 strips their double quotes,
+        # leaving two OR'd -f patterns, which still matches the sidecar.
+        self.assertNotIn("cua sb cp", script)
         script.encode("ascii")  # PS 5.1 ANSI fallback: generated = ASCII only
 
     def test_expose_agent_locked_until_stack_done(self):

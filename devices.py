@@ -389,26 +389,34 @@ def build_task_script(kind: str, ctx: dict) -> str:
         ])
     if kind == "install-agent":
         # Runs ON THE LAPTOP: the agentd sidecar is pushed INTO one of its
-        # VMs so the VM becomes a full agent node. The KIMI_API_KEY comes
-        # device-bound in ctx, is staged to a one-line ASCII temp file,
-        # ships with `cua sb cp` into a chmod-600 guest .env and is NEVER
-        # printed. The health check runs INSIDE the guest (the embedded
-        # listing shows empty endpoints, so nothing host-side is parsed),
-        # matched with plain .Contains — no regex escapes. The guest start
-        # script is built as a here-string and written LF-only (CRLF in a
-        # copied sh script crashed the guest with ': not found').
+        # VMs so the VM becomes a full agent node. `cua sb cp` FAILS on the
+        # recreated QEMU VM (field-proven) while `cua sb exec` works, so the
+        # transport is exec-only: the tgz is curl'd by the GUEST from the
+        # master, and the .env / start script travel base64-embedded through
+        # `node -e` (no coreutils cat/tail/base64 in the guest; node is).
+        # QUOTING (field-proven on this laptop): the device agent runs tasks
+        # via powershell.exe 5.1, whose native-argument passing STRIPS double
+        # quotes and mangles `""`-escaped ones — so no `"` may appear in any
+        # exec argument. Single quotes and backticks survive, hence: sh gets
+        # `node -e '<js>'` and the JS uses backtick template literals for
+        # every string (doubled `` ` `` in the double-quoted PS argument).
+        # The KIMI_API_KEY comes device-bound in ctx, is base64'd host-side
+        # and written chmod-600 by node — the value is NEVER printed and
+        # never in the guest's process list (only its base64 is). The health
+        # check runs INSIDE the guest (the embedded listing shows empty
+        # endpoints, so nothing host-side is parsed), matched with plain
+        # .Contains — no regex escapes. The guest start script is a
+        # here-string, LF-normalized (CRLF in a copied sh script crashed the
+        # guest with ': not found').
         vm = str(ctx.get("vm_name") or "")
         key = str(ctx.get("kimi_key") or "")
         return "\n".join([
             "$ErrorActionPreference = 'Stop'",
-            tmp,
             f"$name = {_ps(vm)}",
-            "$tgz = Join-Path $tmp 'agentd.tgz'",
-            f"Invoke-RestMethod -Uri {_ps(f'{master}/kit/agentd.tgz')} -OutFile $tgz",
+            f"$key = {_ps(key)}",
             "$exe = (Get-Command cua -ErrorAction SilentlyContinue).Source",
             "if (-not $exe) { Write-Output '[error] cua CLI not found on this device'; exit 1 }",
-            # 1. ship the kit into the guest and unpack it
-            # 0. the exec/cp channel needs a moment after a VM (re)boot
+            # 0. the exec channel needs a moment after a VM (re)boot
             "$ready = $false",
             "foreach ($try in 1..12) {",
             "    $probe = cua sb exec $name -- 'echo CHANNEL_OK' 2>$null",
@@ -416,28 +424,23 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "    Start-Sleep -Seconds 3",
             "}",
             "if (-not $ready) { Write-Output \"[error] guest channel not answering - is ${name} running?\"; exit 1 }",
-            "Write-Output \"step: copy agentd.tgz into ${name}\"",
-            "cua sb cp $tgz \"${name}:/home/cua/agentd.tgz\"",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] cua sb cp agentd.tgz failed'; exit 1 }",
-            "cua sb exec $name -- 'mkdir -p /home/cua/agentd && tar xzf /home/cua/agentd.tgz -C /home/cua'",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] unpack failed'; exit 1 }",
-            # 2. the API key: staged locally, copied in, chmod 600 — the value
-            #    only ever exists in the temp file and the guest's .env
+            # 1. the GUEST downloads the kit from the master and unpacks it
+            "Write-Output \"step: download + unpack the bundle in ${name}\"",
+            f"cua sb exec $name -- \"curl -sL -o /home/cua/agentd.tgz '{master}/kit/agentd.tgz' && mkdir -p /home/cua/agentd && tar xzf /home/cua/agentd.tgz -C /home/cua && test -s /home/cua/agentd/package.json\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output \"[error] bundle download/unpack failed in ${name}\"; exit 1 }",
+            # 2. the API key: base64'd host-side, written chmod-600 by node —
+            #    the value only ever exists in this process and the guest .env
             "Write-Output \"step: install the API key (chmod 600, never printed)\"",
-            "$keyFile = Join-Path $tmp 'agentd.env'",
-            f"Set-Content -Path $keyFile -Value {_ps('KIMI_API_KEY=' + key)} -Encoding ascii",
-            "cua sb cp $keyFile \"${name}:/home/cua/agentd/.env\"",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] key copy failed'; exit 1 }",
-            "Remove-Item $keyFile -Force -ErrorAction SilentlyContinue",
-            "cua sb exec $name -- 'chmod 600 /home/cua/agentd/.env'",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] chmod failed'; exit 1 }",
+            "$envContent = 'KIMI_API_KEY=' + $key + \"`n\"",
+            "$keyB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($envContent))",
+            "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/agentd/.env``, Buffer.from(``$keyB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/agentd/.env``, 0o600)'\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output \"[error] key install failed in ${name}\"; exit 1 }",
             # 3. dependencies (full npm ci — tsx is a devDependency)
             "Write-Output \"step: npm ci in the VM\"",
             "cua sb exec $name -- 'cd /home/cua/agentd && npm ci --no-audit --no-fund'",
             "if ($LASTEXITCODE -ne 0) { Write-Output '[error] npm ci failed'; exit 1 }",
             # 4. start script (mirrors server.py's START_AGENTD_SH) + launch
             "Write-Output \"step: start the sidecar detached\"",
-            "$startSh = Join-Path $tmp 'start-agentd.sh'",
             "$here = @'",
             "#!/bin/sh",
             "# re-runnable after a VM restart (processes die on restart, files survive)",
@@ -448,9 +451,10 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "cd /home/cua/agentd",
             "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
             "'@",
-            "[IO.File]::WriteAllText($startSh, ($here -replace \"`r`n\", \"`n\"))",
-            "cua sb cp $startSh \"${name}:/home/cua/start-agentd.sh\"",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script copy failed'; exit 1 }",
+            "$startSh = ($here -replace \"`r`n\", \"`n\")",
+            "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
+            "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
             "cua sb exec $name -- 'sh /home/cua/start-agentd.sh'",
             "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start failed'; exit 1 }",
             "Start-Sleep -Seconds 4",
@@ -458,11 +462,11 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "Write-Output \"step: health check inside the guest\"",
             "$health = cua sb exec $name -- 'curl -s -m 8 http://127.0.0.1:8472/health' 2>$null",
             "if ($health -and $health.Contains('ok') -and $health.Contains('true')) {",
-            "    Write-Output \"agent installed on ${name} — healthy\"",
+            "    Write-Output \"agent installed on ${name} - healthy\"",
             "    exit 0",
             "}",
-            "Write-Output \"[error] sidecar not healthy in ${name} — server.log tail:\"",
-            "cua sb exec $name -- 'node -e \"console.log(require(\"fs\").readFileSync(\"/home/cua/agentd-data/server.log\",\"utf8\").slice(-2000))\"'",
+            "Write-Output \"[error] sidecar not healthy in ${name} - server.log tail:\"",
+            "cua sb exec $name -- 'node -e ''console.log(require(`fs`).readFileSync(`/home/cua/agentd-data/server.log`,`utf8`).slice(-2000))'''",
             "exit 1",
             "",
         ])
@@ -527,9 +531,9 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "($ports | ConvertTo-Json) | Set-Content -Path $mapFile -Encoding ascii",
             # 2. push the guest start script: the install-agent exports plus
             #    YTL_RELAY_OUT, so the sidecar dials OUT to the master relay
-            #    (here-string written LF-only — CRLF crashed sh before)
+            #    (here-string LF-normalized — CRLF crashed sh before — and
+            #    written via base64+node: `cua sb cp` fails on these guests)
             "Write-Output \"step: point the guest sidecar at the master relay\"",
-            "$startSh = Join-Path $env:TEMP 'start-agentd.sh'",
             "$relayTarget = \"$masterIp`:$dialPort\"",
             "$here = @'",
             "#!/bin/sh",
@@ -542,9 +546,10 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "setsid nohup npx tsx src/server.ts >>/home/cua/agentd-data/server.log 2>&1 </dev/null &",
             "'@",
             "$here = $here.Replace('__RELAY_TARGET__', $relayTarget)",
-            "[IO.File]::WriteAllText($startSh, ($here -replace \"`r`n\", \"`n\"))",
-            "cua sb cp $startSh \"${name}:/home/cua/start-agentd.sh\"",
-            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script copy failed'; exit 1 }",
+            "$startSh = ($here -replace \"`r`n\", \"`n\")",
+            "$startB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($startSh))",
+            "cua sb exec $name -- \"node -e 'require(``fs``).writeFileSync(``/home/cua/start-agentd.sh``, Buffer.from(``$startB64``, ``base64``)); require(``fs``).chmodSync(``/home/cua/start-agentd.sh``, 0o755)'\"",
+            "if ($LASTEXITCODE -ne 0) { Write-Output '[error] start-script install failed'; exit 1 }",
             # 3. restart the guest sidecar with the relay env (pkill may find
             #    nothing on a fresh VM — its exit code is ignored)
             "Write-Output \"step: restart the guest sidecar\"",
@@ -558,7 +563,7 @@ def build_task_script(kind: str, ctx: dict) -> str:
             "    exit 0",
             "}",
             "Write-Output \"[error] sidecar not running in ${name} - server.log tail:\"",
-            "cua sb exec $name -- 'node -e \"console.log(require(\"fs\").readFileSync(\"/home/cua/agentd-data/server.log\",\"utf8\").slice(-2000))\"'",
+            "cua sb exec $name -- 'node -e ''console.log(require(`fs`).readFileSync(`/home/cua/agentd-data/server.log`,`utf8`).slice(-2000))'''",
             "exit 1",
             "",
         ])
